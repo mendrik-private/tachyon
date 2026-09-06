@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential clang cmake git libfontconfig-dev libglib2.0-dev \
+            libssl-dev libvulkan1 libwayland-dev libx11-xcb-dev \
+            libxkbcommon-x11-dev libzstd-dev pkg-config desktop-file-utils \
+            libxml2-utils
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - name: Check workspace
+        run: scripts/check.sh
+      - name: Validate desktop metadata
+        run: |
+          desktop-file-validate packaging/dev.mineral.Markdown.desktop
+          xmllint --noout \
+            packaging/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg

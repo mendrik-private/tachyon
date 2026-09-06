@@ -1,0 +1,1934 @@
+{
+  "schema_version": 1,
+  "method": "release build; main-entry-to-editable-frame startup; direct active Mutter Wayland display; temporary kernel uinput device supplying real libinput events",
+  "environment": {
+    "captured_at": "2026-09-06T02:27:59.260730+00:00",
+    "uname": "Linux deathstar 7.2.3-070203-generic #202609030700 SMP PREEMPT_DYNAMIC Thu Sep  3 07:52:10 UTC 2026 x86_64 GNU/Linux",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.0\nLLVM version: 22.1.8",
+    "weston": "weston 14.0.2",
+    "wayland_display": "wayland-0",
+    "desktop": "ubuntu:GNOME",
+    "session_type": "wayland",
+    "power_profile": "balanced",
+    "mutter_display_state": "(uint32 1, [(('eDP-1', 'SDC', '0x41b3', '0x0000ffa1'), [('2880x1800@120.001', 2880, 1800, 120.00139617919922, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'is-current': <true>, 'is-preferred': <true>}), ('2880x1800@120.001+vrr', 2880, 1800, 120.00139617919922, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'refresh-rate-mode': <'variable'>}), ('2880x1800@120.000', 2880, 1800, 120.00029754638672, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {}), ('2880x1800@120.000+vrr', 2880, 1800, 120.00029754638672, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'refresh-rate-mode': <'variable'>}), ('2880x1800@48.001', 2880, 1800, 48.000560760498047, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {}), ('2880x1800@48.001+vrr', 2880, 1800, 48.000560760498047, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'refresh-rate-mode': <'variable'>}), ('1920x1200@120.001', 1920, 1200, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {}), ('1920x1200@120.001+vrr', 1920, 1200, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {'refresh-rate-mode': <'variable'>}), ('1920x1080@120.001', 1920, 1080, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {}), ('1920x1080@120.001+vrr', 1920, 1080, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {'refresh-rate-mode': <'variable'>}), ('1680x1050@120.001', 1680, 1050, 120.00139617919922, 1.0, [1.0, 1.25, 1.5, 1.6666666269302368, 1.75, 2.0], {}), ('1680x1050@120.001+vrr', 1680, 1050, 120.00139617919922, 1.0, [1.0, 1.25, 1.5, 1.6666666269302368, 1.75, 2.0], {'refresh-rate-mode': <'variable'>}), ('1600x1200@120.001', 1600, 1200, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.6666666269302368, 2.0], {}), ('1600x1200@120.001+vrr', 1600, 1200, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.6666666269302368, 2.0], {'refresh-rate-mode': <'variable'>}), ('1440x900@120.001', 1440, 900, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368], {}), ('1440x900@120.001+vrr', 1440, 900, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368], {'refresh-rate-mode': <'variable'>}), ('1280x1024@120.001', 1280, 1024, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {}), ('1280x1024@120.001+vrr', 1280, 1024, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('1280x800@120.001', 1280, 800, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {}), ('1280x800@120.001+vrr', 1280, 800, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('1280x720@120.001', 1280, 720, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {}), ('1280x720@120.001+vrr', 1280, 720, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('1024x768@120.001', 1024, 768, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {}), ('1024x768@120.001+vrr', 1024, 768, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('800x600@120.001', 800, 600, 120.00139617919922, 1.0, [1.0], {}), ('800x600@120.001+vrr', 800, 600, 120.00139617919922, 1.0, [1.0], {'refresh-rate-mode': <'variable'>})], {'is-underscanning': <false>, 'is-builtin': <true>, 'display-name': <'Built-in display'>, 'min-refresh-rate': <48>, 'is-for-lease': <false>, 'color-mode': <uint32 0>, 'supported-color-modes': <[uint32 0, 2]>, 'rgb-range': <uint32 1>})], [(0, 0, 1.6666666269302368, uint32 0, true, [('eDP-1', 'SDC', '0x41b3', '0x0000ffa1')], @a{sv} {})], {'layout-mode': <uint32 1>, 'supports-changing-layout-mode': <true>})"
+  },
+  "fixtures": {
+    "100k": {
+      "path": "performance/generated/qualification-100k.md",
+      "bytes": 102400,
+      "sha256": "4ec95d32761f4c47cde245d8d98418e4512d7d15a5cfe9d370604fb1c54ce00c"
+    },
+    "1m": {
+      "path": "performance/generated/qualification-1m.md",
+      "bytes": 1048576,
+      "sha256": "e658053ad13e1e2424888818b2bd1685cf821a50ad05e6202df48a1bc91c37da"
+    },
+    "10m": {
+      "path": "performance/generated/qualification-10m.md",
+      "bytes": 10485760,
+      "sha256": "16834e22b862cffa330391dc2564890634d9e719a8d368446c6ff1161ba437d9"
+    }
+  },
+  "requested": {
+    "startup_runs_per_scenario": 30,
+    "interaction_runs_per_size": 5,
+    "interaction_seconds": 60.0,
+    "warmup_ms": 2500
+  },
+  "startup_100k": {
+    "first_gpu": {
+      "schema_version": 2,
+      "label": "first-gpu",
+      "cache_state": "cold application, cold document, empty Mesa shader cache",
+      "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+      "process_model": "fresh render process",
+      "elapsed_ms": 175.913836,
+      "source_bytes": 102400,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.0
+    },
+    "warmup_not_counted": {
+      "schema_version": 2,
+      "label": "warmup-not-counted",
+      "cache_state": "resident render-process and cache population",
+      "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+      "process_model": "fresh render process",
+      "elapsed_ms": 175.428794,
+      "source_bytes": 102400,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.0
+    },
+    "warm": {
+      "samples": 30,
+      "min_ms": 28.785883000000002,
+      "median_ms": 34.136364,
+      "p95_ms": 42.949704999999994,
+      "p99_ms": 65.262447,
+      "max_ms": 65.262447,
+      "target_p95_ms": 100.0,
+      "passes": true
+    },
+    "cold": {
+      "samples": 30,
+      "min_ms": 103.939849,
+      "median_ms": 125.84661799999999,
+      "p95_ms": 155.230436,
+      "p99_ms": 404.475189,
+      "max_ms": 404.475189,
+      "target_p95_ms": 250.0,
+      "passes": true
+    },
+    "warm_samples": [
+      {
+        "schema_version": 2,
+        "label": "warm-01",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 65.262447,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-02",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 42.949704999999994,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-03",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 31.317613,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-04",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 30.713168,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-05",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 32.455323,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-06",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 28.785883000000002,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-07",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 29.562123,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-08",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 31.12939,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-09",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 31.763201999999996,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-10",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 33.669786,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-11",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 30.229758,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-12",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 32.718428,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-13",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 32.278801,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-14",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 41.907826,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-15",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 33.354363,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-16",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 34.104264,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-17",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 42.086251,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-18",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 32.676939000000004,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-19",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 34.136364,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-20",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 37.414125999999996,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-21",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 37.785034,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-22",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 38.273913,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-23",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 38.380342999999996,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-24",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 36.155279,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-25",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 40.268001999999996,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-26",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 32.292186,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-27",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 37.472567,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-28",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 40.740832,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-29",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 39.677272,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "warm-30",
+        "cache_state": "warm filesystem/application caches and resident render process",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "resident render process reused",
+        "elapsed_ms": 40.301015,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      }
+    ],
+    "cold_samples": [
+      {
+        "schema_version": 2,
+        "label": "cold-01",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 118.628066,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-02",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 127.078355,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-03",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 124.982043,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-04",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 130.186969,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-05",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 127.61164699999999,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-06",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 155.230436,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-07",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 129.45493299999998,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-08",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 129.713208,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-09",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 124.858391,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-10",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 121.712556,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-11",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 138.53728,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-12",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 129.689484,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-13",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 114.97072999999999,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-14",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 404.475189,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-15",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 103.939849,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-16",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 134.504537,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-17",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 124.04583199999999,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-18",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 125.16032799999999,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-19",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 134.957087,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-20",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 134.719982,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-21",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 126.094494,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-22",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 120.250877,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-23",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 119.87925800000001,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-24",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 117.49720900000001,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-25",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 121.99185,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-26",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 108.459397,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-27",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 125.84661799999999,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-28",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 124.845085,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-29",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 128.665829,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      },
+      {
+        "schema_version": 2,
+        "label": "cold-30",
+        "cache_state": "POSIX_FADV_DONTNEED document and fresh application caches; warm Mesa shader cache",
+        "measurement": "invoking process main entry to completed GPUI paint of the first editable document scene",
+        "process_model": "fresh render process",
+        "elapsed_ms": 110.126671,
+        "source_bytes": 102400,
+        "viewport_logical_px": {
+          "width": 1100.0,
+          "height": 720.0
+        },
+        "scale_factor": 1.0
+      }
+    ]
+  },
+  "interaction": {
+    "100k": {
+      "runs": 5,
+      "worst_run_draw_p99_ms": 4.571135,
+      "target_draw_p99_ms": 6.0,
+      "worst_run_input_p95_ms": 9.543679,
+      "target_input_p95_ms": 16.7,
+      "missed_deadlines": 379,
+      "deadline_opportunities": 36139,
+      "missed_deadline_percent": 1.0487285204349872,
+      "target_missed_deadline_percent_exclusive": 0.1,
+      "application_stalls_at_least_25_ms": 0,
+      "presentation_intervals_at_least_25_ms": 31,
+      "passes": false,
+      "reports": [
+        {
+          "schema_version": 2,
+          "label": "100k-run-01",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave, and two window resizes",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.01693587,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1200.0,
+            "height": 800.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7199,
+            "p50_ms": 1.385471,
+            "p95_ms": 2.347007,
+            "p99_ms": 2.942975,
+            "max_ms": 8.855551,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013890818169190165
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 801,
+              "p50_ms": 6.230015,
+              "p95_ms": 8.888319,
+              "p99_ms": 9.748479,
+              "max_ms": 14.491647,
+              "threshold_ms": 16.7,
+              "over_threshold": 0,
+              "over_threshold_percent": 0.0
+            },
+            "events_per_frame": {
+              "samples": 801,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7157,
+              "p50_ms": 8.310783,
+              "p95_ms": 9.215999,
+              "p99_ms": 10.485759,
+              "max_ms": 114.819071,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 72,
+            "deadline_opportunities": 7229,
+            "missed_deadline_percent": 0.9959883801355651,
+            "intervals_at_least_25_ms": 6,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "100k-run-02",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.017302736,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7205,
+            "p50_ms": 1.550335,
+            "p95_ms": 2.467839,
+            "p99_ms": 2.916351,
+            "max_ms": 7.774207,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013879250520471894
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 802,
+              "p50_ms": 6.430719,
+              "p95_ms": 8.880127,
+              "p99_ms": 9.887743,
+              "max_ms": 14.876671,
+              "threshold_ms": 16.7,
+              "over_threshold": 0,
+              "over_threshold_percent": 0.0
+            },
+            "events_per_frame": {
+              "samples": 802,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7163,
+              "p50_ms": 8.306687,
+              "p95_ms": 9.248767,
+              "p99_ms": 10.428415,
+              "max_ms": 65.404927,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 51,
+            "deadline_opportunities": 7214,
+            "missed_deadline_percent": 0.7069586914333241,
+            "intervals_at_least_25_ms": 6,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "100k-run-03",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.016843673,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7205,
+            "p50_ms": 1.553407,
+            "p95_ms": 2.381823,
+            "p99_ms": 2.859007,
+            "max_ms": 9.215999,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013879250520471894
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 802,
+              "p50_ms": 6.352895,
+              "p95_ms": 8.855551,
+              "p99_ms": 9.740287,
+              "max_ms": 60.489727,
+              "threshold_ms": 16.7,
+              "over_threshold": 1,
+              "over_threshold_percent": 0.12468827930174564
+            },
+            "events_per_frame": {
+              "samples": 802,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7163,
+              "p50_ms": 8.302591,
+              "p95_ms": 9.224191,
+              "p99_ms": 10.125311,
+              "max_ms": 66.519039,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 56,
+            "deadline_opportunities": 7219,
+            "missed_deadline_percent": 0.7757307106247403,
+            "intervals_at_least_25_ms": 6,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "100k-run-04",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.01677342,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7177,
+            "p50_ms": 1.761279,
+            "p95_ms": 3.028991,
+            "p99_ms": 4.571135,
+            "max_ms": 13.049855,
+            "threshold_ms": 6.0,
+            "over_threshold": 28,
+            "over_threshold_percent": 0.39013515396405185
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 800,
+              "p50_ms": 6.529023,
+              "p95_ms": 9.355263,
+              "p99_ms": 11.395071,
+              "max_ms": 39.157759,
+              "threshold_ms": 16.7,
+              "over_threshold": 1,
+              "over_threshold_percent": 0.125
+            },
+            "events_per_frame": {
+              "samples": 800,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7135,
+              "p50_ms": 8.306687,
+              "p95_ms": 9.658367,
+              "p99_ms": 11.788287,
+              "max_ms": 85.000191,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 101,
+            "deadline_opportunities": 7236,
+            "missed_deadline_percent": 1.3957987838584853,
+            "intervals_at_least_25_ms": 7,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "100k-run-05",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.016801472,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7184,
+            "p50_ms": 1.652735,
+            "p95_ms": 2.801663,
+            "p99_ms": 3.506175,
+            "max_ms": 10.756095,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013919821826280624
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 802,
+              "p50_ms": 6.918143,
+              "p95_ms": 9.543679,
+              "p99_ms": 10.944511,
+              "max_ms": 13.852671,
+              "threshold_ms": 16.7,
+              "over_threshold": 0,
+              "over_threshold_percent": 0.0
+            },
+            "events_per_frame": {
+              "samples": 802,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7142,
+              "p50_ms": 8.278015,
+              "p95_ms": 10.035199,
+              "p99_ms": 11.657215,
+              "max_ms": 80.871423,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 99,
+            "deadline_opportunities": 7241,
+            "missed_deadline_percent": 1.3672144731390692,
+            "intervals_at_least_25_ms": 6,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        }
+      ]
+    },
+    "1m": {
+      "runs": 5,
+      "worst_run_draw_p99_ms": 10.739711,
+      "target_draw_p99_ms": 6.0,
+      "worst_run_input_p95_ms": 13.582335,
+      "target_input_p95_ms": 16.7,
+      "missed_deadlines": 642,
+      "deadline_opportunities": 36111,
+      "missed_deadline_percent": 1.7778516241588436,
+      "target_missed_deadline_percent_exclusive": 0.1,
+      "application_stalls_at_least_25_ms": 1,
+      "presentation_intervals_at_least_25_ms": 58,
+      "passes": false,
+      "reports": [
+        {
+          "schema_version": 2,
+          "label": "1m-run-01",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave, and two window resizes",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.017010979,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1200.0,
+            "height": 800.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7180,
+            "p50_ms": 1.587199,
+            "p95_ms": 2.807807,
+            "p99_ms": 3.514367,
+            "max_ms": 10.813439,
+            "threshold_ms": 6.0,
+            "over_threshold": 4,
+            "over_threshold_percent": 0.055710306406685235
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 799,
+              "p50_ms": 6.602751,
+              "p95_ms": 9.469951,
+              "p99_ms": 11.649023,
+              "max_ms": 31.588351,
+              "threshold_ms": 16.7,
+              "over_threshold": 4,
+              "over_threshold_percent": 0.5006257822277848
+            },
+            "events_per_frame": {
+              "samples": 799,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7138,
+              "p50_ms": 8.290303,
+              "p95_ms": 9.977855,
+              "p99_ms": 11.853823,
+              "max_ms": 85.655551,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 108,
+            "deadline_opportunities": 7246,
+            "missed_deadline_percent": 1.4904775048302512,
+            "intervals_at_least_25_ms": 9,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "1m-run-02",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.01688548,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7173,
+            "p50_ms": 1.600511,
+            "p95_ms": 2.670591,
+            "p99_ms": 3.252223,
+            "max_ms": 10.526719,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013941168269901019
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 800,
+              "p50_ms": 6.668287,
+              "p95_ms": 9.617407,
+              "p99_ms": 11.534335,
+              "max_ms": 34.177023,
+              "threshold_ms": 16.7,
+              "over_threshold": 3,
+              "over_threshold_percent": 0.375
+            },
+            "events_per_frame": {
+              "samples": 800,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7131,
+              "p50_ms": 8.298495,
+              "p95_ms": 9.764863,
+              "p99_ms": 11.902975,
+              "max_ms": 79.822847,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 101,
+            "deadline_opportunities": 7232,
+            "missed_deadline_percent": 1.396570796460177,
+            "intervals_at_least_25_ms": 8,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "1m-run-03",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.01688436,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7171,
+            "p50_ms": 1.688575,
+            "p95_ms": 2.596863,
+            "p99_ms": 3.125247,
+            "max_ms": 9.912319,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013945056477478734
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 806,
+              "p50_ms": 6.766591,
+              "p95_ms": 9.052159,
+              "p99_ms": 10.223615,
+              "max_ms": 29.491199,
+              "threshold_ms": 16.7,
+              "over_threshold": 4,
+              "over_threshold_percent": 0.49627791563275436
+            },
+            "events_per_frame": {
+              "samples": 806,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7129,
+              "p50_ms": 8.310783,
+              "p95_ms": 9.355263,
+              "p99_ms": 10.731519,
+              "max_ms": 65.306623,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 75,
+            "deadline_opportunities": 7204,
+            "missed_deadline_percent": 1.0410882842865075,
+            "intervals_at_least_25_ms": 8,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "1m-run-04",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.017172234,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 6956,
+            "p50_ms": 1.698815,
+            "p95_ms": 4.052991,
+            "p99_ms": 10.739711,
+            "max_ms": 29.786111,
+            "threshold_ms": 6.0,
+            "over_threshold": 244,
+            "over_threshold_percent": 3.5077630822311674
+          },
+          "application_stalls_at_least_25_ms": 1,
+          "input": {
+            "latency": {
+              "samples": 802,
+              "p50_ms": 6.639615,
+              "p95_ms": 13.582335,
+              "p99_ms": 25.165823,
+              "max_ms": 46.891007,
+              "threshold_ms": 16.7,
+              "over_threshold": 24,
+              "over_threshold_percent": 2.9925187032418954
+            },
+            "events_per_frame": {
+              "samples": 802,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 6914,
+              "p50_ms": 8.327167,
+              "p95_ms": 10.190847,
+              "p99_ms": 18.628607,
+              "max_ms": 71.434239,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 299,
+            "deadline_opportunities": 7213,
+            "missed_deadline_percent": 4.145293220573964,
+            "intervals_at_least_25_ms": 24,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "1m-run-05",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.017047594,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7199,
+            "p50_ms": 1.467391,
+            "p95_ms": 2.383871,
+            "p99_ms": 2.951167,
+            "max_ms": 8.921087,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.013890818169190165
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 804,
+              "p50_ms": 6.778879,
+              "p95_ms": 9.052159,
+              "p99_ms": 10.371071,
+              "max_ms": 67.764223,
+              "threshold_ms": 16.7,
+              "over_threshold": 4,
+              "over_threshold_percent": 0.4975124378109453
+            },
+            "events_per_frame": {
+              "samples": 804,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 7
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7157,
+              "p50_ms": 8.306687,
+              "p95_ms": 9.240575,
+              "p99_ms": 10.403839,
+              "max_ms": 67.960831,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 59,
+            "deadline_opportunities": 7216,
+            "missed_deadline_percent": 0.8176274944567627,
+            "intervals_at_least_25_ms": 9,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        }
+      ]
+    },
+    "10m": {
+      "runs": 5,
+      "worst_run_draw_p99_ms": 4.341759,
+      "target_draw_p99_ms": 6.0,
+      "worst_run_input_p95_ms": 11.427839,
+      "target_input_p95_ms": 16.7,
+      "missed_deadlines": 1313,
+      "deadline_opportunities": 36223,
+      "missed_deadline_percent": 3.624768793308119,
+      "target_missed_deadline_percent_exclusive": 0.1,
+      "application_stalls_at_least_25_ms": 0,
+      "presentation_intervals_at_least_25_ms": 95,
+      "passes": false,
+      "reports": [
+        {
+          "schema_version": 2,
+          "label": "10m-run-01",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave, and two window resizes",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.017774394,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1200.0,
+            "height": 800.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7074,
+            "p50_ms": 1.431551,
+            "p95_ms": 2.486271,
+            "p99_ms": 3.186687,
+            "max_ms": 11.616255,
+            "threshold_ms": 6.0,
+            "over_threshold": 5,
+            "over_threshold_percent": 0.07068136839129205
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 795,
+              "p50_ms": 5.844991,
+              "p95_ms": 9.445375,
+              "p99_ms": 24.969215,
+              "max_ms": 349.437951,
+              "threshold_ms": 16.7,
+              "over_threshold": 20,
+              "over_threshold_percent": 2.5157232704402515
+            },
+            "events_per_frame": {
+              "samples": 795,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 11
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7032,
+              "p50_ms": 8.306687,
+              "p95_ms": 9.322495,
+              "p99_ms": 12.263423,
+              "max_ms": 349.437951,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 226,
+            "deadline_opportunities": 7258,
+            "missed_deadline_percent": 3.1138054560484982,
+            "intervals_at_least_25_ms": 16,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "10m-run-02",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.016888405,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7045,
+            "p50_ms": 1.655807,
+            "p95_ms": 2.502655,
+            "p99_ms": 3.139583,
+            "max_ms": 9.183231,
+            "threshold_ms": 6.0,
+            "over_threshold": 1,
+            "over_threshold_percent": 0.014194464158977998
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 795,
+              "p50_ms": 6.483967,
+              "p95_ms": 9.773055,
+              "p99_ms": 25.231359,
+              "max_ms": 305.922047,
+              "threshold_ms": 16.7,
+              "over_threshold": 22,
+              "over_threshold_percent": 2.7672955974842766
+            },
+            "events_per_frame": {
+              "samples": 795,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 11
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 7003,
+              "p50_ms": 8.306687,
+              "p95_ms": 9.338879,
+              "p99_ms": 11.403263,
+              "max_ms": 306.970623,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 211,
+            "deadline_opportunities": 7214,
+            "missed_deadline_percent": 2.9248683116163017,
+            "intervals_at_least_25_ms": 20,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "10m-run-03",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.016884907,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7024,
+            "p50_ms": 1.566719,
+            "p95_ms": 2.523135,
+            "p99_ms": 3.327999,
+            "max_ms": 9.494527,
+            "threshold_ms": 6.0,
+            "over_threshold": 5,
+            "over_threshold_percent": 0.07118451025056947
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 793,
+              "p50_ms": 6.197247,
+              "p95_ms": 9.461759,
+              "p99_ms": 25.083903,
+              "max_ms": 347.865087,
+              "threshold_ms": 16.7,
+              "over_threshold": 22,
+              "over_threshold_percent": 2.7742749054224465
+            },
+            "events_per_frame": {
+              "samples": 793,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 11
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 6982,
+              "p50_ms": 8.306687,
+              "p95_ms": 9.388031,
+              "p99_ms": 12.910591,
+              "max_ms": 351.797247,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 242,
+            "deadline_opportunities": 7224,
+            "missed_deadline_percent": 3.3499446290143964,
+            "intervals_at_least_25_ms": 18,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "10m-run-04",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.016795659,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 6945,
+            "p50_ms": 1.589247,
+            "p95_ms": 2.865151,
+            "p99_ms": 4.341759,
+            "max_ms": 11.558911,
+            "threshold_ms": 6.0,
+            "over_threshold": 23,
+            "over_threshold_percent": 0.33117350611951046
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 780,
+              "p50_ms": 6.676479,
+              "p95_ms": 10.362879,
+              "p99_ms": 24.543231,
+              "max_ms": 897.056767,
+              "threshold_ms": 16.7,
+              "over_threshold": 21,
+              "over_threshold_percent": 2.6923076923076925
+            },
+            "events_per_frame": {
+              "samples": 780,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 18
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 6903,
+              "p50_ms": 8.310783,
+              "p95_ms": 9.658367,
+              "p99_ms": 12.845055,
+              "max_ms": 901.251071,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 349,
+            "deadline_opportunities": 7252,
+            "missed_deadline_percent": 4.812465526751241,
+            "intervals_at_least_25_ms": 17,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        },
+        {
+          "schema_version": 2,
+          "label": "10m-run-05",
+          "scenario": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave",
+          "input_source": "temporary /dev/uinput device on active Mutter session",
+          "configured_duration_seconds": 60.0,
+          "actual_duration_seconds": 60.016953616,
+          "configured_refresh_hz": 120.0,
+          "refresh_period_ms": 8.333333,
+          "viewport_logical_px": {
+            "width": 1100.0,
+            "height": 720.0
+          },
+          "scale_factor": 1.6666666,
+          "draw": {
+            "samples": 7032,
+            "p50_ms": 1.689599,
+            "p95_ms": 3.110911,
+            "p99_ms": 4.007935,
+            "max_ms": 15.286271,
+            "threshold_ms": 6.0,
+            "over_threshold": 7,
+            "over_threshold_percent": 0.09954493742889647
+          },
+          "application_stalls_at_least_25_ms": 0,
+          "input": {
+            "latency": {
+              "samples": 793,
+              "p50_ms": 6.762495,
+              "p95_ms": 11.427839,
+              "p99_ms": 32.260095,
+              "max_ms": 363.593727,
+              "threshold_ms": 16.7,
+              "over_threshold": 28,
+              "over_threshold_percent": 3.530895334174023
+            },
+            "events_per_frame": {
+              "samples": 793,
+              "p50": 1,
+              "p95": 4,
+              "p99": 7,
+              "max": 11
+            },
+            "mid_draw_events_dropped": 0
+          },
+          "presentation": {
+            "interval": {
+              "samples": 6990,
+              "p50_ms": 8.278015,
+              "p95_ms": 10.313727,
+              "p99_ms": 13.393919,
+              "max_ms": 365.953023,
+              "threshold_ms": null,
+              "over_threshold": null,
+              "over_threshold_percent": null
+            },
+            "missed_deadlines": 285,
+            "deadline_opportunities": 7275,
+            "missed_deadline_percent": 3.917525773195876,
+            "intervals_at_least_25_ms": 24,
+            "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+          }
+        }
+      ]
+    }
+  },
+  "core_open_prepare_10m": {
+    "p95_ms": 961.144325,
+    "target_p95_ms": 1000.0,
+    "passes": true,
+    "source": "performance/core-2026-09-06-10m.json"
+  },
+  "passes_all_executed_gates": false
+}

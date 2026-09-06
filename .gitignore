@@ -1,0 +1,9 @@
+/target/
+/performance/wayland-harness/build/
+/performance/generated/
+/performance/results/
+__pycache__/
+/.rust-repo-intelligence/
+*.swp
+*.tmp
+*~

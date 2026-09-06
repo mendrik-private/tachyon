@@ -1,0 +1,75 @@
+[workspace]
+members = [
+    "crates/document-core",
+    "crates/document-view",
+    "crates/markdown-app",
+]
+default-members = ["crates/markdown-app"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+document-core = { path = "crates/document-core" }
+document-view = { path = "crates/document-view" }
+
+comrak = { version = "0.54.0", default-features = false }
+futures = "0.3.31"
+hdrhistogram = "7.6.0"
+html5ever = "0.36.1"
+imagesize = "0.14.0"
+markup5ever_rcdom = "0.36.0"
+mimalloc3 = { version = "0.1.54", features = ["override"] }
+notify = "7.0.0"
+ropey = { version = "=2.0.0-beta.1", default-features = false, features = [
+    "metric_chars",
+    "metric_lines_lf",
+    "metric_utf16",
+    "simd",
+] }
+rustc-hash = "2.1.3"
+roxmltree = "0.21.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+smallvec = { version = "1.15.1", features = ["serde"] }
+thiserror = "2.0.17"
+ttf-parser = "0.25.1"
+unicode-segmentation = "1.12.0"
+
+# Keep GPUI Component and GPUI on the revisions recorded below. Cargo.lock
+# remains the final source of truth for every transitive dependency.
+gpui-component = { git = "https://github.com/longbridge/gpui-component", rev = "ff3eb1128ac1058f1bb88e777744ce1237aa3b79" }
+gpui-component-assets = { git = "https://github.com/longbridge/gpui-component", rev = "ff3eb1128ac1058f1bb88e777744ce1237aa3b79" }
+gpui = { version = "0.2.2", git = "https://github.com/zed-industries/zed", default-features = false, features = ["font-kit", "profiler", "wayland"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", default-features = false, features = ["font-kit", "wayland"] }
+reqwest_client = { git = "https://github.com/zed-industries/zed" }
+
+[workspace.metadata.source-pins]
+gpui-component = "ff3eb1128ac1058f1bb88e777744ce1237aa3b79"
+zed = "8b1497dbd22fb06f5838a7c0b84a1e54fafa71bc"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+undocumented_unsafe_blocks = "deny"
+
+[profile.dev.package]
+gpui = { opt-level = 3 }
+gpui_platform = { opt-level = 3 }
+ropey = { opt-level = 3 }
+rustybuzz = { opt-level = 3 }
+taffy = { opt-level = 3 }
+ttf-parser = { opt-level = 3 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

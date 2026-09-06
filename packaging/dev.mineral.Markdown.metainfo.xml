@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.mineral.Markdown</id>
+  <name>Mineral Markdown</name>
+  <summary>Read and edit Markdown as a rich document</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT OR Apache-2.0</project_license>
+  <developer id="dev.mineral">
+    <name>Mineral Markdown contributors</name>
+  </developer>
+  <description>
+    <p>
+      Mineral Markdown is a native Wayland editor that presents Markdown as one
+      continuously rendered, always-editable document. It includes rich tables,
+      lists, links, images, an outline, a minimap, autosave, and crash recovery.
+    </p>
+  </description>
+  <launchable type="desktop-id">dev.mineral.Markdown.desktop</launchable>
+  <provides>
+    <binary>mineral-markdown</binary>
+    <mediatype>text/markdown</mediatype>
+    <mediatype>text/x-markdown</mediatype>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </recommends>
+  <releases>
+    <release version="0.1.0" date="2026-09-05" />
+  </releases>
+</component>

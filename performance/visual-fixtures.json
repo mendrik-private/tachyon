@@ -1,0 +1,41 @@
+{
+  "captured_at": "2026-09-06T05:26:15+03:00",
+  "compositor": "Weston 14.0.2 headless, kiosk shell",
+  "renderer": "OpenGL ES 3.2 Mesa 26.0.8, Radeon 8060S (radeonsi/ACO)",
+  "output": {
+    "width_px": 1280,
+    "height_px": 900,
+    "refresh_hz": 120
+  },
+  "source": "performance/visual-fixture.md",
+  "captures": [
+    {
+      "file": "performance/visual-scale-100.png",
+      "scale": 1.0,
+      "preferred_scale_120": 120,
+      "scroll_ticks": 0,
+      "sha256": "af401dfe308c8b7c885856460f0981d592fdc4302f4463b7da4efe070ea6ee5a"
+    },
+    {
+      "file": "performance/visual-scale-125.png",
+      "scale": 1.25,
+      "preferred_scale_120": 150,
+      "scroll_ticks": 0,
+      "sha256": "cab94abf39023c9ddd43826c77c8ceb6dc79321486dbf792893eade4749f5e17"
+    },
+    {
+      "file": "performance/visual-scale-150.png",
+      "scale": 1.5,
+      "preferred_scale_120": 180,
+      "scroll_ticks": 30,
+      "sha256": "d10a5161355c8fc6445169bf7d731e0c0b9475a677cbed824b755d2ac9573aae"
+    },
+    {
+      "file": "performance/visual-scale-200.png",
+      "scale": 2.0,
+      "preferred_scale_120": 240,
+      "scroll_ticks": 55,
+      "sha256": "6fc0d338a77af1a61eeb0f9ddae652123a269b978b98360045d9be7bd1d5c715"
+    }
+  ]
+}

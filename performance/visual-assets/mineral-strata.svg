@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title description">
+  <title id="title">Layered mineral strata</title>
+  <desc id="description">Angular navy, amber, green, and red geological layers.</desc>
+  <rect width="960" height="360" fill="#101923"/>
+  <path d="M0 79 150 43l158 38 172-35 156 43 166-37 158 31v51H0Z" fill="#334252"/>
+  <path d="M0 133 152 94l156 38 173-34 155 42 165-36 159 31v57H0Z" fill="#d3973c"/>
+  <path d="M0 192 153 151l157 37 172-32 155 40 165-34 158 29v55H0Z" fill="#2f8f6b"/>
+  <path d="M0 246 154 208l157 34 172-30 155 38 165-31 157 27v114H0Z" fill="#a94f45"/>
+  <path d="m0 295 154-33 158 29 172-26 155 33 166-28 155 24v66H0Z" fill="#1b2733"/>
+</svg>

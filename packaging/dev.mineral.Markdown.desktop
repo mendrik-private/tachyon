@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Mineral Markdown
+Comment=Read and edit Markdown as a rich document
+Exec=mineral-markdown %F
+Icon=dev.mineral.Markdown
+Terminal=false
+Categories=Utility;TextEditor;
+Keywords=Markdown;Editor;Notes;CommonMark;
+MimeType=text/markdown;text/x-markdown;
+StartupNotify=true
+StartupWMClass=dev.mineral.Markdown

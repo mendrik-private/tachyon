@@ -1,0 +1,9 @@
+{
+  "binary_sha256": "a488554a63c478ac80891eb8d7b84d7d3c15908e42740db136892572c601bc20",
+  "copy_html_exact": true,
+  "copy_text_exact": true,
+  "keyboard_menu_activation": true,
+  "neighboring_cell_source_preserved": true,
+  "conversion_undo_exact": true,
+  "passes": true
+}

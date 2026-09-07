@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "bidirectional continuous scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.016822616,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1094,
+    "p50_ms": 2.533375,
+    "p95_ms": 3.938303,
+    "p99_ms": 5.214207,
+    "max_ms": 10.215423,
+    "threshold_ms": 6.0,
+    "over_threshold": 6,
+    "over_threshold_percent": 0.5484460694698354
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 827,
+      "p50_ms": 7.491583,
+      "p95_ms": 9.601023,
+      "p99_ms": 10.633215,
+      "max_ms": 25.280511,
+      "threshold_ms": 16.7,
+      "over_threshold": 1,
+      "over_threshold_percent": 0.12091898428053205
+    },
+    "events_per_frame": {
+      "samples": 827,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 2
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1094,
+      "p50_ms": 9.076735,
+      "p95_ms": 10.264575,
+      "p99_ms": 11.436031,
+      "max_ms": 25.346047,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 6,
+    "deadline_opportunities": 1100,
+    "missed_deadline_percent": 0.5454545454545454,
+    "intervals_at_least_25_ms": 1,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "2d1804555bdc4f36ea7fc4a24cea6897333955da907bbaac23a4d9d0917d8d19",
+  "average_presented_fps": 109.21626966344992,
+  "driver_events": 1015,
+  "native_input_kind": "continuous",
+  "accessibility_active": false,
+  "accessible_nodes": 0,
+  "fixture": "generated-scroll.md",
+  "fixture_sha256": "16834e22b862cffa330391dc2564890634d9e719a8d368446c6ff1161ba437d9",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "startup_wait_seconds": 12.0,
+  "configured_warmup_ms": 14000,
+  "passes": true
+}

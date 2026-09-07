@@ -5,7 +5,17 @@ members = [
     "crates/markdown-app",
 ]
 default-members = ["crates/markdown-app"]
+exclude = ["vendor/latex-rust", "vendor/stylo_derive", "vendor/blitz-dom", "vendor/accesskit_atspi_common", "vendor/gpui_linux"]
 resolver = "2"
+
+[patch.crates-io]
+accesskit_atspi_common = { path = "vendor/accesskit_atspi_common" }
+blitz-dom = { path = "vendor/blitz-dom" }
+latex-rust = { path = "vendor/latex-rust" }
+stylo_derive = { path = "vendor/stylo_derive" }
+
+[patch."https://github.com/zed-industries/zed"]
+gpui_linux = { path = "vendor/gpui_linux" }
 
 [workspace.package]
 edition = "2024"
@@ -13,6 +23,18 @@ rust-version = "1.98"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
+blitz-dom = { version = "=0.3.0-beta.2", default-features = false, features = ["system-fonts", "complex-scripts"] }
+blitz-html = "=0.3.0-beta.2"
+blitz-paint = { version = "=0.3.0-beta.2", default-features = false }
+blitz-traits = "=0.3.0-beta.2"
+anyrender = "=0.13.0"
+anyrender_vello_cpu = "=0.17.0"
+# The adapter does not forward PNG bitmap-glyph support (needed for color emoji).
+vello_cpu = { version = "=0.1.0", default-features = false, features = ["png"] }
+png = "0.18"
+ashpd = { version = "0.13.13", default-features = false, features = ["async-io", "file_chooser"] }
+url = "2.5"
+percent-encoding = "2.3"
 document-core = { path = "crates/document-core" }
 document-view = { path = "crates/document-view" }
 
@@ -21,6 +43,7 @@ futures = "0.3.31"
 hdrhistogram = "7.6.0"
 html5ever = "0.36.1"
 imagesize = "0.14.0"
+latex-rust = "=1.0.2"
 markup5ever_rcdom = "0.36.0"
 mimalloc3 = { version = "0.1.54", features = ["override"] }
 notify = "7.0.0"

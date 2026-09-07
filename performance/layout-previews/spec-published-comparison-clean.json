@@ -1,0 +1,141 @@
+{
+  "binary_before": "63b9e6f5941f87375b7ab468a49dd8b1eb29d078fc1c94d818a19d5cafe2bc7a",
+  "binary_after": "2a44be345f077623705280eced94a5858508489437f39ca8b0d736e1be5c7bef",
+  "fixture": "17-long-layout-spec.md",
+  "fixture_sha256": "8fac6613999003f3570fd451f68a45c5b65aaceabbc8c49d6c67787cdb9bd36e",
+  "environment": {
+    "cpu": "AMD RYZEN AI MAX+ PRO 395",
+    "logical_cpus": 32,
+    "os": "Linux 7.2.3-070203-generic",
+    "weston": "14.0.2 headless GL",
+    "rustc": "1.98.0",
+    "build": "locked release",
+    "fonts": "bundled Mineral",
+    "window": [
+      1280,
+      1000
+    ],
+    "display_scale_120": 120,
+    "text_zoom": 1,
+    "startup_wait_seconds": 10
+  },
+  "protocol": "A/B/B/A, twelve explicit committed warm replans per independent app run, twenty-four samples per binary; nearest-rank p95; median averages the middle pair; IQR uses nearest-rank quartiles.",
+  "caveats": [
+    "The unrelated CPU-heavy workspace test had terminated before these runs; no builds or other native captures overlapped the measurements. This is not a physical-display or universal latency guarantee.",
+    "Cold/initial workers excluded from warm statistics; the new binary's cold/initial workers in these runs took 76.368–93.447 ms. Complete bounded window publication remains incomplete.",
+    "The separately retained spec-published-comparison.json records contended measurements; fractional-scale exploratory runs 1/2 are retained separately."
+  ],
+  "before": {
+    "samples": 24,
+    "canvases": [
+      992
+    ],
+    "heights": [
+      926
+    ],
+    "metrics": {
+      "worker_ms": {
+        "median": 4.2610895,
+        "p95": 4.566714999999999,
+        "iqr": 0.326905,
+        "min": 3.315068,
+        "max": 4.793041
+      },
+      "geometry": {
+        "median": 2.4584070000000002,
+        "p95": 2.666609,
+        "iqr": 0.18042999999999987,
+        "min": 1.97137,
+        "max": 2.833954
+      },
+      "projection": {
+        "median": 0.833794,
+        "p95": 0.9448679999999999,
+        "iqr": 0.193164,
+        "min": 0.586624,
+        "max": 0.96223
+      },
+      "planning": {
+        "median": 0.8448450000000001,
+        "p95": 0.9751449999999999,
+        "iqr": 0.12473499999999993,
+        "min": 0.699617,
+        "max": 1.118685
+      },
+      "dispatch_ms": {
+        "median": 0.0636395,
+        "p95": 0.073859,
+        "iqr": 0.022833000000000006,
+        "min": 0.016761,
+        "max": 0.086683
+      },
+      "commit_ms": {
+        "median": 0.155819,
+        "p95": 0.199936,
+        "iqr": 0.036608,
+        "min": 0.09559,
+        "max": 0.25818599999999997
+      }
+    }
+  },
+  "after": {
+    "samples": 24,
+    "canvases": [
+      992
+    ],
+    "heights": [
+      926
+    ],
+    "metrics": {
+      "worker_ms": {
+        "median": 1.7600425,
+        "p95": 2.160657,
+        "iqr": 0.46452399999999994,
+        "min": 1.186944,
+        "max": 2.274431
+      },
+      "geometry": {
+        "median": 0.038272,
+        "p95": 0.046708,
+        "iqr": 0.011762000000000002,
+        "min": 0.019166,
+        "max": 0.053951
+      },
+      "projection": {
+        "median": 0.737463,
+        "p95": 0.984462,
+        "iqr": 0.22959200000000002,
+        "min": 0.43359600000000004,
+        "max": 1.076677
+      },
+      "planning": {
+        "median": 0.8212405,
+        "p95": 1.056518,
+        "iqr": 0.20786100000000007,
+        "min": 0.581645,
+        "max": 1.199919
+      },
+      "dispatch_ms": {
+        "median": 0.053916500000000006,
+        "p95": 0.094007,
+        "iqr": 0.03916299999999999,
+        "min": 0.018283999999999998,
+        "max": 0.109166
+      },
+      "commit_ms": {
+        "median": 0.0939815,
+        "p95": 0.144162,
+        "iqr": 0.030408000000000004,
+        "min": 0.046586999999999996,
+        "max": 0.160212
+      }
+    }
+  },
+  "reports": [
+    "spec-published-before-clean-1.planning.json",
+    "spec-published-after-clean-1.planning.json",
+    "spec-published-after-clean-2.planning.json",
+    "spec-published-before-clean-2.planning.json"
+  ],
+  "visual": "before-clean-1.png and after-clean-1.png are pixel-identical."
+}

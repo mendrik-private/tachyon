@@ -1,0 +1,15 @@
+{
+  "markers": [
+    "S1-F12",
+    "S10-F12",
+    "S20-F12"
+  ],
+  "positions": [
+    7178,
+    71369,
+    142809
+  ],
+  "source_order": true,
+  "clipboard_sha256": "753d5797bc150745be79070ea12f5d98cb988d1f4359b7ec392a8f3c78bc722c",
+  "binary_sha256": "d8a466f14ded5cfac4ef6e8823d08bc5e10cacdfc39f1088100c2dac7bf21da3"
+}

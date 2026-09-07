@@ -1,0 +1,2606 @@
+{
+  "binary_sha256": "b8dcf7308bb3d0b2468a2020604209746c8d304d2eb4503bae8795cafa38c823",
+  "fixture": "15-measured-figures.md",
+  "width": 1280,
+  "height": 1000,
+  "display_scale_120": 120,
+  "zoom_steps": 0,
+  "trace_mode": "details",
+  "reports": [
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 1,
+      "document_generation": 0,
+      "geometry_generation": 2,
+      "queue_wait_ms": 0.11763,
+      "dispatch_ms": 0.002295,
+      "result_wait_ms": 22.623598,
+      "worker_ms": 6.879093,
+      "diagnostic_collection_ms": 0.009067,
+      "commit_ms": 0.0008420000000000001,
+      "committed": false,
+      "explicitly_requested": false,
+      "discard_reason": "viewport_zoom_or_recent_edit",
+      "stale_results_total": 1,
+      "committed_results_total": 0,
+      "anchor_displacement_at_commit_px": null,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 4.89108,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.006312,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.0072640000000000005,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 1.7866659999999999,
+          "measurements": {
+            "wrap_requests": 13,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 13,
+            "intrinsic_requests": 44,
+            "intrinsic_cache_hits": 8,
+            "intrinsic_cache_misses": 36,
+            "shaping_calls": 49,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.187641,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 7,
+            "wrap_cache_misses": 5,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 5,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 770.0,
+      "viewport_height": 604.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 17,
+      "list_candidates": 0,
+      "changed_row_groups": 7,
+      "changed_lists": 0,
+      "row_rejections": {
+        "too_narrow": 4,
+        "unmeasured": 6
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            377.0,
+            377.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.107585,
+          "normalized_penalties": [
+            0.05976524,
+            0.0,
+            0.19255927,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            246.0,
+            508.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            508.0,
+            246.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            311.5,
+            442.5
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.662225,
+          "normalized_penalties": [
+            0.10737773,
+            0.0,
+            0.19255927,
+            0.58687,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            442.5,
+            311.5
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.4303045,
+          "normalized_penalties": [
+            0.026248196,
+            0.0,
+            0.14547846,
+            0.41313,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            377.0,
+            377.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.886218,
+          "normalized_penalties": [
+            0.06151988,
+            0.0,
+            0.14547846,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            246.0,
+            508.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            508.0,
+            246.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            311.5,
+            442.5
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.6792138,
+          "normalized_penalties": [
+            0.109501325,
+            0.0,
+            0.19255927,
+            0.58687,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            442.5,
+            311.5
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.4422638,
+          "normalized_penalties": [
+            0.027743101,
+            0.0,
+            0.14547846,
+            0.41313,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 2,
+      "document_generation": 0,
+      "geometry_generation": 2,
+      "queue_wait_ms": 0.140824,
+      "dispatch_ms": 0.001313,
+      "result_wait_ms": 5.37172,
+      "worker_ms": 1.90103,
+      "diagnostic_collection_ms": 0.0054600000000000004,
+      "commit_ms": 0.021962000000000002,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 1,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.014587,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.001793,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00514,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 1.654739,
+          "measurements": {
+            "wrap_requests": 17,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 17,
+            "intrinsic_requests": 56,
+            "intrinsic_cache_hits": 34,
+            "intrinsic_cache_misses": 22,
+            "shaping_calls": 39,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.224641,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 4,
+            "wrap_cache_misses": 8,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 8,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "viewport_height": 926.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 17,
+      "list_candidates": 0,
+      "changed_row_groups": 7,
+      "changed_lists": 0,
+      "row_rejections": {
+        "unmeasured": 10
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.2072115,
+          "normalized_penalties": [
+            0.008261263,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.4397175,
+          "normalized_penalties": [
+            0.10009841,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.349265,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.18344973,
+            0.32786888,
+            0.33333334,
+            0.10961208,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.8238585,
+          "normalized_penalties": [
+            0.044632416,
+            0.0,
+            0.12560022,
+            0.5860656,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.1674693,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.124130294,
+            0.4139344,
+            0.33333334,
+            0.052282363,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.2180557,
+          "normalized_penalties": [
+            0.009616792,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.4562547,
+          "normalized_penalties": [
+            0.1021656,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.3261082,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.17942336,
+            0.32786888,
+            0.33333334,
+            0.10658693,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.683411,
+          "normalized_penalties": [
+            0.046269793,
+            0.0,
+            0.094890915,
+            0.58606553,
+            0.33333334,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.0405498,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.09944028,
+            0.4139344,
+            0.33333334,
+            0.048812985,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 3,
+      "document_generation": 0,
+      "geometry_generation": 4,
+      "queue_wait_ms": 0.13457200000000002,
+      "dispatch_ms": 0.006732,
+      "result_wait_ms": 4.817502,
+      "worker_ms": 2.999898,
+      "diagnostic_collection_ms": 0.006221,
+      "commit_ms": 0.009718000000000001,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 2,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.011652,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.002004,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.004939,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 2.9574890000000003,
+          "measurements": {
+            "wrap_requests": 19,
+            "wrap_cache_hits": 18,
+            "wrap_cache_misses": 1,
+            "intrinsic_requests": 61,
+            "intrinsic_cache_hits": 61,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.023544,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 12,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "viewport_height": 926.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "unmeasured": 10
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": true,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": true,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.2072115,
+          "normalized_penalties": [
+            0.008261263,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 9.439717,
+          "normalized_penalties": [
+            0.10009841,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.349265,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.18344973,
+            0.32786888,
+            0.33333334,
+            0.10961208,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.823858,
+          "normalized_penalties": [
+            0.044632416,
+            0.0,
+            0.12560022,
+            0.5860656,
+            0.33333334,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.167469,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.124130294,
+            0.4139344,
+            0.33333334,
+            0.052282363,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.218056,
+          "normalized_penalties": [
+            0.009616792,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 9.456255,
+          "normalized_penalties": [
+            0.1021656,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.326108,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.17942336,
+            0.32786888,
+            0.33333334,
+            0.10658693,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.683411,
+          "normalized_penalties": [
+            0.046269793,
+            0.0,
+            0.094890915,
+            0.58606553,
+            0.33333334,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 8.04055,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.09944028,
+            0.4139344,
+            0.33333334,
+            0.048812985,
+            1.0
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "lists": []
+    }
+  ]
+}

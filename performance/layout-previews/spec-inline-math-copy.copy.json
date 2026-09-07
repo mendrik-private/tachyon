@@ -1,0 +1,21 @@
+{
+  "markers": [
+    "Arithmetic and fractions",
+    "\\frac{a+b}{c+d}",
+    "\\sqrt{x^2 + y^2}",
+    "Lists and tables",
+    "Source editing",
+    "The closing marker"
+  ],
+  "positions": [
+    96,
+    212,
+    323,
+    563,
+    723,
+    1025
+  ],
+  "source_order": true,
+  "clipboard_sha256": "6dcaab5a9af6f751d65e28b8f6fd34ee3ff0e34f2043de391412fa85a01895b0",
+  "binary_sha256": "f1354834ecd1fb08a1415f69d99565ed8b535b45361a1c4ca2edc84e1f152aa5"
+}

@@ -1,0 +1,141 @@
+{
+  "binary_before": "63b9e6f5941f87375b7ab468a49dd8b1eb29d078fc1c94d818a19d5cafe2bc7a",
+  "binary_after": "2a44be345f077623705280eced94a5858508489437f39ca8b0d736e1be5c7bef",
+  "fixture": "17-long-layout-spec.md",
+  "fixture_sha256": "8fac6613999003f3570fd451f68a45c5b65aaceabbc8c49d6c67787cdb9bd36e",
+  "environment": {
+    "cpu": "AMD RYZEN AI MAX+ PRO 395",
+    "logical_cpus": 32,
+    "os": "Linux 7.2.3-070203-generic",
+    "weston": "14.0.2 headless GL",
+    "rustc": "1.98.0",
+    "build": "locked release",
+    "fonts": "bundled Mineral",
+    "window": [
+      1280,
+      1000
+    ],
+    "display_scale_120": 120,
+    "text_zoom": 1,
+    "startup_wait_seconds": 10
+  },
+  "protocol": "A/B/B/A, twelve explicit committed warm replans per independent app run, twenty-four samples per binary; nearest-rank p95; median averages the middle pair; IQR uses nearest-rank quartiles.",
+  "caveats": [
+    "Host CPU was heavily contended by an unrelated workspace test (~24-28 logical CPUs); no isolated-host or universal latency guarantee.",
+    "Cold/initial workers excluded from warm statistics; complete bounded window publication remains incomplete.",
+    "Earlier fractional-scale runs 1/2 retained separately: the old binary itself alternated between canvas 1280.0 and 1279.8; this comparison uses identical 992.0 logical-px canvases at 100% display scale."
+  ],
+  "before": {
+    "samples": 24,
+    "canvases": [
+      992
+    ],
+    "heights": [
+      926
+    ],
+    "metrics": {
+      "worker_ms": {
+        "median": 5.8387665,
+        "p95": 8.177404,
+        "iqr": 2.075697,
+        "min": 4.167636,
+        "max": 8.408828999999999
+      },
+      "geometry": {
+        "median": 2.7668939999999997,
+        "p95": 4.150453,
+        "iqr": 0.42060200000000014,
+        "min": 1.995497,
+        "max": 4.346442
+      },
+      "projection": {
+        "median": 1.0439505,
+        "p95": 2.306372,
+        "iqr": 0.2971290000000001,
+        "min": 0.749431,
+        "max": 3.225251
+      },
+      "planning": {
+        "median": 1.2050135,
+        "p95": 3.04944,
+        "iqr": 1.00975,
+        "min": 0.749351,
+        "max": 3.083905
+      },
+      "dispatch_ms": {
+        "median": 0.065493,
+        "p95": 0.110368,
+        "iqr": 0.041778,
+        "min": 0.031319,
+        "max": 0.11674
+      },
+      "commit_ms": {
+        "median": 0.1355505,
+        "p95": 0.200959,
+        "iqr": 0.048402,
+        "min": 0.06791799999999999,
+        "max": 0.23383
+      }
+    }
+  },
+  "after": {
+    "samples": 24,
+    "canvases": [
+      992
+    ],
+    "heights": [
+      926
+    ],
+    "metrics": {
+      "worker_ms": {
+        "median": 3.604155,
+        "p95": 4.99328,
+        "iqr": 1.2090649999999998,
+        "min": 1.329413,
+        "max": 5.3510040000000005
+      },
+      "geometry": {
+        "median": 0.0386625,
+        "p95": 0.285277,
+        "iqr": 0.017251999999999997,
+        "min": 0.024967,
+        "max": 2.126373
+      },
+      "projection": {
+        "median": 1.0147105,
+        "p95": 2.691888,
+        "iqr": 0.48573500000000003,
+        "min": 0.6663749999999999,
+        "max": 3.102471
+      },
+      "planning": {
+        "median": 1.095387,
+        "p95": 3.758946,
+        "iqr": 1.6327140000000002,
+        "min": 0.580473,
+        "max": 3.869775
+      },
+      "dispatch_ms": {
+        "median": 0.0766095,
+        "p95": 0.131928,
+        "iqr": 0.049493,
+        "min": 0.027722,
+        "max": 0.147358
+      },
+      "commit_ms": {
+        "median": 0.09755849999999999,
+        "p95": 0.169278,
+        "iqr": 0.05766900000000001,
+        "min": 0.062628,
+        "max": 0.18045999999999998
+      }
+    }
+  },
+  "reports": [
+    "spec-published-before-3.planning.json",
+    "spec-published-after-3.planning.json",
+    "spec-published-after-4.planning.json",
+    "spec-published-before-4.planning.json"
+  ],
+  "visual": "before-3.png and after-3.png pixel-identical; before-2.png and after-1.png pixel-identical at matched fractional-scale geometry."
+}

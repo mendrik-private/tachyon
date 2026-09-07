@@ -1,0 +1,1915 @@
+{
+  "binary_sha256": "0bd144f6e68d213a22830ccf9f9457d5e20ad857e40a77249fa70847d73188ae",
+  "fixture": "12-measured-tables.md",
+  "width": 1280,
+  "height": 1000,
+  "display_scale_120": 120,
+  "zoom_steps": 0,
+  "trace_mode": "summary",
+  "reports": [
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 1,
+      "document_generation": 0,
+      "geometry_generation": 2,
+      "queue_wait_ms": 0.11118,
+      "dispatch_ms": 0.003767,
+      "result_wait_ms": 15.260147,
+      "worker_ms": 4.803071,
+      "diagnostic_collection_ms": 0.005521,
+      "commit_ms": 0.001353,
+      "committed": false,
+      "explicitly_requested": false,
+      "discard_reason": "viewport_zoom_or_recent_edit",
+      "stale_results_total": 1,
+      "committed_results_total": 0,
+      "anchor_displacement_at_commit_px": null,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.038091,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 1.348138,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 48,
+            "intrinsic_cache_misses": 79,
+            "shaping_calls": 79,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000721,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 3.3555569999999997,
+          "measurements": {
+            "wrap_requests": 152,
+            "wrap_cache_hits": 84,
+            "wrap_cache_misses": 68,
+            "intrinsic_requests": 195,
+            "intrinsic_cache_hits": 165,
+            "intrinsic_cache_misses": 30,
+            "shaping_calls": 98,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.060474,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 770.0,
+      "text_zoom": 1.0,
+      "viewport_height": 604.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 7,
+      "row_candidates": 17,
+      "list_candidates": 0,
+      "changed_row_groups": 7,
+      "changed_lists": 0,
+      "row_rejections": {
+        "overflow": 2,
+        "too_narrow": 4
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 2,
+      "document_generation": 0,
+      "geometry_generation": 2,
+      "queue_wait_ms": 0.09137200000000001,
+      "dispatch_ms": 0.003186,
+      "result_wait_ms": 1.686375,
+      "worker_ms": 1.482862,
+      "diagnostic_collection_ms": 0.004238,
+      "commit_ms": 0.009778,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 1,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.032501,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.092204,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00027,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 1.3066799999999998,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 187,
+            "wrap_cache_misses": 35,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 259,
+            "intrinsic_cache_misses": 5,
+            "shaping_calls": 40,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.051106,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 17,
+      "list_candidates": 0,
+      "changed_row_groups": 7,
+      "changed_lists": 0,
+      "row_rejections": {
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 3,
+      "document_generation": 0,
+      "geometry_generation": 4,
+      "queue_wait_ms": 0.077406,
+      "dispatch_ms": 0.00574,
+      "result_wait_ms": 5.538877,
+      "worker_ms": 0.485564,
+      "diagnostic_collection_ms": 0.004128,
+      "commit_ms": 0.009548000000000001,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 2,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.022972999999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.080983,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00013,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.333858,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.04752,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 4,
+      "document_generation": 0,
+      "geometry_generation": 6,
+      "queue_wait_ms": 0.115457,
+      "dispatch_ms": 0.014267,
+      "result_wait_ms": 1.450861,
+      "worker_ms": 0.714445,
+      "diagnostic_collection_ms": 0.010088999999999999,
+      "commit_ms": 0.015238999999999999,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 3,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.04774,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.12592699999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000441,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.47762899999999997,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.062608,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 5,
+      "document_generation": 0,
+      "geometry_generation": 8,
+      "queue_wait_ms": 0.11128,
+      "dispatch_ms": 0.015149,
+      "result_wait_ms": 3.2061450000000002,
+      "worker_ms": 0.7540399999999999,
+      "diagnostic_collection_ms": 0.010801000000000002,
+      "commit_ms": 0.013155,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 4,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.065153,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.144732,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000882,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.48294899999999996,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.060203,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 6,
+      "document_generation": 0,
+      "geometry_generation": 10,
+      "queue_wait_ms": 0.12486499999999999,
+      "dispatch_ms": 0.01604,
+      "result_wait_ms": 2.598261,
+      "worker_ms": 0.7234020000000001,
+      "diagnostic_collection_ms": 0.011031000000000001,
+      "commit_ms": 0.017152,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 5,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.062578,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.148409,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000471,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.44772300000000004,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.064151,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 7,
+      "document_generation": 0,
+      "geometry_generation": 12,
+      "queue_wait_ms": 0.10154099999999999,
+      "dispatch_ms": 0.015218,
+      "result_wait_ms": 2.2236759999999998,
+      "worker_ms": 0.706751,
+      "diagnostic_collection_ms": 0.011191,
+      "commit_ms": 0.015279000000000001,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 6,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.05314,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.125797,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00033099999999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.465266,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.061796000000000004,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 8,
+      "document_generation": 0,
+      "geometry_generation": 14,
+      "queue_wait_ms": 0.120376,
+      "dispatch_ms": 0.020339,
+      "result_wait_ms": 3.308929,
+      "worker_ms": 0.736296,
+      "diagnostic_collection_ms": 0.01109,
+      "commit_ms": 0.013996,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 7,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.064291,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.142949,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000501,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.464926,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.063519,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 9,
+      "document_generation": 0,
+      "geometry_generation": 16,
+      "queue_wait_ms": 0.124113,
+      "dispatch_ms": 0.012374,
+      "result_wait_ms": 3.250058,
+      "worker_ms": 0.7399330000000001,
+      "diagnostic_collection_ms": 0.011290999999999999,
+      "commit_ms": 0.014758,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 8,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.069921,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.154071,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00031,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.449316,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.066215,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 10,
+      "document_generation": 0,
+      "geometry_generation": 18,
+      "queue_wait_ms": 0.212019,
+      "dispatch_ms": 0.018635,
+      "result_wait_ms": 2.6753660000000004,
+      "worker_ms": 0.816868,
+      "diagnostic_collection_ms": 0.012294,
+      "commit_ms": 0.013766,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 9,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.061235000000000005,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.15323900000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000731,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.521552,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.079991,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 11,
+      "document_generation": 0,
+      "geometry_generation": 20,
+      "queue_wait_ms": 0.131327,
+      "dispatch_ms": 0.011301,
+      "result_wait_ms": 2.848793,
+      "worker_ms": 0.702342,
+      "diagnostic_collection_ms": 0.008124999999999999,
+      "commit_ms": 0.014758,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 10,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.046397,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.13081700000000002,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00031,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.460627,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.064081,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 12,
+      "document_generation": 0,
+      "geometry_generation": 22,
+      "queue_wait_ms": 0.141456,
+      "dispatch_ms": 0.017293,
+      "result_wait_ms": 3.5143359999999997,
+      "worker_ms": 0.8373360000000001,
+      "diagnostic_collection_ms": 0.012171999999999999,
+      "commit_ms": 0.019636999999999998,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 11,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.060895,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.17310599999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000551,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.524337,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.078187,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 13,
+      "document_generation": 0,
+      "geometry_generation": 24,
+      "queue_wait_ms": 0.163007,
+      "dispatch_ms": 0.015017999999999998,
+      "result_wait_ms": 3.80898,
+      "worker_ms": 0.7642089999999999,
+      "diagnostic_collection_ms": 0.008425,
+      "commit_ms": 0.020579,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 12,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.062317000000000004,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.154391,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000611,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.484863,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.061936,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 14,
+      "document_generation": 0,
+      "geometry_generation": 26,
+      "queue_wait_ms": 0.09561,
+      "dispatch_ms": 0.014347,
+      "result_wait_ms": 2.666009,
+      "worker_ms": 0.544505,
+      "diagnostic_collection_ms": 0.005129999999999999,
+      "commit_ms": 0.01078,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 13,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.027682000000000002,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.07954,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00014000000000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.38258,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.054423,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1196,
+      "sequence": 15,
+      "document_generation": 0,
+      "geometry_generation": 28,
+      "queue_wait_ms": 0.103074,
+      "dispatch_ms": 0.007705,
+      "result_wait_ms": 1.577199,
+      "worker_ms": 0.5205799999999999,
+      "diagnostic_collection_ms": 0.004287999999999999,
+      "commit_ms": 0.008757,
+      "committed": true,
+      "explicitly_requested": true,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 14,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.025698,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.094638,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 127,
+            "intrinsic_cache_hits": 127,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 4,
+            "tables_measured": 4
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00013,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.349098,
+          "measurements": {
+            "wrap_requests": 222,
+            "wrap_cache_hits": 222,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 264,
+            "intrinsic_cache_hits": 264,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.050925,
+          "measurements": {
+            "wrap_requests": 47,
+            "wrap_cache_hits": 47,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 13,
+      "segment_count": 47,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 4,
+      "chosen_rows": 6,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "overflow": 2
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    }
+  ]
+}

@@ -10,6 +10,23 @@ use serde::Serialize;
 
 const NANOS_PER_MILLISECOND: f64 = 1_000_000.0;
 
+/// Developer-only, content-free JSON diagnostics on stderr. No file writes or
+/// document preferences are inferred from enabling this inspection surface.
+pub fn layout_trace_mode() -> document_view::LayoutTraceMode {
+    match env::var("MINERAL_LAYOUT_TRACE").as_deref() {
+        Ok("details") => document_view::LayoutTraceMode::Details,
+        Ok("1" | "true" | "summary") => document_view::LayoutTraceMode::Summary,
+        _ => document_view::LayoutTraceMode::Off,
+    }
+}
+
+pub fn emit_layout_diagnostics(report: &document_view::LayoutDiagnosticsReport) {
+    match serde_json::to_string(report) {
+        Ok(json) => eprintln!("MINERAL_LAYOUT_TRACE {json}"),
+        Err(error) => eprintln!("Layout diagnostics could not be encoded: {error}"),
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PerformanceConfig {
     pub output: PathBuf,

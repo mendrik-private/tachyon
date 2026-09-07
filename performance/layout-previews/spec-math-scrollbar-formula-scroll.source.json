@@ -1,0 +1,11 @@
+{
+  "source_unchanged": true,
+  "passes": true,
+  "fixture": "24-formula-stress.md",
+  "binary_sha256": "d61a081ff990c1e9c310a5f15b9f66ce9d5dc96c40862d6f184a19f8c2078184",
+  "original_sha256": "0381ff2b2e44b70935e4339a7e7ce3444e2ab4f7db74c01c67034e23eca2806b",
+  "current_sha256": "0381ff2b2e44b70935e4339a7e7ce3444e2ab4f7db74c01c67034e23eca2806b",
+  "width": 1728,
+  "height": 1080,
+  "zoom_steps": 0
+}

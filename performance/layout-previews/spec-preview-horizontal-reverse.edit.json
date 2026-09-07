@@ -1,0 +1,16 @@
+{
+  "fixture": "44-cross-preview-selection.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "4af18997edd0971b35b208b73622aeb0bd2a9b1e6b1e88c836918a796d95eef8",
+  "edit_within": null,
+  "expected_edited_source_exact": true,
+  "preserved_fragments": [],
+  "edit_markdown": false,
+  "edit_paste_bytes": 0,
+  "edit_zoom_steps": 0,
+  "edit_idle_seconds": 0,
+  "edit_blur": null,
+  "first_changed_byte": 35
+}

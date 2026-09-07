@@ -1,0 +1,10 @@
+{
+  "binary_sha256": "d64160ad20eaf1556149b607c6a613fa4604d1f571e861629aea699e744294aa",
+  "fixture": "22-implicit-disclosures.md",
+  "width": 360,
+  "height": 1000,
+  "zoom_steps": 0,
+  "native_close_inside_window": false,
+  "source_unchanged": true,
+  "passes": false
+}

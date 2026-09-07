@@ -1,0 +1,17 @@
+{
+  "markers": [
+    "a_1+a_2+a_3",
+    "x^2 + y^2",
+    "\\frac{37}{41}",
+    "\\unknownBoundaryCommand{x}"
+  ],
+  "positions": [
+    108,
+    373,
+    581,
+    611
+  ],
+  "source_order": true,
+  "clipboard_sha256": "6867e0d94491cb57d00a469ba7ac3ac797aa85a97ec6876c32a805879694d8bb",
+  "binary_sha256": "e118b465e067fd70c3838ff746d261092b2351bc1dabbc27d98900da03003c5e"
+}

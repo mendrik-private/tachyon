@@ -1,0 +1,2912 @@
+{
+  "equations": {
+    "\\frac{37}{41}": "<math><mfrac><mrow><mn>37</mn></mrow><mrow><mn>41</mn></mrow></mfrac></math>",
+    "\\sqrt[3]{x_2^4}": "<math><mroot><msubsup><mi>x</mi><mn>2</mn><mn>4</mn></msubsup><mn>3</mn></mroot></math>",
+    "\\begin{pmatrix}17&23\\\\31&43\\end{pmatrix}": "<math><mrow><mo>(</mo><mtable><mtr><mtd><mrow><mn>17</mn></mrow></mtd><mtd><mrow><mn>23</mn></mrow></mtd></mtr><mtr><mtd><mrow><mn>31</mn></mrow></mtd><mtd><mrow><mn>43</mn></mrow></mtd></mtr></mtable><mo>)</mo></mrow></math>",
+    "\\sum_{i=1}^{9}i^2": "<math><mrow><munderover><mo>\u2211</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mn>9</mn></munderover><msup><mi>i</mi><mn>2</mn></msup></mrow></math>"
+  },
+  "exact_source_labels": true,
+  "source_order_tokens": true,
+  "invalid_formula_source_fallback": true,
+  "passes": true,
+  "binary_sha256": "4060e29e6bb69bc9a9f60c88d29e1f20ad8dae4be9dabc5fc56403fa6581a7f8",
+  "source_unchanged": true,
+  "nodes": [
+    {
+      "parent": null,
+      "role": "application",
+      "name": "mineral-markdown",
+      "path": "/org/a11y/atspi/accessible/root",
+      "interfaces": [
+        "Accessible",
+        "Application"
+      ],
+      "attributes": {},
+      "states": [],
+      "actions": []
+    },
+    {
+      "parent": 0,
+      "role": "frame",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/0",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "active",
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": -1,
+        "y": -1,
+        "width": -1,
+        "height": -1
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/177970171993649380362995832238339260416",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 24,
+        "y": 6,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/234226301122677587887893671501732249600",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1085,
+        "y": 6,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "200%",
+      "path": "/org/a11y/atspi/accessible/0/233276223343697386448440034747318534144",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1107,
+        "y": 6,
+        "width": 41,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/63875445454323532445132133116493692928",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1150,
+        "y": 6,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "landmark",
+      "name": "Files and document outline",
+      "path": "/org/a11y/atspi/accessible/0/236066789728172305990424940736784891904",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 0,
+        "y": 34,
+        "width": 224,
+        "height": 1366
+      }
+    },
+    {
+      "parent": 6,
+      "role": "tree",
+      "name": "Markdown folders and files",
+      "path": "/org/a11y/atspi/accessible/0/268286479774798436490389683445302296576",
+      "interfaces": [
+        "Accessible",
+        "Component",
+        "Selection"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 12,
+        "y": 77,
+        "width": 199,
+        "height": 773
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 01-field-notes.md",
+      "path": "/org/a11y/atspi/accessible/0/105175281302778059071735659071128207360",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 77,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 02-list-arrangements.md",
+      "path": "/org/a11y/atspi/accessible/0/191091139812591336647358065627161952256",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 105,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 03-technical-reference.md",
+      "path": "/org/a11y/atspi/accessible/0/282366929111426424996439101493089402880",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 133,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 04-figures-and-callouts.md",
+      "path": "/org/a11y/atspi/accessible/0/229718125748079597702028718019679617024",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 161,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 05-product-specification.md",
+      "path": "/org/a11y/atspi/accessible/0/32385911233614048798187247789771063296",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 189,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 06-checkbox-icons.md",
+      "path": "/org/a11y/atspi/accessible/0/161770778105480034416453537778509021184",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 217,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 06-measured-list-fit.md",
+      "path": "/org/a11y/atspi/accessible/0/293248288678568218918360189231091941376",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 245,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 07-notice-borders.md",
+      "path": "/org/a11y/atspi/accessible/0/67589313359719538278454027553794424832",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 273,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 08-math-formulas.md",
+      "path": "/org/a11y/atspi/accessible/0/201784115980032645054892989576103591936",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 301,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 09-display-math.md",
+      "path": "/org/a11y/atspi/accessible/0/171329862377896722953294793865003270144",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 329,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 10-html-fragments.md",
+      "path": "/org/a11y/atspi/accessible/0/68571253506626222878553569724819570688",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 357,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 11-measured-rows.md",
+      "path": "/org/a11y/atspi/accessible/0/314211211946993803536559399014680756224",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 385,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 12-measured-tables.md",
+      "path": "/org/a11y/atspi/accessible/0/309741958616750053765262976330386898944",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 413,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 13-inline-math.md",
+      "path": "/org/a11y/atspi/accessible/0/24661056534274482937764555241147072512",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 441,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 14-edit-lock.md",
+      "path": "/org/a11y/atspi/accessible/0/111282438881914787360956331370253123584",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 469,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 15-measured-figures.md",
+      "path": "/org/a11y/atspi/accessible/0/197960127325190927164956728712123908096",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 497,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 16-measured-gallery.md",
+      "path": "/org/a11y/atspi/accessible/0/26699762744950681910623810119111016448",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 525,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 17-long-layout-spec.md",
+      "path": "/org/a11y/atspi/accessible/0/331842597787936738962191421177929400320",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 553,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 18-native-links.md",
+      "path": "/org/a11y/atspi/accessible/0/22786178082759805508613825780781154304",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 581,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 19-linked document.md",
+      "path": "/org/a11y/atspi/accessible/0/253333562412478219814743225544084553728",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 609,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 20-disclosures.md",
+      "path": "/org/a11y/atspi/accessible/0/132731440780475166442372396453770297344",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 637,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 21-disclosure-stress.md",
+      "path": "/org/a11y/atspi/accessible/0/89860816161108102050780104259155263488",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 665,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 22-implicit-disclosures.md",
+      "path": "/org/a11y/atspi/accessible/0/60494954056605960193963402693481332736",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 693,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 23-disclosure-editing.md",
+      "path": "/org/a11y/atspi/accessible/0/267846590178182130679881646829111083008",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 721,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 24-formula-stress.md",
+      "path": "/org/a11y/atspi/accessible/0/301379453360108624385715529711104294912",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 749,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 25-math-boundaries.md",
+      "path": "/org/a11y/atspi/accessible/0/247402630319233001919226647288634933248",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 777,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 26-html-anchors.md",
+      "path": "/org/a11y/atspi/accessible/0/210407124547432187901449165385601384448",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 805,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 27-accessible-document.md",
+      "path": "/org/a11y/atspi/accessible/0/84751025154832359587499258744875778048",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 833,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 28-accessible-html.md",
+      "path": "/org/a11y/atspi/accessible/0/237786098669709307933873477855389679616",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 861,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 29-multilingual-html.md",
+      "path": "/org/a11y/atspi/accessible/0/127318877694695275602503462955329257472",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 889,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 30-html-images.md",
+      "path": "/org/a11y/atspi/accessible/0/93337394149411547906177234616748867584",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 917,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 31-gallery-display-width.md",
+      "path": "/org/a11y/atspi/accessible/0/239101383907785980450380138480584884224",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 945,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 32-accessible-gallery.md",
+      "path": "/org/a11y/atspi/accessible/0/193977508064327908574833926283741626368",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 973,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 33-nested-tables.md",
+      "path": "/org/a11y/atspi/accessible/0/198533053191392407410286490605586481152",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1001,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 34-container-boundaries.md",
+      "path": "/org/a11y/atspi/accessible/0/274834783161719233279223207707075936256",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1029,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 35-rich-table-cells.md",
+      "path": "/org/a11y/atspi/accessible/0/229100528749832949825988898203583381504",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1057,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 36-rich-cell-panels.md",
+      "path": "/org/a11y/atspi/accessible/0/210415909841480140907012466850863775744",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1085,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 37-nested-html-tables.md",
+      "path": "/org/a11y/atspi/accessible/0/102673009668578480373137525688412143616",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1113,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 38-html-table-boundaries.md",
+      "path": "/org/a11y/atspi/accessible/0/309104900057469290412626204753429266432",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1141,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 39-html-spanning-cells.md",
+      "path": "/org/a11y/atspi/accessible/0/48457462702787264769513867913080078336",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1169,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 40-accessible-math.md",
+      "path": "/org/a11y/atspi/accessible/0/244569794535291347478341291627625054208",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "selected",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1197,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 41-find-document.md",
+      "path": "/org/a11y/atspi/accessible/0/270330997664997553135307054392331468800",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1225,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 42-find-overflow.md",
+      "path": "/org/a11y/atspi/accessible/0/306632696647765141173179475369522102272",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1253,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 43-layout-recovery.md",
+      "path": "/org/a11y/atspi/accessible/0/90032237130116847607383176514524676096",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1281,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 6,
+      "role": "slider",
+      "name": "Resize files and outline sections",
+      "path": "/org/a11y/atspi/accessible/0/3093684543326890805006128310799826944",
+      "interfaces": [
+        "Accessible",
+        "Component",
+        "Value"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 12,
+        "y": 850,
+        "width": 199,
+        "height": 12
+      }
+    },
+    {
+      "parent": 6,
+      "role": "tree",
+      "name": "Document outline",
+      "path": "/org/a11y/atspi/accessible/0/123293930978264754411360484704240271360",
+      "interfaces": [
+        "Accessible",
+        "Component",
+        "Selection"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 12,
+        "y": 889,
+        "width": 199,
+        "height": 495
+      }
+    },
+    {
+      "parent": 53,
+      "role": "tree item",
+      "name": "Structured equations",
+      "path": "/org/a11y/atspi/accessible/0/211195205115521764713178148106343022592",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "selected",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 889,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 53,
+      "role": "tree item",
+      "name": "Fraction",
+      "path": "/org/a11y/atspi/accessible/0/166365924232333815705964103346002329600",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 917,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 53,
+      "role": "tree item",
+      "name": "Indexed radical and scripts",
+      "path": "/org/a11y/atspi/accessible/0/9834558804559817976346180890916814848",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 945,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 53,
+      "role": "tree item",
+      "name": "Matrix",
+      "path": "/org/a11y/atspi/accessible/0/195922086536970557651962461698090074112",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 973,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 53,
+      "role": "tree item",
+      "name": "Operator limits",
+      "path": "/org/a11y/atspi/accessible/0/9628082687202371832522815898736656384",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1001,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 53,
+      "role": "tree item",
+      "name": "Invalid source remains available",
+      "path": "/org/a11y/atspi/accessible/0/105010542151441042075267906697181528064",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 12,
+        "y": 1029,
+        "width": 199,
+        "height": 28
+      }
+    },
+    {
+      "parent": 1,
+      "role": "entry",
+      "name": "Markdown document editor",
+      "path": "/org/a11y/atspi/accessible/0/305934153307735740926719398746865532928",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "editable",
+        "enabled",
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "selectable-text"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 54,
+        "width": 992,
+        "height": 1326
+      }
+    },
+    {
+      "parent": 60,
+      "role": "document frame",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/137520318574376572127013506754631696384",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 54,
+        "width": 992,
+        "height": 3050
+      }
+    },
+    {
+      "parent": 61,
+      "role": "heading",
+      "name": "Structured equations",
+      "path": "/org/a11y/atspi/accessible/0/77444354876283859924528436757837905920",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 70,
+        "width": 992,
+        "height": 100
+      }
+    },
+    {
+      "parent": 61,
+      "role": "paragraph",
+      "name": "Inline context stays in its original paragraph: a^2+b^2=c^2. Each display equation below retains its exact editable LaTeX source.",
+      "path": "/org/a11y/atspi/accessible/0/249965933912604929530261439001323896832",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 190,
+        "width": 992,
+        "height": 186
+      }
+    },
+    {
+      "parent": 61,
+      "role": "heading",
+      "name": "Fraction",
+      "path": "/org/a11y/atspi/accessible/0/334189353891230012687820024417716535296",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 464,
+        "width": 992,
+        "height": 68
+      }
+    },
+    {
+      "parent": 61,
+      "role": "math",
+      "name": "\\frac{37}{41}\n",
+      "path": "/org/a11y/atspi/accessible/0/195703359711494491499611131050985521152",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {
+        "tag": "math"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 796,
+        "width": 992,
+        "height": 90
+      }
+    },
+    {
+      "parent": 65,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/247355749364161294436572589448583184384",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mfrac"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 66,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/204281905882126548208699223238311411712",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 67,
+      "role": "label",
+      "name": "37",
+      "path": "/org/a11y/atspi/accessible/0/97862121429032038191516537771924652032",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 66,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/207024751815150714607175556764629204992",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 69,
+      "role": "label",
+      "name": "41",
+      "path": "/org/a11y/atspi/accessible/0/313720614424928476731694618986422468608",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 61,
+      "role": "heading",
+      "name": "Indexed radical and scripts",
+      "path": "/org/a11y/atspi/accessible/0/228886947195808413608311144519160561664",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 1006,
+        "width": 992,
+        "height": 68
+      }
+    },
+    {
+      "parent": 61,
+      "role": "math",
+      "name": "\\sqrt[3]{x_2^4}\n",
+      "path": "/org/a11y/atspi/accessible/0/301764440637590819735667232785194549248",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {
+        "tag": "math"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 1339,
+        "width": 992,
+        "height": 90
+      }
+    },
+    {
+      "parent": 72,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/49829488862055253190497381668297375744",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mroot"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 73,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/270540831423507478422413915298788802560",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "msubsup"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 74,
+      "role": "label",
+      "name": "x",
+      "path": "/org/a11y/atspi/accessible/0/56733419108974907003035897423011512320",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mi"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 74,
+      "role": "label",
+      "name": "2",
+      "path": "/org/a11y/atspi/accessible/0/171163760018161058535303539435642028032",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 74,
+      "role": "label",
+      "name": "4",
+      "path": "/org/a11y/atspi/accessible/0/88114182004316026363729572579063627776",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 73,
+      "role": "label",
+      "name": "3",
+      "path": "/org/a11y/atspi/accessible/0/205628656903061210482952772302753759232",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 61,
+      "role": "heading",
+      "name": "Matrix",
+      "path": "/org/a11y/atspi/accessible/0/103388556290091753842687679950781153280",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 1549,
+        "width": 992,
+        "height": 68
+      }
+    },
+    {
+      "parent": 61,
+      "role": "math",
+      "name": "\\begin{pmatrix}17&23\\\\31&43\\end{pmatrix}\n",
+      "path": "/org/a11y/atspi/accessible/0/6377443062087900203658932847233728512",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {
+        "tag": "math"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 1869,
+        "width": 992,
+        "height": 90
+      }
+    },
+    {
+      "parent": 80,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/180866833385459588090985833554310594560",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 81,
+      "role": "label",
+      "name": "(",
+      "path": "/org/a11y/atspi/accessible/0/308815825197543114841613090761767649280",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mo"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 81,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/275347486179763922043608288205920534528",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtable"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 83,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/335711008221054745464543748973511311360",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtr"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 84,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/119046776293150467785063736381498458112",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtd"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 85,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/281281995535236976615444288107756650496",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 86,
+      "role": "label",
+      "name": "17",
+      "path": "/org/a11y/atspi/accessible/0/109171214111423606042108941555214581760",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 84,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/237692076836948136096541146921872392192",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtd"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 88,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/150724262584505462291878696259208347648",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 89,
+      "role": "label",
+      "name": "23",
+      "path": "/org/a11y/atspi/accessible/0/146704932607759046961370999031051845632",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 83,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/201600958166313129531439431928814501888",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtr"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 91,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/53526107958299897752910785641978003456",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtd"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 92,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/259270707950857067976439680513232338944",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 93,
+      "role": "label",
+      "name": "31",
+      "path": "/org/a11y/atspi/accessible/0/7228615165895284984933898592783958016",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 91,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/211687642267576605126472738639729131520",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mtd"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 95,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/31566221824201360850518028691762577408",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 96,
+      "role": "label",
+      "name": "43",
+      "path": "/org/a11y/atspi/accessible/0/294854894525002567288079030804442775552",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 81,
+      "role": "label",
+      "name": ")",
+      "path": "/org/a11y/atspi/accessible/0/33320580006375287138979018922629529600",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mo"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 61,
+      "role": "heading",
+      "name": "Operator limits",
+      "path": "/org/a11y/atspi/accessible/0/308756287856800608879283676812693995520",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 2079,
+        "width": 992,
+        "height": 68
+      }
+    },
+    {
+      "parent": 61,
+      "role": "math",
+      "name": "\\sum_{i=1}^{9}i^2\n",
+      "path": "/org/a11y/atspi/accessible/0/334451320793304926320698665472417071104",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {
+        "tag": "math"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 2474,
+        "width": 992,
+        "height": 90
+      }
+    },
+    {
+      "parent": 100,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/223631552680079098614691147032201003008",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 101,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/124585920766528242200338762618562936832",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "munderover"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 102,
+      "role": "label",
+      "name": "\u2211",
+      "path": "/org/a11y/atspi/accessible/0/177050587857815678800728692519457521664",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mo"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 102,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/98692375823387604037206616770093252608",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mrow"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 104,
+      "role": "label",
+      "name": "i",
+      "path": "/org/a11y/atspi/accessible/0/325661667932236037111200973397285666816",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mi"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 104,
+      "role": "label",
+      "name": "=",
+      "path": "/org/a11y/atspi/accessible/0/163805971358195732178166265933088161792",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mo"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 104,
+      "role": "label",
+      "name": "1",
+      "path": "/org/a11y/atspi/accessible/0/275159039800195551425045365233662558208",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 102,
+      "role": "label",
+      "name": "9",
+      "path": "/org/a11y/atspi/accessible/0/133163821031929963851449564824732696576",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 101,
+      "role": "panel",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/46106556161196150570823268164662460416",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "msup"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 109,
+      "role": "label",
+      "name": "i",
+      "path": "/org/a11y/atspi/accessible/0/37380899189141293010143780816080076800",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mi"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 109,
+      "role": "label",
+      "name": "2",
+      "path": "/org/a11y/atspi/accessible/0/17892869292270121758700057251503144960",
+      "interfaces": [
+        "Accessible"
+      ],
+      "attributes": {
+        "tag": "mn"
+      },
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 61,
+      "role": "heading",
+      "name": "Invalid source remains available",
+      "path": "/org/a11y/atspi/accessible/0/124358524674671114811068601093545000960",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 2684,
+        "width": 992,
+        "height": 68
+      }
+    },
+    {
+      "parent": 61,
+      "role": "math",
+      "name": "\\notARealCommand{x}\n",
+      "path": "/org/a11y/atspi/accessible/0/333019097493734567483998413579951800320",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 2876,
+        "width": 992,
+        "height": 90
+      }
+    },
+    {
+      "parent": 61,
+      "role": "paragraph",
+      "name": "The final paragraph remains editable after every equation.",
+      "path": "/org/a11y/atspi/accessible/0/123765680499635085641091511821822590976",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 3046,
+        "width": 992,
+        "height": 57
+      }
+    },
+    {
+      "parent": 60,
+      "role": "button",
+      "name": "Copy",
+      "path": "/org/a11y/atspi/accessible/0/253260222618880871362816958854158352384",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1167,
+        "y": 576,
+        "width": 67,
+        "height": 24
+      }
+    },
+    {
+      "parent": 60,
+      "role": "button",
+      "name": "Copy",
+      "path": "/org/a11y/atspi/accessible/0/296996302712698872705417357244965584896",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1167,
+        "y": 1118,
+        "width": 67,
+        "height": 24
+      }
+    },
+    {
+      "parent": 60,
+      "role": "button",
+      "name": "Copy",
+      "path": "/org/a11y/atspi/accessible/0/329861047216588074064478763090431705088",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1167,
+        "y": 1661,
+        "width": 67,
+        "height": 24
+      }
+    },
+    {
+      "parent": 60,
+      "role": "button",
+      "name": "Copy",
+      "path": "/org/a11y/atspi/accessible/0/129667564779594148435775704823421206528",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 1167,
+        "y": 2191,
+        "width": 67,
+        "height": 24
+      }
+    }
+  ],
+  "width": 1280,
+  "height": 1400,
+  "zoom_steps": 10
+}

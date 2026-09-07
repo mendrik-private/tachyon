@@ -1,0 +1,17 @@
+{
+  "fixture": "30-html-images.md",
+  "native_conversion": true,
+  "edit_here": false,
+  "edit_within": null,
+  "opening_menu_preserves_source": false,
+  "click_preserves_source": false,
+  "preedit_preserves_source": null,
+  "ime_transport": null,
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "undos_to_restore_exact_html": 2,
+  "binary_sha256": "500afe5d1c33900332faecdb31a4ef37bb3c5e29c9fef7ad6b2be3ab0b531684"
+}

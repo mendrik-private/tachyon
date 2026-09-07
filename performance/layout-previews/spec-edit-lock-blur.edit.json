@@ -1,0 +1,15 @@
+{
+  "fixture": "14-edit-lock.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "88376d8e990f2de68186555c7df3e82335eb0227aa3813840d7fa21b3749b362",
+  "edit_within": "A second explanation",
+  "edit_paste_bytes": 653,
+  "edit_zoom_steps": -1,
+  "edit_blur": [
+    330,
+    913
+  ],
+  "first_changed_byte": 221
+}

@@ -11,6 +11,17 @@ The desktop identity is `dev.mineral.Markdown`. A distributor should install:
 The binary is Wayland-only by product contract. The bundled fonts and their
 licenses are compiled into the executable from `assets/fonts/`.
 
+HTML previews keep the bundled Spline fonts as their default and use installed
+fonts through Fontconfig for additional scripts and emoji. Distributions need
+fonts covering the languages they support; no font files are downloaded from
+documents. The native multilingual validation uses installed Noto CJK, Arabic
+and Color Emoji fonts. After installing or changing fonts, restart Mineral to
+rebuild its process-local font collection and retained previews.
+
+The application icon is the supplied lightning/Markdown PNG, preserved at its
+original resolution. GNOME scales it to the requested launcher size. Its icon
+name and desktop filename match the Wayland application ID.
+
 Build and stage a complete installation under an explicit prefix:
 
 ```sh
@@ -24,7 +35,7 @@ user prefix implicitly. Validate the staged desktop integration with:
 ```sh
 desktop-file-validate /tmp/mineral-stage/usr/share/applications/dev.mineral.Markdown.desktop
 appstreamcli validate --no-net /tmp/mineral-stage/usr/share/metainfo/dev.mineral.Markdown.metainfo.xml
-xmllint --noout /tmp/mineral-stage/usr/share/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg
+file /tmp/mineral-stage/usr/share/icons/hicolor/scalable/apps/dev.mineral.Markdown.png
 ```
 
 AppStream currently reports the optional `url-homepage-missing` warning. No

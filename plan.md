@@ -4,16 +4,17 @@
 
 Build a native Rust/GPUI application for **Linux Wayland**, with one continuously rendered, always-editable Markdown surface. Clicking places the caret; selecting text reveals formatting tools. Raw Markdown is never exposed.
 
-The first release includes local file navigation, an outline, a rendered minimap, rich tables, lists, links, images, code examples, undo, and autosave. It targets sustained **120 Hz interaction with documents through 10 MB**.
+The first release includes local file navigation, an outline, adaptive document layouts, rich tables, lists, links, images, code examples, undo, and autosave. The September 6 redesign targets **scrolling above 60 fps through 10 MB**, with 120 Hz as a stretch target. Startup preparation may take longer. See [the adaptive layout plan and validation](performance/ADAPTIVE-LAYOUTS.md).
 
 Confirmed decisions:
 
 - Full rich content inside table cells.
 - Code blocks remain rendered and editable document content.
 - Autosave preserves untouched Markdown regions byte-for-byte.
-- The minimap shows a miniature of the rendered document.
-- Use a almost identical adaptation of the reference's typography and mineral colors, borders spacings, font shadows etc, scan the source CSS.
-- create also a light-theme version (follow OS for theme, no setting needed)
+- Remove the minimap from the application for now; retain Files and Outline.
+- Use all eight images in `designs/` as the visual reference: warm paper, dark serif headings, green accents, fine borders and restrained panels. No heading shadows or decorative heading badges.
+- Start with the light theme, independent of the system appearance.
+- Choose layout automatically without user-facing preferences; keep editing and source order stable.
 - No tabs, source pane, permanent formatting toolbar, accounts, synchronization, or plugin system in v1.
 
 ## 2. Visual and component design system
@@ -26,9 +27,9 @@ Use those families and heading characteristics at document-appropriate sizes:
 
 | Role | Typography |
 | --- | --- |
-| Body and table cells | Spline Sans 18 px, weight 400, line height 1.6 |
-| H1 | Fraunces 42 px/1.02, weight 600, tracking -0.022 em; `SOFT=30`, `WONK=1`, `opsz=120` |
-| H2 | Fraunces 32 px/1.12, weight 600, tracking -0.014 em; `SOFT=40`, `WONK=1`, `opsz=72` |
+| Body / lead / table cells | Spline Sans 18/28.8 px; lead 20/31 px; table 15.5/25 px |
+| H1 | Fraunces 44/50 px, weight 600; `SOFT=30`, `WONK=1`, `opsz=120` |
+| H2 | Fraunces 28/34 px, weight 600; `SOFT=40`, `WONK=1`, `opsz=72` |
 | H3-H6 | Fraunces 26/22/19/17 px, weight 600, line height 1.2; `SOFT=40`, `WONK=1`, `opsz=20` |
 | Navigation and controls | Spline Sans 13 px/1.4 |
 | Code | Spline Sans Mono 15 px/1.5 |
@@ -39,25 +40,25 @@ The following light palette is an adaptation for this application:
 
 | Token | Value |
 | --- | --- |
-| Page and navigation background | `#FCFBF8` |
+| Page / navigation background | `#FCFBF8` / `#F3F2ED` |
 | Primary text | `#1B2430` |
 | Secondary text | `#59636F` |
-| Hover surface | `#F1EFE9` |
+| Hover surface | `#E7ECDF` |
 | Floating surfaces | `#FFFFFF` |
 | Links and active controls | `#256F50` |
 | Selection | `#DCEBE1` |
-| Table rules | `#D8D5CE` |
+| Table rules | `#DEDFD7` |
 | Errors | `#9E4B3F` |
 
-Use a 4 px spacing scale. Paragraph spacing is 16 px; headings have 32 px above and 12 px below. Avoid textures, gradients, page shadows, and panel outlines. Floating controls use an 8 px corner radius and a restrained shadow. Keyboard focus remains visibly outlined.
+Use a 4 px spacing scale. Paragraph spacing is 16 px; ordinary headings have 20 px above and 7 px below. H1/H2 use a subtle gray text shadow, and chapter numbers have distinct green sans typography. Quotes have inset padding; cards have quiet backgrounds and fine outlines. Avoid textures, gradients, and page shadows. Floating controls use an 8 px corner radius and a restrained shadow. Keyboard focus remains visibly outlined.
 
 ### Window layout
 
 - **Header:** 36 px high, with the document filename, a subtle unsaved/error indicator, and one hamburger menu beside compositor-appropriate window controls.
 - **Left navigation:** 224 px initially, resizable from 180-320 px. The upper 60% contains folders and sibling Markdown files; the lower 40% contains the outline. Both scroll independently. A draggable gap separates them without a visible rule.
-- **Document:** horizontally centered within the remaining workspace. Target approximately 68 characters per line using measured Spline Sans text metrics; verify ordinary prose falls predominantly within 60-75 characters. Maintain at least 32 px horizontal padding.
-- **Minimap:** 64 px on the right, with a draggable viewport indicator and an effective pointer target of at least 16 px.
-- **Responsive behavior:** hide the minimap below 1000 px window width; below 800 px, collapse navigation into a temporary overlay. Preserve access through the hamburger menu and shortcuts. Minimum window size: 480 x 360 px.
+- **Document:** horizontally centered within the remaining workspace, with a wider reading measure and 28 px horizontal padding. Reflow source soft breaks; preserve explicit hard breaks. Place the document scrollbar on the outer window edge. Wheel scrolling eases to rest; precise trackpad input and reduced-motion preferences retain direct behavior.
+- **Responsive behavior:** below 800 px, collapse navigation into a temporary overlay. Preserve access through the menu and shortcuts. Minimum window size: 480 x 360 px. The canvas grows to 1280 px while ordinary prose stays within 960 px.
+- **Automatic composition:** no layout selectors or saved overrides. Match short independent lists, explicit arrow sequences, adjacent figures, and repeated bounded sibling sections to appropriate arrangements. Keep source order and typing stability; retain vertical fallbacks for complex content. Fit table columns above readable minimums, preserving explicit widths and contained overflow.
 - Tables and images may use the full central workspace width. Prose retains its reading measure. Wide tables scroll horizontally within their own area.
 
 ### Rendered components and editing
@@ -102,7 +103,7 @@ Use a 4 px spacing scale. Paragraph spacing is 16 px; headings have 32 px above 
 Use three crates:
 
 - **Document core:** structured content, selections, transactions, undo, Markdown/HTML import, and source-preserving serialization. No GPUI dependency.
-- **Document view:** shaping, layout, hit testing, selection painting, tables, viewport virtualization, outline projection, and minimap.
+- **Document view:** shaping, adaptive arrangements, hit testing, selection painting, tables, viewport virtualization, and outline projection.
 - **Application:** GPUI window, commands, navigation, filesystem services, image cache, and recovery.
 
 Start with GPUI Component commit `ff3eb1128ac1058f1bb88e777744ce1237aa3b79` and its recorded Zed dependency commit `8b1497dbd22fb06f5838a7c0b84a1e54fafa71bc`. Pin dependencies and the working toolchain in the repository. Use installed Rust 1.98.0 as the initial build baseline.
@@ -162,7 +163,7 @@ Clipboard output includes plain text, HTML, and an application-rich representati
 
 ## 4. Rendering and performance contract
 
-**120 Hz is an acceptance target to measure, not a property guaranteed by choosing GPUI.**
+**Scrolling above 60 fps is the current acceptance target to measure.** The older 120 Hz/startup qualification protocol below remains a separate, stricter benchmark, not the September 6 acceptance gate.
 
 ### Rendering strategy
 
@@ -173,8 +174,8 @@ Clipboard output includes plain text, HTML, and an application-rich representati
 - Invalidate only affected layout fragments. Selection and caret changes repaint overlays without rebuilding document content.
 - Preserve scrolling with a stable node/fragment anchor and intra-fragment offset when images, tables, or wrapping change above the viewport.
 - Consume precise Wayland scroll deltas and frame callbacks. Preserve supplied scroll phases; do not add easing to direct trackpad movement.
-- Outline jumps use a cancellable 120 ms transition. Minimap dragging follows the pointer directly. Reduced motion makes programmatic jumps immediate.
-- Build the minimap from cached layout summaries: text-line silhouettes, heading weights, table grids, and image silhouettes. Progressively refine unmeasured regions without constructing a second document view.
+- Outline jumps use a cancellable 120 ms transition. Reduced motion makes programmatic jumps immediate.
+- Cache component bounds, heading positions and interval maxima when publishing geometry. Scroll frames perform bounded visible-range queries, with no minimap or full-document component scans.
 - Limit speculative layout work to short, interruptible idle slices. Disk I/O, parsing, serialization, image decoding, and directory traversal stay off the UI thread.
 - Keep the application event-driven while idle.
 
@@ -198,7 +199,7 @@ Measure startup both with warm caches and with cold filesystem/application cache
 1. **Native foundation and performance harness:** pinned build, Wayland window, bundled typography, editable paragraph, IME, selection, and measured scrolling. Establish presentation timing before building the remaining shell.
 2. **Document core:** source-preserving import/export, transactions, cross-block editing, clipboard, undo, autosave, recovery, and external-change handling.
 3. **Components:** lists, links, images, code, alerts, footnotes, and rich tables using the shared editing engine.
-4. **Navigation:** filesystem tree, outline, minimap, selection toolbar, context insertion, and responsive layout.
+4. **Navigation:** filesystem tree, outline, selection toolbar, context insertion, and responsive layout.
 5. **Release qualification:** performance, visual fidelity, accessibility, packaging, and clean-machine startup.
 
 Required validation:

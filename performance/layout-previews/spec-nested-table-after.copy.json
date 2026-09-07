@@ -1,0 +1,27 @@
+{
+  "markers": [
+    "Configuration",
+    "Context",
+    "Nested key",
+    "Nested value",
+    "Retry count",
+    "17",
+    "Policy name",
+    "Keep all evidence",
+    "Independent outer neighbor."
+  ],
+  "positions": [
+    136,
+    150,
+    161,
+    172,
+    187,
+    199,
+    204,
+    216,
+    239
+  ],
+  "source_order": true,
+  "clipboard_sha256": "4722571c170c654b6038181c811cc45364b63d2212ff7818b5aa10ac0a08a836",
+  "binary_sha256": "72d5a943b022f4da8e5e6bafaba17e07ee964aaf2d3743adcd6c4853304afdb7"
+}

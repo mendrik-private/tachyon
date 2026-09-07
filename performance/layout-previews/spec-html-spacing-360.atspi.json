@@ -1,0 +1,1550 @@
+{
+  "initial": {
+    "nodes": [
+      {
+        "parent": null,
+        "role": "application",
+        "name": "mineral-markdown",
+        "path": "/org/a11y/atspi/accessible/root",
+        "interfaces": [
+          "Accessible",
+          "Application"
+        ],
+        "states": [],
+        "actions": []
+      },
+      {
+        "parent": 0,
+        "role": "frame",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/0",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "active",
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": -1,
+          "y": -1,
+          "width": -1,
+          "height": -1
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/328423109464194277084162345878689939456",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 24,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/311510640687613300027276930400275922944",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 167,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "100%",
+        "path": "/org/a11y/atspi/accessible/0/217409533874894367088802763930974814208",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 189,
+          "y": 6,
+          "width": 39,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/224741334569137759559783639469697007616",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 230,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "entry",
+        "name": "Markdown document editor",
+        "path": "/org/a11y/atspi/accessible/0/103257238808632377204869266533672550400",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "editable",
+          "enabled",
+          "focusable",
+          "focused",
+          "multi-line",
+          "sensitive",
+          "showing",
+          "visible",
+          "selectable-text"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 54,
+          "width": 304,
+          "height": 826
+        }
+      },
+      {
+        "parent": 6,
+        "role": "document frame",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/182881162782678781990643988542701699072",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 54,
+          "width": 304,
+          "height": 1041
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Accessible HTML fragments",
+        "path": "/org/a11y/atspi/accessible/0/83376270599433419667572709973831974912",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 62,
+          "width": 304,
+          "height": 150
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Original HTML remains the canonical source until an explicit text edit.",
+        "path": "/org/a11y/atspi/accessible/0/74626442440978236428678826610237898752",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 222,
+          "width": 304,
+          "height": 93
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Visible HTML body marker with strong emphasis and ordinary rich text.\nUnicode marker: \u6771\u4eac caf\u00e9 \ud83e\udd80.\nClosed HTML disclosure\nOpen HTML disclosure\nOpen HTML body marker.",
+        "path": "/org/a11y/atspi/accessible/0/79958660386182292323624333018686029824",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 347,
+          "width": 304,
+          "height": 420
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Source fallback",
+        "path": "/org/a11y/atspi/accessible/0/4379584521656579761606787603015663616",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 819,
+          "width": 304,
+          "height": 34
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "<custom-widget>Unknown original HTML source marker.</custom-widget>",
+        "path": "/org/a11y/atspi/accessible/0/23417131519756459255112576193345355776",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 863,
+          "width": 304,
+          "height": 86
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Following Markdown",
+        "path": "/org/a11y/atspi/accessible/0/173759073909900197310907753771667816448",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 993,
+          "width": 304,
+          "height": 34
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Following canonical paragraph marker.",
+        "path": "/org/a11y/atspi/accessible/0/255190608717876813338840892183297392640",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 1037,
+          "width": 304,
+          "height": 57
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "HTML",
+        "path": "/org/a11y/atspi/accessible/0/153866834575683147872179861534531387392",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 28,
+          "y": 351,
+          "width": 71,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/38962154088695429630126919228447522816",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 107,
+          "y": 351,
+          "width": 24,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Edit text",
+        "path": "/org/a11y/atspi/accessible/0/286963621805692759094102235655624982528",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 139,
+          "y": 351,
+          "width": 71,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Closed HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/70163080576969914865895432443427553280",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 62,
+          "y": 601,
+          "width": 228,
+          "height": 29
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Open HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/102229495917759673189052496423346503680",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "expanded",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 62,
+          "y": 672,
+          "width": 228,
+          "height": 29
+        }
+      }
+    ]
+  },
+  "initial_visible_text": true,
+  "initial_expansion_state": true,
+  "opened_state_events": [
+    {
+      "type": "object:state-changed:expanded",
+      "source_path": "/org/a11y/atspi/accessible/0/70163080576969914865895432443427553280",
+      "expanded": true
+    }
+  ],
+  "opened_native_notification": true,
+  "opened": {
+    "nodes": [
+      {
+        "parent": null,
+        "role": "application",
+        "name": "mineral-markdown",
+        "path": "/org/a11y/atspi/accessible/root",
+        "interfaces": [
+          "Accessible",
+          "Application"
+        ],
+        "states": [],
+        "actions": []
+      },
+      {
+        "parent": 0,
+        "role": "frame",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/0",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "active",
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": -1,
+          "y": -1,
+          "width": -1,
+          "height": -1
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/328423109464194277084162345878689939456",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 24,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/311510640687613300027276930400275922944",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 167,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "100%",
+        "path": "/org/a11y/atspi/accessible/0/217409533874894367088802763930974814208",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 189,
+          "y": 6,
+          "width": 39,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/224741334569137759559783639469697007616",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 230,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "entry",
+        "name": "Markdown document editor",
+        "path": "/org/a11y/atspi/accessible/0/103257238808632377204869266533672550400",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "editable",
+          "enabled",
+          "focusable",
+          "multi-line",
+          "sensitive",
+          "showing",
+          "visible",
+          "selectable-text"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 54,
+          "width": 304,
+          "height": 826
+        }
+      },
+      {
+        "parent": 6,
+        "role": "document frame",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/182881162782678781990643988542701699072",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 54,
+          "width": 304,
+          "height": 1243
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Accessible HTML fragments",
+        "path": "/org/a11y/atspi/accessible/0/83376270599433419667572709973831974912",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 62,
+          "width": 304,
+          "height": 150
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Original HTML remains the canonical source until an explicit text edit.",
+        "path": "/org/a11y/atspi/accessible/0/74626442440978236428678826610237898752",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 222,
+          "width": 304,
+          "height": 93
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Visible HTML body marker with strong emphasis and ordinary rich text.\nUnicode marker: \u6771\u4eac caf\u00e9 \ud83e\udd80.\nClosed HTML disclosure\nClosed HTML body marker.\nNested HTML disclosure\nNested hidden body marker.\nOpen HTML disclosure\nOpen HTML body marker.",
+        "path": "/org/a11y/atspi/accessible/0/79958660386182292323624333018686029824",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 347,
+          "width": 304,
+          "height": 622
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Source fallback",
+        "path": "/org/a11y/atspi/accessible/0/4379584521656579761606787603015663616",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 1021,
+          "width": 304,
+          "height": 34
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "<custom-widget>Unknown original HTML source marker.</custom-widget>",
+        "path": "/org/a11y/atspi/accessible/0/23417131519756459255112576193345355776",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 1065,
+          "width": 304,
+          "height": 86
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Following Markdown",
+        "path": "/org/a11y/atspi/accessible/0/173759073909900197310907753771667816448",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 1195,
+          "width": 304,
+          "height": 34
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Following canonical paragraph marker.",
+        "path": "/org/a11y/atspi/accessible/0/255190608717876813338840892183297392640",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 1239,
+          "width": 304,
+          "height": 57
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "HTML",
+        "path": "/org/a11y/atspi/accessible/0/153866834575683147872179861534531387392",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 28,
+          "y": 351,
+          "width": 71,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/38962154088695429630126919228447522816",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 107,
+          "y": 351,
+          "width": 24,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Edit text",
+        "path": "/org/a11y/atspi/accessible/0/286963621805692759094102235655624982528",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 139,
+          "y": 351,
+          "width": 71,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Closed HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/70163080576969914865895432443427553280",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "expanded",
+          "focusable",
+          "focused",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 62,
+          "y": 601,
+          "width": 228,
+          "height": 29
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Nested HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/113660636948129049910787328850859655168",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "expanded",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 79,
+          "y": 696,
+          "width": 194,
+          "height": 57
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Open HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/102229495917759673189052496423346503680",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "expanded",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 62,
+          "y": 874,
+          "width": 228,
+          "height": 29
+        }
+      }
+    ]
+  },
+  "opened_visible_text": true,
+  "opened_source_unchanged": true,
+  "restored_state_events": [
+    {
+      "type": "object:state-changed:expanded",
+      "source_path": "/org/a11y/atspi/accessible/0/70163080576969914865895432443427553280",
+      "expanded": false
+    }
+  ],
+  "restored_native_notification": true,
+  "restored": {
+    "nodes": [
+      {
+        "parent": null,
+        "role": "application",
+        "name": "mineral-markdown",
+        "path": "/org/a11y/atspi/accessible/root",
+        "interfaces": [
+          "Accessible",
+          "Application"
+        ],
+        "states": [],
+        "actions": []
+      },
+      {
+        "parent": 0,
+        "role": "frame",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/0",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "active",
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": -1,
+          "y": -1,
+          "width": -1,
+          "height": -1
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/328423109464194277084162345878689939456",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 24,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/311510640687613300027276930400275922944",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 167,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "100%",
+        "path": "/org/a11y/atspi/accessible/0/217409533874894367088802763930974814208",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 189,
+          "y": 6,
+          "width": 39,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/224741334569137759559783639469697007616",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 230,
+          "y": 6,
+          "width": 20,
+          "height": 20
+        }
+      },
+      {
+        "parent": 1,
+        "role": "entry",
+        "name": "Markdown document editor",
+        "path": "/org/a11y/atspi/accessible/0/103257238808632377204869266533672550400",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "editable",
+          "enabled",
+          "focusable",
+          "multi-line",
+          "sensitive",
+          "showing",
+          "visible",
+          "selectable-text"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 54,
+          "width": 304,
+          "height": 826
+        }
+      },
+      {
+        "parent": 6,
+        "role": "document frame",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/182881162782678781990643988542701699072",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 54,
+          "width": 304,
+          "height": 1041
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Accessible HTML fragments",
+        "path": "/org/a11y/atspi/accessible/0/83376270599433419667572709973831974912",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 62,
+          "width": 304,
+          "height": 150
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Original HTML remains the canonical source until an explicit text edit.",
+        "path": "/org/a11y/atspi/accessible/0/74626442440978236428678826610237898752",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 222,
+          "width": 304,
+          "height": 93
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Visible HTML body marker with strong emphasis and ordinary rich text.\nUnicode marker: \u6771\u4eac caf\u00e9 \ud83e\udd80.\nClosed HTML disclosure\nOpen HTML disclosure\nOpen HTML body marker.",
+        "path": "/org/a11y/atspi/accessible/0/79958660386182292323624333018686029824",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 347,
+          "width": 304,
+          "height": 420
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Source fallback",
+        "path": "/org/a11y/atspi/accessible/0/4379584521656579761606787603015663616",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 819,
+          "width": 304,
+          "height": 34
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "<custom-widget>Unknown original HTML source marker.</custom-widget>",
+        "path": "/org/a11y/atspi/accessible/0/23417131519756459255112576193345355776",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 863,
+          "width": 304,
+          "height": 86
+        }
+      },
+      {
+        "parent": 7,
+        "role": "heading",
+        "name": "Following Markdown",
+        "path": "/org/a11y/atspi/accessible/0/173759073909900197310907753771667816448",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 993,
+          "width": 304,
+          "height": 34
+        }
+      },
+      {
+        "parent": 7,
+        "role": "paragraph",
+        "name": "Following canonical paragraph marker.",
+        "path": "/org/a11y/atspi/accessible/0/255190608717876813338840892183297392640",
+        "interfaces": [
+          "Accessible",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [],
+        "bounds": {
+          "x": 28,
+          "y": 1037,
+          "width": 304,
+          "height": 57
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "HTML",
+        "path": "/org/a11y/atspi/accessible/0/153866834575683147872179861534531387392",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 28,
+          "y": 351,
+          "width": 71,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "",
+        "path": "/org/a11y/atspi/accessible/0/38962154088695429630126919228447522816",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 107,
+          "y": 351,
+          "width": 24,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Edit text",
+        "path": "/org/a11y/atspi/accessible/0/286963621805692759094102235655624982528",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 139,
+          "y": 351,
+          "width": 71,
+          "height": 24
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Closed HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/70163080576969914865895432443427553280",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "focusable",
+          "focused",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 62,
+          "y": 601,
+          "width": 228,
+          "height": 29
+        }
+      },
+      {
+        "parent": 6,
+        "role": "button",
+        "name": "Open HTML disclosure",
+        "path": "/org/a11y/atspi/accessible/0/102229495917759673189052496423346503680",
+        "interfaces": [
+          "Accessible",
+          "Action",
+          "Component"
+        ],
+        "states": [
+          "enabled",
+          "expandable",
+          "expanded",
+          "focusable",
+          "sensitive",
+          "showing",
+          "visible"
+        ],
+        "actions": [
+          "click"
+        ],
+        "bounds": {
+          "x": 62,
+          "y": 672,
+          "width": 228,
+          "height": 29
+        }
+      }
+    ]
+  },
+  "restored_visible_text": true,
+  "restored_source_unchanged": true,
+  "fragment_identity_retained": true,
+  "native_expanded_state_available": true,
+  "disclosure_identity_retained": true,
+  "passes": true,
+  "binary_sha256": "7cc483c66aa99932a035e2cadc9347652698b05f1a7d9f96131fc7fc0795601a",
+  "fixture": "28-accessible-html.md",
+  "width": 360,
+  "height": 900,
+  "display_scale_120": 120,
+  "zoom_steps": 0,
+  "private_session_bus": true
+}

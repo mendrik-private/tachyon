@@ -1,0 +1,4633 @@
+{
+  "binary_sha256": "ca7d09f2d3f1994c6a60a7c3485e951f09aefbbf515a17fd44746defd7806dad",
+  "fixture": "21-disclosure-stress.md",
+  "width": 1280,
+  "height": 1000,
+  "display_scale_120": 120,
+  "zoom_steps": 0,
+  "trace_mode": "summary",
+  "reports": [
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 0,
+      "sequence": 1,
+      "document_generation": 0,
+      "geometry_generation": 1,
+      "queue_wait_ms": 0.06905800000000001,
+      "dispatch_ms": 0.003065,
+      "result_wait_ms": 8.697272,
+      "worker_ms": 3.606481,
+      "diagnostic_collection_ms": 0.004429,
+      "commit_ms": 0.000892,
+      "committed": false,
+      "explicitly_requested": false,
+      "discard_reason": "viewport_zoom_or_recent_edit",
+      "stale_results_total": 1,
+      "committed_results_total": 0,
+      "anchor_displacement_at_commit_px": null,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.014244,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.0054399999999999995,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000611,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 3.573675,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 2,
+            "intrinsic_cache_hits": 1,
+            "intrinsic_cache_misses": 1,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 1,
+            "group_cache_hits": 0,
+            "groups_measured": 1,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 1,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 1,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.012391000000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 1,
+            "geometry_cache_hits": 1,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        }
+      ],
+      "canvas_width": 770.0,
+      "text_zoom": 1.0,
+      "viewport_height": 604.0,
+      "root_count": 1,
+      "segment_count": 1,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 1,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          1
+        ]
+      ],
+      "deferred_windows": 0,
+      "chosen_rows": 1,
+      "row_candidates": 1,
+      "list_candidates": 0,
+      "changed_row_groups": 1,
+      "changed_lists": 0,
+      "row_rejections": {},
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 0,
+      "sequence": 2,
+      "document_generation": 0,
+      "geometry_generation": 1,
+      "queue_wait_ms": 0.081009,
+      "dispatch_ms": 0.002063,
+      "result_wait_ms": 1.744956,
+      "worker_ms": 0.036643,
+      "diagnostic_collection_ms": 0.0011120000000000001,
+      "commit_ms": 0.007393,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 1,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.006431,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.002414,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00029099999999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.023951,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 2,
+            "intrinsic_cache_hits": 2,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 1,
+            "group_cache_hits": 0,
+            "groups_measured": 1,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 1,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 1,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.003456,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 1,
+            "geometry_cache_hits": 1,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 1,
+      "segment_count": 1,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 1,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          1
+        ]
+      ],
+      "deferred_windows": 0,
+      "chosen_rows": 1,
+      "row_candidates": 1,
+      "list_candidates": 0,
+      "changed_row_groups": 1,
+      "changed_lists": 0,
+      "row_rejections": {},
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 0,
+      "sequence": 3,
+      "document_generation": 0,
+      "geometry_generation": 3,
+      "queue_wait_ms": 0.096896,
+      "dispatch_ms": 0.0049180000000000005,
+      "result_wait_ms": 2.198222,
+      "worker_ms": 0.03496,
+      "diagnostic_collection_ms": 0.0017130000000000001,
+      "commit_ms": 0.010247000000000001,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 2,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.0045379999999999995,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.0029349999999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00015,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.021175999999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 1,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.006051,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 1,
+            "geometry_cache_hits": 1,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 1,
+      "segment_count": 1,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 1,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          1
+        ]
+      ],
+      "deferred_windows": 0,
+      "chosen_rows": 1,
+      "row_candidates": 2,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 4,
+      "document_generation": 0,
+      "geometry_generation": 6,
+      "queue_wait_ms": 0.053010999999999996,
+      "dispatch_ms": 0.0038369999999999997,
+      "result_wait_ms": 0.03531,
+      "worker_ms": 341.404436,
+      "diagnostic_collection_ms": 0.008966,
+      "commit_ms": 0.089133,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 3,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.265515,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.006341,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00039999999999999996,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 6.803967999999999,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 4,
+            "intrinsic_cache_hits": 1,
+            "intrinsic_cache_misses": 3,
+            "shaping_calls": 5,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 9,
+            "group_cache_hits": 0,
+            "groups_measured": 1,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 2,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 2,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 334.327551,
+          "measurements": {
+            "wrap_requests": 8,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 8,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 8,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 18,
+            "geometry_cache_hits": 2,
+            "segments_laid_out": 16,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 112
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 9,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          16,
+          18
+        ]
+      ],
+      "deferred_windows": 56,
+      "chosen_rows": 65,
+      "row_candidates": 9,
+      "list_candidates": 0,
+      "changed_row_groups": 65,
+      "changed_lists": 0,
+      "row_rejections": {},
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 5,
+      "document_generation": 0,
+      "geometry_generation": 8,
+      "queue_wait_ms": 0.112352,
+      "dispatch_ms": 0.012672,
+      "result_wait_ms": 0.027597,
+      "worker_ms": 290.770391,
+      "diagnostic_collection_ms": 0.014395,
+      "commit_ms": 0.057349000000000004,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 4,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.736501,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.018380999999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.0006309999999999999,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.21640099999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 9,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 289.798027,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 18,
+            "geometry_cache_hits": 18,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 112
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 9,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          16,
+          18
+        ]
+      ],
+      "deferred_windows": 56,
+      "chosen_rows": 65,
+      "row_candidates": 10,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 6,
+      "document_generation": 0,
+      "geometry_generation": 9,
+      "queue_wait_ms": 0.088402,
+      "dispatch_ms": 0.014074,
+      "result_wait_ms": 0.027307,
+      "worker_ms": 377.924109,
+      "diagnostic_collection_ms": 0.015908,
+      "commit_ms": 0.053622,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 5,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.48279099999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.009536,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000471,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.265276,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 10,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 377.165654,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 1,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 20,
+            "geometry_cache_hits": 18,
+            "segments_laid_out": 2,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 110
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 10,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          18,
+          20
+        ]
+      ],
+      "deferred_windows": 55,
+      "chosen_rows": 65,
+      "row_candidates": 11,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 7,
+      "document_generation": 0,
+      "geometry_generation": 10,
+      "queue_wait_ms": 0.09759799999999999,
+      "dispatch_ms": 0.013574000000000001,
+      "result_wait_ms": 0.019633,
+      "worker_ms": 294.910853,
+      "diagnostic_collection_ms": 0.011800999999999999,
+      "commit_ms": 0.059413,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 6,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.25001100000000004,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.009145,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00042100000000000004,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.141213,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 10,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 294.509743,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 1,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 22,
+            "geometry_cache_hits": 20,
+            "segments_laid_out": 2,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 108
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 10,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          18,
+          20
+        ],
+        [
+          20,
+          22
+        ]
+      ],
+      "deferred_windows": 55,
+      "chosen_rows": 65,
+      "row_candidates": 11,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 8,
+      "document_generation": 0,
+      "geometry_generation": 11,
+      "queue_wait_ms": 0.090325,
+      "dispatch_ms": 0.006752,
+      "result_wait_ms": 0.051399,
+      "worker_ms": 272.089844,
+      "diagnostic_collection_ms": 0.018172,
+      "commit_ms": 0.106854,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 7,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.851526,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.015957,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000551,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.25904600000000005,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 270.96207300000003,
+          "measurements": {
+            "wrap_requests": 3,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 3,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 3,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 28,
+            "geometry_cache_hits": 22,
+            "segments_laid_out": 6,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 102
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          18,
+          20
+        ],
+        [
+          20,
+          22
+        ],
+        [
+          22,
+          24
+        ],
+        [
+          24,
+          26
+        ],
+        [
+          26,
+          28
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 9,
+      "document_generation": 0,
+      "geometry_generation": 12,
+      "queue_wait_ms": 0.113646,
+      "dispatch_ms": 0.017691000000000002,
+      "result_wait_ms": 0.026806,
+      "worker_ms": 250.184272,
+      "diagnostic_collection_ms": 0.016638000000000003,
+      "commit_ms": 0.057219,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 8,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.25535,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.009476,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00043099999999999996,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.120728,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 249.79779599999998,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 32,
+            "geometry_cache_hits": 28,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 98
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          18,
+          20
+        ],
+        [
+          20,
+          22
+        ],
+        [
+          22,
+          24
+        ],
+        [
+          24,
+          26
+        ],
+        [
+          26,
+          28
+        ],
+        [
+          28,
+          30
+        ],
+        [
+          30,
+          32
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 10,
+      "document_generation": 0,
+      "geometry_generation": 13,
+      "queue_wait_ms": 0.0926,
+      "dispatch_ms": 0.014595,
+      "result_wait_ms": 0.049734999999999994,
+      "worker_ms": 269.780361,
+      "diagnostic_collection_ms": 0.018052000000000002,
+      "commit_ms": 0.071203,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 9,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.5942729999999999,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.01736,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000571,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.231839,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 268.935937,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 36,
+            "geometry_cache_hits": 32,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 94
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          18,
+          20
+        ],
+        [
+          20,
+          22
+        ],
+        [
+          22,
+          24
+        ],
+        [
+          24,
+          26
+        ],
+        [
+          26,
+          28
+        ],
+        [
+          28,
+          30
+        ],
+        [
+          30,
+          32
+        ],
+        [
+          32,
+          34
+        ],
+        [
+          34,
+          36
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 11,
+      "document_generation": 0,
+      "geometry_generation": 14,
+      "queue_wait_ms": 0.10198499999999999,
+      "dispatch_ms": 0.018512,
+      "result_wait_ms": 0.025474,
+      "worker_ms": 270.62469500000003,
+      "diagnostic_collection_ms": 0.018281000000000002,
+      "commit_ms": 0.07438800000000001,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 10,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.28105399999999997,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.009556,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000411,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.12224999999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 270.211013,
+          "measurements": {
+            "wrap_requests": 3,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 3,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 3,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 42,
+            "geometry_cache_hits": 36,
+            "segments_laid_out": 6,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 88
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          22,
+          24
+        ],
+        [
+          24,
+          26
+        ],
+        [
+          26,
+          28
+        ],
+        [
+          28,
+          30
+        ],
+        [
+          30,
+          32
+        ],
+        [
+          32,
+          34
+        ],
+        [
+          34,
+          36
+        ],
+        [
+          36,
+          38
+        ],
+        [
+          38,
+          40
+        ],
+        [
+          40,
+          42
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 12,
+      "document_generation": 0,
+      "geometry_generation": 15,
+      "queue_wait_ms": 0.13036499999999998,
+      "dispatch_ms": 0.021447,
+      "result_wait_ms": 0.679771,
+      "worker_ms": 283.328125,
+      "diagnostic_collection_ms": 0.017951,
+      "commit_ms": 0.047452,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 11,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.7671,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.016118,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000651,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.24728599999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 282.296429,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 46,
+            "geometry_cache_hits": 42,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 84
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          26,
+          28
+        ],
+        [
+          28,
+          30
+        ],
+        [
+          30,
+          32
+        ],
+        [
+          32,
+          34
+        ],
+        [
+          34,
+          36
+        ],
+        [
+          36,
+          38
+        ],
+        [
+          38,
+          40
+        ],
+        [
+          40,
+          42
+        ],
+        [
+          42,
+          44
+        ],
+        [
+          44,
+          46
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 13,
+      "document_generation": 0,
+      "geometry_generation": 16,
+      "queue_wait_ms": 0.076351,
+      "dispatch_ms": 0.010468,
+      "result_wait_ms": 0.055676,
+      "worker_ms": 223.832755,
+      "diagnostic_collection_ms": 0.018082,
+      "commit_ms": 0.073456,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 12,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.267641,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.007703999999999999,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00026,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.12742,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 223.42919899999998,
+          "measurements": {
+            "wrap_requests": 3,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 3,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 3,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 52,
+            "geometry_cache_hits": 46,
+            "segments_laid_out": 6,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 78
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          32,
+          34
+        ],
+        [
+          34,
+          36
+        ],
+        [
+          36,
+          38
+        ],
+        [
+          38,
+          40
+        ],
+        [
+          40,
+          42
+        ],
+        [
+          42,
+          44
+        ],
+        [
+          44,
+          46
+        ],
+        [
+          46,
+          48
+        ],
+        [
+          48,
+          50
+        ],
+        [
+          50,
+          52
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 14,
+      "document_generation": 0,
+      "geometry_generation": 17,
+      "queue_wait_ms": 0.138168,
+      "dispatch_ms": 0.019043,
+      "result_wait_ms": 0.025183,
+      "worker_ms": 208.525759,
+      "diagnostic_collection_ms": 0.016177,
+      "commit_ms": 0.049555999999999996,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 13,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.486838,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.017581,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000441,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.207557,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 207.812941,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 56,
+            "geometry_cache_hits": 52,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 74
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          36,
+          38
+        ],
+        [
+          38,
+          40
+        ],
+        [
+          40,
+          42
+        ],
+        [
+          42,
+          44
+        ],
+        [
+          44,
+          46
+        ],
+        [
+          46,
+          48
+        ],
+        [
+          48,
+          50
+        ],
+        [
+          50,
+          52
+        ],
+        [
+          52,
+          54
+        ],
+        [
+          54,
+          56
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 15,
+      "document_generation": 0,
+      "geometry_generation": 18,
+      "queue_wait_ms": 0.091217,
+      "dispatch_ms": 0.016447999999999997,
+      "result_wait_ms": 0.019303,
+      "worker_ms": 199.30461599999998,
+      "diagnostic_collection_ms": 0.013203,
+      "commit_ms": 0.042463,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 14,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.305046,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.008615,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00028000000000000003,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.130405,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 198.85997,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 60,
+            "geometry_cache_hits": 56,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 70
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          40,
+          42
+        ],
+        [
+          42,
+          44
+        ],
+        [
+          44,
+          46
+        ],
+        [
+          46,
+          48
+        ],
+        [
+          48,
+          50
+        ],
+        [
+          50,
+          52
+        ],
+        [
+          52,
+          54
+        ],
+        [
+          54,
+          56
+        ],
+        [
+          56,
+          58
+        ],
+        [
+          58,
+          60
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 16,
+      "document_generation": 0,
+      "geometry_generation": 19,
+      "queue_wait_ms": 0.09243900000000001,
+      "dispatch_ms": 0.007753,
+      "result_wait_ms": 0.018802,
+      "worker_ms": 195.227142,
+      "diagnostic_collection_ms": 0.021578,
+      "commit_ms": 0.036583,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 15,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.840147,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.016388,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000551,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.216413,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 194.15327299999998,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 64,
+            "geometry_cache_hits": 60,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 66
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          44,
+          46
+        ],
+        [
+          46,
+          48
+        ],
+        [
+          48,
+          50
+        ],
+        [
+          50,
+          52
+        ],
+        [
+          52,
+          54
+        ],
+        [
+          54,
+          56
+        ],
+        [
+          56,
+          58
+        ],
+        [
+          58,
+          60
+        ],
+        [
+          60,
+          62
+        ],
+        [
+          62,
+          64
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 17,
+      "document_generation": 0,
+      "geometry_generation": 20,
+      "queue_wait_ms": 0.08923400000000001,
+      "dispatch_ms": 0.008074,
+      "result_wait_ms": 0.019052,
+      "worker_ms": 183.050441,
+      "diagnostic_collection_ms": 0.012731999999999999,
+      "commit_ms": 0.041392,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 16,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.452239,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.008104,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00043099999999999996,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.196749,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 182.39247699999999,
+          "measurements": {
+            "wrap_requests": 2,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 2,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 2,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 68,
+            "geometry_cache_hits": 64,
+            "segments_laid_out": 4,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 62
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          48,
+          50
+        ],
+        [
+          50,
+          52
+        ],
+        [
+          52,
+          54
+        ],
+        [
+          54,
+          56
+        ],
+        [
+          56,
+          58
+        ],
+        [
+          58,
+          60
+        ],
+        [
+          60,
+          62
+        ],
+        [
+          62,
+          64
+        ],
+        [
+          64,
+          66
+        ],
+        [
+          66,
+          68
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 18,
+      "document_generation": 0,
+      "geometry_generation": 21,
+      "queue_wait_ms": 0.138739,
+      "dispatch_ms": 0.006882,
+      "result_wait_ms": 0.469979,
+      "worker_ms": 173.826337,
+      "diagnostic_collection_ms": 0.012332,
+      "commit_ms": 0.036473,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 17,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.654648,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.016238,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.0006010000000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.21342799999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 11,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 172.941151,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 1,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 70,
+            "geometry_cache_hits": 68,
+            "segments_laid_out": 2,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 60
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 11,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          50,
+          52
+        ],
+        [
+          52,
+          54
+        ],
+        [
+          54,
+          56
+        ],
+        [
+          56,
+          58
+        ],
+        [
+          58,
+          60
+        ],
+        [
+          60,
+          62
+        ],
+        [
+          62,
+          64
+        ],
+        [
+          64,
+          66
+        ],
+        [
+          66,
+          68
+        ],
+        [
+          68,
+          70
+        ]
+      ],
+      "deferred_windows": 54,
+      "chosen_rows": 65,
+      "row_candidates": 12,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 19,
+      "document_generation": 0,
+      "geometry_generation": 22,
+      "queue_wait_ms": 0.108517,
+      "dispatch_ms": 0.006812,
+      "result_wait_ms": 1.581355,
+      "worker_ms": 164.537481,
+      "diagnostic_collection_ms": 0.015858,
+      "commit_ms": 0.047992,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 18,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.449515,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.009887,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.00043099999999999996,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.19908299999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 10,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 163.878184,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 1,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 72,
+            "geometry_cache_hits": 70,
+            "segments_laid_out": 2,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 58
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 10,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          54,
+          56
+        ],
+        [
+          56,
+          58
+        ],
+        [
+          58,
+          60
+        ],
+        [
+          60,
+          62
+        ],
+        [
+          62,
+          64
+        ],
+        [
+          64,
+          66
+        ],
+        [
+          66,
+          68
+        ],
+        [
+          68,
+          70
+        ],
+        [
+          70,
+          72
+        ]
+      ],
+      "deferred_windows": 55,
+      "chosen_rows": 65,
+      "row_candidates": 11,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 19011,
+      "sequence": 20,
+      "document_generation": 0,
+      "geometry_generation": 23,
+      "queue_wait_ms": 0.09017599999999999,
+      "dispatch_ms": 0.009216,
+      "result_wait_ms": 1.104774,
+      "worker_ms": 173.208923,
+      "diagnostic_collection_ms": 0.023740999999999998,
+      "commit_ms": 0.050457,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 19,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.531466,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.007232000000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.000301,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.16649699999999998,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 10,
+            "group_cache_hits": 1,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 0,
+            "geometry_cache_hits": 0,
+            "segments_laid_out": 0,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 172.503026,
+          "measurements": {
+            "wrap_requests": 1,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 1,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 1,
+            "table_attempts": 0,
+            "tables_measured": 0,
+            "table_cache_hits": 0,
+            "group_requests": 0,
+            "group_cache_hits": 0,
+            "groups_measured": 0,
+            "item_requests": 0,
+            "item_cache_hits": 0,
+            "items_measured": 0,
+            "geometry_requests": 74,
+            "geometry_cache_hits": 72,
+            "segments_laid_out": 2,
+            "geometry_cache_evictions": 0,
+            "published_geometry_reuses": 0,
+            "deferred_text_segments": 56
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 130,
+      "segment_count": 130,
+      "unresolved_image_dimensions": 0,
+      "dp_windows": 10,
+      "candidate_scope": "visible_and_lookahead_windows",
+      "measured_root_windows": [
+        [
+          0,
+          2
+        ],
+        [
+          56,
+          58
+        ],
+        [
+          58,
+          60
+        ],
+        [
+          60,
+          62
+        ],
+        [
+          62,
+          64
+        ],
+        [
+          64,
+          66
+        ],
+        [
+          66,
+          68
+        ],
+        [
+          68,
+          70
+        ],
+        [
+          70,
+          72
+        ],
+        [
+          72,
+          74
+        ]
+      ],
+      "deferred_windows": 55,
+      "chosen_rows": 65,
+      "row_candidates": 11,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [],
+      "candidates": [],
+      "lists": []
+    }
+  ]
+}

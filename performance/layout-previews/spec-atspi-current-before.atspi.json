@@ -1,0 +1,2128 @@
+{
+  "nodes": [
+    {
+      "parent": null,
+      "role": "application",
+      "name": "mineral-markdown",
+      "interfaces": [
+        "Accessible",
+        "Application"
+      ],
+      "states": [],
+      "actions": []
+    },
+    {
+      "parent": 0,
+      "role": "frame",
+      "name": "",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "active",
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "100%",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 1,
+      "role": "landmark",
+      "name": "Files and document outline",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 6,
+      "role": "tree",
+      "name": "Markdown folders and files",
+      "interfaces": [
+        "Accessible",
+        "Component",
+        "Selection"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 01-field-notes.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 02-list-arrangements.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 03-technical-reference.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 04-figures-and-callouts.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 05-product-specification.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 06-checkbox-icons.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 06-measured-list-fit.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 07-notice-borders.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 08-math-formulas.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 09-display-math.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 10-html-fragments.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 11-measured-rows.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 12-measured-tables.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 13-inline-math.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 14-edit-lock.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 15-measured-figures.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 16-measured-gallery.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 17-long-layout-spec.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 18-native-links.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 19-linked document.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 20-disclosures.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 21-disclosure-stress.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 22-implicit-disclosures.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 23-disclosure-editing.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 24-formula-stress.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 25-math-boundaries.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 26-html-anchors.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 7,
+      "role": "tree item",
+      "name": "Open 27-accessible-document.md",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "selected",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 6,
+      "role": "slider",
+      "name": "Resize files and outline sections",
+      "interfaces": [
+        "Accessible",
+        "Component",
+        "Value"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 6,
+      "role": "tree",
+      "name": "Document outline",
+      "interfaces": [
+        "Accessible",
+        "Component",
+        "Selection"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "Accessible document",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "selected",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "1. Property comparison",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "Connection properties",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "Execution options",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "2. Task actions",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "3. Source-order list",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "4. Code and links",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "5. HTML disclosure",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "6. Formula",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 37,
+      "role": "tree item",
+      "name": "7. Final offscreen heading",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "selectable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 1,
+      "role": "entry",
+      "name": "Markdown document editor",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "editable",
+        "enabled",
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "selectable-text"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "button",
+      "name": "Copy",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 48,
+      "role": "button",
+      "name": "HTML",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 48,
+      "role": "button",
+      "name": "",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 48,
+      "role": "button",
+      "name": "Edit text",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 48,
+      "role": "button",
+      "name": "Native disclosure summary",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 48,
+      "role": "button",
+      "name": "Copy",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ]
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "Accessible document",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "paragraph",
+      "name": "Synthetic content for native screen-reader traversal and keyboard verification.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "1. Property comparison",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "Connection properties",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "Execution options",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "table",
+      "name": "Table",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 60,
+      "role": "table row",
+      "name": "Row 1",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 61,
+      "role": "column header",
+      "name": "Property",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 62,
+      "role": "paragraph",
+      "name": "Property",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 61,
+      "role": "column header",
+      "name": "Value",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 64,
+      "role": "paragraph",
+      "name": "Value",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 60,
+      "role": "table row",
+      "name": "Row 2",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 66,
+      "role": "table cell",
+      "name": "Protocol",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 67,
+      "role": "paragraph",
+      "name": "Protocol",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 66,
+      "role": "table cell",
+      "name": "Local",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 69,
+      "role": "paragraph",
+      "name": "Local",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 60,
+      "role": "table row",
+      "name": "Row 3",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 71,
+      "role": "table cell",
+      "name": "Timeout",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 72,
+      "role": "paragraph",
+      "name": "Timeout",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 71,
+      "role": "table cell",
+      "name": "30 seconds",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 74,
+      "role": "paragraph",
+      "name": "30 seconds",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "table",
+      "name": "Table",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 76,
+      "role": "table row",
+      "name": "Row 1",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 77,
+      "role": "column header",
+      "name": "Option",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 78,
+      "role": "paragraph",
+      "name": "Option",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 77,
+      "role": "column header",
+      "name": "Enabled",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 80,
+      "role": "paragraph",
+      "name": "Enabled",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 77,
+      "role": "column header",
+      "name": "Description",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 82,
+      "role": "paragraph",
+      "name": "Description",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 76,
+      "role": "table row",
+      "name": "Row 2",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 84,
+      "role": "table cell",
+      "name": "Verify",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 85,
+      "role": "paragraph",
+      "name": "Verify",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 84,
+      "role": "table cell",
+      "name": "Yes",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 87,
+      "role": "paragraph",
+      "name": "Yes",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 84,
+      "role": "table cell",
+      "name": "Keep source content unchanged",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 89,
+      "role": "paragraph",
+      "name": "Keep source content unchanged",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 76,
+      "role": "table row",
+      "name": "Row 3",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 91,
+      "role": "table cell",
+      "name": "Preview",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 92,
+      "role": "paragraph",
+      "name": "Preview",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 91,
+      "role": "table cell",
+      "name": "Yes",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 94,
+      "role": "paragraph",
+      "name": "Yes",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 91,
+      "role": "table cell",
+      "name": "Show the original content",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 96,
+      "role": "paragraph",
+      "name": "Show the original content",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "2. Task actions",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "list",
+      "name": "List",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 99,
+      "role": "check box",
+      "name": "Unchecked native task",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible",
+        "checkable"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 100,
+      "role": "paragraph",
+      "name": "Unchecked native task",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 99,
+      "role": "check box",
+      "name": "Completed native task",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "checked",
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible",
+        "checkable"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 102,
+      "role": "paragraph",
+      "name": "Completed native task",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "3. Source-order list",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "list",
+      "name": "List",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 105,
+      "role": "list item",
+      "name": "North: First independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 106,
+      "role": "paragraph",
+      "name": "North: First independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 105,
+      "role": "list item",
+      "name": "South: Second independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 108,
+      "role": "paragraph",
+      "name": "South: Second independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 105,
+      "role": "list item",
+      "name": "East: Third independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 110,
+      "role": "paragraph",
+      "name": "East: Third independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 105,
+      "role": "list item",
+      "name": "West: Fourth independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 112,
+      "role": "paragraph",
+      "name": "West: Fourth independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 105,
+      "role": "list item",
+      "name": "Above: Fifth independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 114,
+      "role": "paragraph",
+      "name": "Above: Fifth independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 105,
+      "role": "list item",
+      "name": "Below: Sixth independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 116,
+      "role": "paragraph",
+      "name": "Below: Sixth independent marker.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "heading",
+      "name": "4. Code and links",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    },
+    {
+      "parent": 48,
+      "role": "link",
+      "name": "Read the local heading before continuing.",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": []
+    }
+  ],
+  "binary_sha256": "2a44be345f077623705280eced94a5858508489437f39ca8b0d736e1be5c7bef",
+  "fixture": "27-accessible-document.md",
+  "width": 1280,
+  "height": 1000,
+  "private_session_bus": true,
+  "all_headings_available": false
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "continuous bidirectional wheel scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.031459344,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 728,
+    "p50_ms": 10.985471,
+    "p95_ms": 18.759679,
+    "p99_ms": 21.774335,
+    "max_ms": 24.248319,
+    "threshold_ms": 6.0,
+    "over_threshold": 725,
+    "over_threshold_percent": 99.58791208791209
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 689,
+      "p50_ms": 13.254655,
+      "p95_ms": 21.397503,
+      "p99_ms": 24.707071,
+      "max_ms": 26.902527,
+      "threshold_ms": 16.7,
+      "over_threshold": 143,
+      "over_threshold_percent": 20.754716981132077
+    },
+    "events_per_frame": {
+      "samples": 689,
+      "p50": 1,
+      "p95": 2,
+      "p99": 2,
+      "max": 3
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 728,
+      "p50_ms": 13.172735,
+      "p95_ms": 21.495807,
+      "p99_ms": 24.608767,
+      "max_ms": 26.984447,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 453,
+    "deadline_opportunities": 1181,
+    "missed_deadline_percent": 38.357324301439455,
+    "intervals_at_least_25_ms": 5,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "c232889c5c4d49c7d12c7765d8032a0e06812d2350aae9e04462c9f3327bde00",
+  "average_presented_fps": 72.57169421071623,
+  "driver_events": 1273,
+  "accessibility_active": true,
+  "accessible_nodes": 3298,
+  "fixture": "17-long-layout-spec.md",
+  "fixture_sha256": "8fac6613999003f3570fd451f68a45c5b65aaceabbc8c49d6c67787cdb9bd36e",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "startup_wait_seconds": 12.0,
+  "configured_warmup_ms": 24000,
+  "passes": false
+}

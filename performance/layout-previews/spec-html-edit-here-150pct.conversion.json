@@ -1,0 +1,14 @@
+{
+  "fixture": "10-html-fragments.md",
+  "native_conversion": true,
+  "edit_here": true,
+  "edit_within": "ordinary rich text",
+  "opening_menu_preserves_source": true,
+  "width": 768,
+  "height": 1000,
+  "zoom_steps": 5,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "two_undos_restore_exact_html": true,
+  "binary_sha256": "52a176178d23a179cb841fe41f7e8646085a8ae0b93cecb180a6667e55d9ad60"
+}

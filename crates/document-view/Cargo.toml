@@ -4,19 +4,36 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Layout, hit-testing, virtualization, outline, and minimap for rich Markdown documents"
+description = "Adaptive layout, hit-testing, virtualization, and outline for rich Markdown documents"
+
+[features]
+# Explicit diagnostic builds only; never enabled by normal application builds.
+layout-validation = []
 
 [dependencies]
+blitz-dom.workspace = true
+blitz-html.workspace = true
+blitz-paint.workspace = true
+blitz-traits.workspace = true
+anyrender.workspace = true
+anyrender_vello_cpu.workspace = true
+# Feature-only bridge: decode embedded PNG glyphs in trusted installed fonts.
+vello_cpu.workspace = true
+png.workspace = true
 document-core.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
+latex-rust.workspace = true
 rustc-hash.workspace = true
+serde.workspace = true
 smallvec.workspace = true
 thiserror.workspace = true
 unicode-segmentation.workspace = true
 
 [dev-dependencies]
+futures.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
+roxmltree.workspace = true
 
 [lints]
 workspace = true

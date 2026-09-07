@@ -1,0 +1,18 @@
+{
+  "fixture": "44-cross-preview-selection.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "preedit_text": "Alpha \u00b4 tail",
+  "preedit_preserves_source": true,
+  "binary_sha256": "ca103a1d11ddc0e8fdf2bbf16468a534b1860d8484e4e324b2b8313e1080feea",
+  "edit_within": null,
+  "expected_edited_source_exact": true,
+  "preserved_fragments": [],
+  "edit_markdown": false,
+  "edit_paste_bytes": 0,
+  "edit_zoom_steps": 0,
+  "edit_idle_seconds": 0,
+  "edit_blur": null,
+  "first_changed_byte": 35
+}

@@ -1,0 +1,11 @@
+{
+  "source_unchanged": true,
+  "passes": true,
+  "fixture": "25-math-boundaries.md",
+  "binary_sha256": "d61a081ff990c1e9c310a5f15b9f66ce9d5dc96c40862d6f184a19f8c2078184",
+  "original_sha256": "052bfdec42353b8137ac85de2bc3ce475e2485551dc24847569dab284a7519fe",
+  "current_sha256": "052bfdec42353b8137ac85de2bc3ce475e2485551dc24847569dab284a7519fe",
+  "width": 768,
+  "height": 1000,
+  "zoom_steps": 0
+}

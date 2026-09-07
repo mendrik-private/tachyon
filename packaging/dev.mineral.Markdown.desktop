@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Mineral Markdown
+Name=Mineral
 Comment=Read and edit Markdown as a rich document
 Exec=mineral-markdown %F
 Icon=dev.mineral.Markdown

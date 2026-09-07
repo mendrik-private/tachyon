@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "continuous bidirectional wheel scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.022587075,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1088,
+    "p50_ms": 4.337663,
+    "p95_ms": 5.783551,
+    "p99_ms": 6.631423,
+    "max_ms": 8.871935,
+    "threshold_ms": 6.0,
+    "over_threshold": 35,
+    "over_threshold_percent": 3.2169117647058822
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 827,
+      "p50_ms": 8.675327,
+      "p95_ms": 9.773055,
+      "p99_ms": 11.026431,
+      "max_ms": 16.973823,
+      "threshold_ms": 16.7,
+      "over_threshold": 1,
+      "over_threshold_percent": 0.12091898428053205
+    },
+    "events_per_frame": {
+      "samples": 827,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 2
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1088,
+      "p50_ms": 9.158655,
+      "p95_ms": 10.428415,
+      "p99_ms": 11.460607,
+      "max_ms": 17.203199,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 3,
+    "deadline_opportunities": 1091,
+    "missed_deadline_percent": 0.27497708524289644,
+    "intervals_at_least_25_ms": 0,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "d6f3be3206aa8004deb6bd4ccd93ea8dd44dd712a7c9cb26be6084c0646b3c92",
+  "average_presented_fps": 108.5548064445227,
+  "driver_events": 1014,
+  "fixture": "21-disclosure-stress.md",
+  "fixture_sha256": "2466acf82ae4d4f16489de4254b2bd5718f7a395398cb2b20e7ed62f094735c9",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "passes": true
+}

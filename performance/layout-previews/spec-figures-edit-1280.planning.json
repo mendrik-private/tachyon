@@ -1,0 +1,3762 @@
+{
+  "binary_sha256": "355b636a9cd3dc3dfe08d7e621787f98b90178f22d58bf06312c785f21c05b89",
+  "fixture": "15-measured-figures.md",
+  "width": 1280,
+  "height": 1000,
+  "display_scale_120": 120,
+  "zoom_steps": 0,
+  "trace_mode": "details",
+  "reports": [
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 1,
+      "document_generation": 0,
+      "geometry_generation": 2,
+      "queue_wait_ms": 0.10194199999999999,
+      "dispatch_ms": 0.003075,
+      "result_wait_ms": 19.471505999999998,
+      "worker_ms": 2.986735,
+      "diagnostic_collection_ms": 0.014507,
+      "commit_ms": 0.001212,
+      "committed": false,
+      "explicitly_requested": false,
+      "discard_reason": "viewport_zoom_or_recent_edit",
+      "stale_results_total": 1,
+      "committed_results_total": 0,
+      "anchor_displacement_at_commit_px": null,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.028543000000000002,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.007114,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.006121000000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 2.9147510000000003,
+          "measurements": {
+            "wrap_requests": 18,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 18,
+            "intrinsic_requests": 56,
+            "intrinsic_cache_hits": 13,
+            "intrinsic_cache_misses": 43,
+            "shaping_calls": 61,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.029756,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 12,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 770.0,
+      "text_zoom": 1.0,
+      "viewport_height": 604.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 17,
+      "list_candidates": 0,
+      "changed_row_groups": 7,
+      "changed_lists": 0,
+      "row_rejections": {
+        "too_narrow": 4,
+        "unmeasured": 3
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            8.0,
+            770.0,
+            130.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            293.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.4,
+          "normalized_penalties": [
+            0.0,
+            0.2,
+            0.0,
+            0.0,
+            0.0,
+            0.19999999,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            174.0,
+            770.0,
+            467.6
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            491.6,
+            770.0,
+            549.2
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            593.2,
+            770.0,
+            666.0
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            710.0,
+            770.0,
+            934.0
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            978.0,
+            770.0,
+            1271.6001
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            1315.6001,
+            770.0,
+            1417.2002
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            293.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.4,
+          "normalized_penalties": [
+            0.0,
+            0.2,
+            0.0,
+            0.0,
+            0.0,
+            0.19999999,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            377.0,
+            377.0
+          ],
+          "heights": [
+            115.2,
+            108.3
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 3.0127504,
+          "normalized_penalties": [
+            0.16542394,
+            0.0,
+            0.19255927,
+            0.029947877,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            246.0,
+            508.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            508.0,
+            246.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            311.5,
+            442.5
+          ],
+          "heights": [
+            115.2,
+            127.95
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 3.0936077,
+          "normalized_penalties": [
+            0.17272614,
+            0.0,
+            0.19255927,
+            0.041167676,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            442.5,
+            311.5
+          ],
+          "heights": [
+            86.399994,
+            88.65
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.9372063,
+          "normalized_penalties": [
+            0.18916956,
+            0.0,
+            0.14547846,
+            0.01489532,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            377.0,
+            377.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.886218,
+          "normalized_penalties": [
+            0.06151988,
+            0.0,
+            0.14547846,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            246.0,
+            508.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            508.0,
+            246.0
+          ],
+          "heights": [],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "too_narrow",
+          "weighted_cost": 0.6666667,
+          "normalized_penalties": [
+            -0.0,
+            0.0,
+            -0.0,
+            0.0,
+            0.33333334,
+            -0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            311.5,
+            442.5
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.6792138,
+          "normalized_penalties": [
+            0.109501325,
+            0.0,
+            0.19255927,
+            0.58687,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            442.5,
+            311.5
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.4422638,
+          "normalized_penalties": [
+            0.027743101,
+            0.0,
+            0.14547846,
+            0.41313,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            770.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        }
+      ],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 2,
+      "document_generation": 0,
+      "geometry_generation": 2,
+      "queue_wait_ms": 0.08953799999999999,
+      "dispatch_ms": 0.0016229999999999999,
+      "result_wait_ms": 3.071595,
+      "worker_ms": 2.2570569999999996,
+      "diagnostic_collection_ms": 0.009225999999999998,
+      "commit_ms": 0.009779000000000001,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 1,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.015389000000000002,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.003166,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.004398,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 2.194289,
+          "measurements": {
+            "wrap_requests": 22,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 22,
+            "intrinsic_requests": 68,
+            "intrinsic_cache_hits": 43,
+            "intrinsic_cache_misses": 25,
+            "shaping_calls": 47,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.039624,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 12,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 17,
+      "list_candidates": 0,
+      "changed_row_groups": 7,
+      "changed_lists": 0,
+      "row_rejections": {
+        "unmeasured": 5
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            8.0,
+            992.0,
+            130.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            174.0,
+            992.0,
+            359.6
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            383.6,
+            960.0,
+            412.4
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            456.4,
+            992.0,
+            529.2
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            573.2,
+            992.0,
+            797.2
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            841.2,
+            992.0,
+            1134.8
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            1178.8,
+            992.0,
+            1280.4001
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            293.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.7166667,
+          "normalized_penalties": [
+            0.0,
+            0.2,
+            0.0,
+            0.0,
+            0.0,
+            0.35833335,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2,
+            180.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.3620086,
+          "normalized_penalties": [
+            0.10009841,
+            0.0,
+            0.12560022,
+            0.11803281,
+            0.33333334,
+            0.030487806,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6,
+            91.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 3.422115,
+          "normalized_penalties": [
+            0.15416665,
+            0.0,
+            0.18344973,
+            0.24762732,
+            0.33333334,
+            0.10961208,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            115.2,
+            166.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.0103943,
+          "normalized_penalties": [
+            0.05745294,
+            0.0,
+            0.12560022,
+            0.12805158,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            86.399994,
+            116.4
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 2.3413663,
+          "normalized_penalties": [
+            0.08745875,
+            0.0,
+            0.124130294,
+            0.15104783,
+            0.33333334,
+            0.052282363,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.2180557,
+          "normalized_penalties": [
+            0.009616792,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.4562547,
+          "normalized_penalties": [
+            0.1021656,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.3261082,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.17942336,
+            0.32786888,
+            0.33333334,
+            0.10658693,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.683411,
+          "normalized_penalties": [
+            0.046269793,
+            0.0,
+            0.094890915,
+            0.58606553,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.0405498,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.09944028,
+            0.4139344,
+            0.33333334,
+            0.048812985,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        }
+      ],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 3,
+      "document_generation": 0,
+      "geometry_generation": 4,
+      "queue_wait_ms": 0.071264,
+      "dispatch_ms": 0.004619,
+      "result_wait_ms": 4.630221000000001,
+      "worker_ms": 0.155933,
+      "diagnostic_collection_ms": 0.0058909999999999995,
+      "commit_ms": 0.008506,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 2,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.008766000000000001,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.001443,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.003186,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.121668,
+          "measurements": {
+            "wrap_requests": 22,
+            "wrap_cache_hits": 22,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 68,
+            "intrinsic_cache_hits": 68,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.020718999999999998,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 12,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 1,
+        "unmeasured": 5
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": true,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            8.0,
+            992.0,
+            130.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            174.0,
+            992.0,
+            359.6
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            383.6,
+            960.0,
+            412.4
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            456.4,
+            992.0,
+            529.2
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            573.2,
+            992.0,
+            797.2
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            841.2,
+            992.0,
+            1134.8
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            1178.8,
+            992.0,
+            1280.4001
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": true,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            293.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 14.716667,
+          "normalized_penalties": [
+            0.0,
+            0.2,
+            0.0,
+            0.0,
+            0.0,
+            0.35833335,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2,
+            180.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 8.362009,
+          "normalized_penalties": [
+            0.10009841,
+            0.0,
+            0.12560022,
+            0.11803281,
+            0.33333334,
+            0.030487806,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6,
+            91.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 9.422115,
+          "normalized_penalties": [
+            0.15416665,
+            0.0,
+            0.18344973,
+            0.24762732,
+            0.33333334,
+            0.10961208,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            115.2,
+            166.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 8.010394,
+          "normalized_penalties": [
+            0.05745294,
+            0.0,
+            0.12560022,
+            0.12805158,
+            0.33333334,
+            0.0,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            86.399994,
+            116.4
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 8.341366,
+          "normalized_penalties": [
+            0.08745875,
+            0.0,
+            0.124130294,
+            0.15104783,
+            0.33333334,
+            0.052282363,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.2180557,
+          "normalized_penalties": [
+            0.009616792,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.4562547,
+          "normalized_penalties": [
+            0.1021656,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.3261082,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.17942336,
+            0.32786888,
+            0.33333334,
+            0.10658693,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.683411,
+          "normalized_penalties": [
+            0.046269793,
+            0.0,
+            0.094890915,
+            0.58606553,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.0405498,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.09944028,
+            0.4139344,
+            0.33333334,
+            0.048812985,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        }
+      ],
+      "lists": []
+    },
+    {
+      "schema_version": 1,
+      "scope": "whole_document",
+      "execution": "background_reflow",
+      "original_source_bytes": 1077,
+      "sequence": 4,
+      "document_generation": 0,
+      "geometry_generation": 6,
+      "queue_wait_ms": 0.221667,
+      "dispatch_ms": 0.024116000000000002,
+      "result_wait_ms": 2.848887,
+      "worker_ms": 0.541116,
+      "diagnostic_collection_ms": 0.014166999999999999,
+      "commit_ms": 0.013444999999999999,
+      "committed": true,
+      "explicitly_requested": false,
+      "discard_reason": null,
+      "stale_results_total": 1,
+      "committed_results_total": 3,
+      "anchor_displacement_at_commit_px": 0.0,
+      "stages": [
+        {
+          "name": "projection",
+          "elapsed_ms": 0.042629999999999994,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "table_measurement",
+          "elapsed_ms": 0.0075639999999999995,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "loaded_image_dimensions",
+          "elapsed_ms": 0.015299,
+          "measurements": {
+            "wrap_requests": 0,
+            "wrap_cache_hits": 0,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "planning",
+          "elapsed_ms": 0.43997600000000003,
+          "measurements": {
+            "wrap_requests": 22,
+            "wrap_cache_hits": 22,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 68,
+            "intrinsic_cache_hits": 68,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        },
+        {
+          "name": "geometry_and_rendered_extensions",
+          "elapsed_ms": 0.035106,
+          "measurements": {
+            "wrap_requests": 12,
+            "wrap_cache_hits": 12,
+            "wrap_cache_misses": 0,
+            "intrinsic_requests": 0,
+            "intrinsic_cache_hits": 0,
+            "intrinsic_cache_misses": 0,
+            "shaping_calls": 0,
+            "table_attempts": 0,
+            "tables_measured": 0
+          }
+        }
+      ],
+      "canvas_width": 992.0,
+      "text_zoom": 1.0,
+      "viewport_height": 926.0,
+      "root_count": 15,
+      "segment_count": 15,
+      "unresolved_image_dimensions": 1,
+      "dp_windows": 6,
+      "chosen_rows": 7,
+      "row_candidates": 18,
+      "list_candidates": 0,
+      "changed_row_groups": 0,
+      "changed_lists": 0,
+      "row_rejections": {
+        "edit_lock": 6,
+        "unmeasured": 5
+      },
+      "penalty_order": [
+        "discomfort",
+        "separation",
+        "reading_jump",
+        "imbalance",
+        "complexity",
+        "unused_width",
+        "change"
+      ],
+      "details_truncated": false,
+      "chosen": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            8.0,
+            992.0,
+            130.0
+          ]
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": true,
+          "rejected": null,
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            174.0,
+            992.0,
+            359.6
+          ]
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            383.6,
+            960.0,
+            412.4
+          ]
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            456.4,
+            992.0,
+            529.2
+          ]
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            573.2,
+            992.0,
+            797.2
+          ]
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            841.2,
+            992.0,
+            1134.8
+          ]
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": [
+            0.0,
+            1178.8,
+            992.0,
+            1280.4001
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "root_interval": [
+            0,
+            2
+          ],
+          "group_ids": [
+            1
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            122.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            293.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 14.716667,
+          "normalized_penalties": [
+            0.0,
+            0.2,
+            0.0,
+            0.0,
+            0.0,
+            0.35833335,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2,
+            180.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 8.362009,
+          "normalized_penalties": [
+            0.10009841,
+            0.0,
+            0.12560022,
+            0.11803281,
+            0.33333334,
+            0.030487806,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6,
+            91.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 9.422115,
+          "normalized_penalties": [
+            0.15416665,
+            0.0,
+            0.18344973,
+            0.24762732,
+            0.33333334,
+            0.10961208,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            115.2,
+            166.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 8.010394,
+          "normalized_penalties": [
+            0.05745294,
+            0.0,
+            0.12560022,
+            0.12805158,
+            0.33333334,
+            0.0,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            86.399994,
+            116.4
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "edit_lock",
+          "weighted_cost": 8.341366,
+          "normalized_penalties": [
+            0.08745875,
+            0.0,
+            0.124130294,
+            0.15104783,
+            0.33333334,
+            0.052282363,
+            1.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            5,
+            6
+          ],
+          "group_ids": [
+            9
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            28.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            2,
+            5
+          ],
+          "group_ids": [
+            4
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994,
+            141.6
+          ],
+          "height_estimated": false,
+          "edit_locked": true,
+          "rejected": null,
+          "weighted_cost": 1.9467688,
+          "normalized_penalties": [
+            0.051977117,
+            0.0,
+            0.094890915,
+            0.1949153,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            6,
+            8
+          ],
+          "group_ids": [
+            10
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            72.8
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            8,
+            10
+          ],
+          "group_ids": [
+            13
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            224.0
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            0.0
+          ],
+          "height_estimated": true,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 1,
+          "widths": [
+            488.0,
+            488.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.2180557,
+          "normalized_penalties": [
+            0.009616792,
+            0.0,
+            0.094890915,
+            0.5,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 2,
+          "widths": [
+            320.0,
+            656.0
+          ],
+          "heights": [
+            115.2
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 3.4562547,
+          "normalized_penalties": [
+            0.1021656,
+            0.0,
+            0.12560022,
+            0.6721311,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 3,
+          "widths": [
+            656.0,
+            320.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.3261082,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.17942336,
+            0.32786888,
+            0.33333334,
+            0.10658693,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 4,
+          "widths": [
+            404.0,
+            572.0
+          ],
+          "heights": [
+            86.399994
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.683411,
+          "normalized_penalties": [
+            0.046269793,
+            0.0,
+            0.094890915,
+            0.58606553,
+            0.33333334,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            10,
+            13
+          ],
+          "group_ids": [
+            15
+          ],
+          "kind": "explanation_content",
+          "template": 5,
+          "widths": [
+            572.0,
+            404.0
+          ],
+          "heights": [
+            57.6
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": "unmeasured",
+          "weighted_cost": 2.0405498,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.09944028,
+            0.4139344,
+            0.33333334,
+            0.048812985,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        },
+        {
+          "root_interval": [
+            13,
+            15
+          ],
+          "group_ids": [
+            19
+          ],
+          "kind": "stack",
+          "template": 0,
+          "widths": [
+            992.0
+          ],
+          "heights": [
+            101.600006
+          ],
+          "height_estimated": false,
+          "edit_locked": false,
+          "rejected": null,
+          "weighted_cost": 0.0,
+          "normalized_penalties": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rendered_bounds_after_text_zoom_px": null
+        }
+      ],
+      "lists": []
+    }
+  ]
+}

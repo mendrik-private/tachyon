@@ -15,12 +15,13 @@ static const struct wl_message mineral_input_requests[] = {
 	{ "button", "uu", NULL },
 	{ "key", "uu", NULL },
 	{ "scroll", "ii", NULL },
+	{ "continuous_scroll", "ii", NULL },
 };
 
 static const struct wl_interface mineral_input_interface = {
 	.name = "mineral_input_v1",
 	.version = 1,
-	.method_count = 4,
+	.method_count = 5,
 	.methods = mineral_input_requests,
 	.event_count = 0,
 	.events = NULL,
@@ -83,6 +84,8 @@ operation_code(const char *operation)
 		return 2;
 	if (strcmp(operation, "scroll") == 0)
 		return 3;
+	if (strcmp(operation, "continuous-scroll") == 0)
+		return 4;
 	fprintf(stderr, "invalid operation: %s\n", operation);
 	exit(2);
 }
@@ -106,7 +109,7 @@ main(int argc, char *argv[])
 	stream = argc == 2 && strcmp(argv[1], "stream") == 0;
 	if (!stream && argc != 4) {
 		fprintf(stderr,
-			"usage: %s move|button|key|scroll VALUE VALUE | stream\n",
+			"usage: %s move|button|key|scroll|continuous-scroll VALUE VALUE | stream\n",
 			argv[0]);
 		return 2;
 	}
@@ -124,11 +127,11 @@ main(int argc, char *argv[])
 	}
 
 	if (stream) {
-		char operation[16];
+		char operation[32];
 		char first[32];
 		char second[32];
 
-		while (scanf("%15s %31s %31s", operation, first, second) == 3) {
+		while (scanf("%31s %31s %31s", operation, first, second) == 3) {
 			send_request(&state, operation, first, second);
 			if (wl_display_flush(state.display) < 0) {
 				fprintf(stderr, "input stream failed\n");

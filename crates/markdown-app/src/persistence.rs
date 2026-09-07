@@ -27,7 +27,7 @@ fn state_root() -> PathBuf {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PersistenceError {
-    #[error("file changed outside Mineral Markdown: {0}")]
+    #[error("file changed outside Mineral: {0}")]
     ExternalChange(PathBuf),
     #[error("persistence I/O failed for {path}: {source}")]
     Io { path: PathBuf, source: io::Error },
@@ -490,6 +490,7 @@ fn sync_directory(directory: &Path) -> Result<(), PersistenceError> {
 #[serde(default)]
 pub struct WorkspaceState {
     pub active_path: Option<PathBuf>,
+    pub last_open_directory: Option<PathBuf>,
     #[serde(default)]
     pub draft_recovery_key: Option<PathBuf>,
     #[serde(default)]
@@ -512,6 +513,7 @@ impl Default for WorkspaceState {
     fn default() -> Self {
         Self {
             active_path: None,
+            last_open_directory: None,
             draft_recovery_key: None,
             navigation_root: None,
             navigation_width: 224.,
@@ -872,6 +874,16 @@ mod tests {
     }
 
     #[test]
+    fn older_workspace_state_defaults_last_open_directory() {
+        let state: WorkspaceState =
+            serde_json::from_str(r#"{"active_path":"/tmp/notes.md","navigation_width":287.0}"#)
+                .expect("older workspace state remains readable");
+        assert_eq!(state.last_open_directory, None);
+        assert_eq!(state.active_path, Some(PathBuf::from("/tmp/notes.md")));
+        assert_eq!(state.navigation_width, 287.);
+    }
+
+    #[test]
     fn workspace_state_round_trips_atomically() {
         let directory = temporary_directory("workspace-state");
         let store = WorkspaceStateStore::at_path(directory.join("workspace.json"));
@@ -881,6 +893,7 @@ mod tests {
         );
         let state = WorkspaceState {
             active_path: Some(directory.join("notes.md")),
+            last_open_directory: Some(directory.join("previous-folder")),
             draft_recovery_key: None,
             navigation_root: Some(directory.clone()),
             navigation_width: 287.,

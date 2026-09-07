@@ -1,0 +1,17 @@
+{
+  "markers": [
+    "A short explanation.",
+    "A second explanation.",
+    "A third explanation.",
+    "The closing marker"
+  ],
+  "positions": [
+    166,
+    192,
+    220,
+    428
+  ],
+  "source_order": true,
+  "clipboard_sha256": "c1dca8a695ae7138447ba029ddfbf7aa5d3bcedcd5f8e28576c224b825d10f42",
+  "binary_sha256": "7a09ed9bfc0fb5875f6fa47f4b1d15391daf889a8cc99486d44ad1e61404a55f"
+}

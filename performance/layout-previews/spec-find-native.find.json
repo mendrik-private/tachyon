@@ -1,0 +1,14 @@
+{
+  "passes": true,
+  "source_order_navigation": true,
+  "backward_wrap": true,
+  "exact_native_copy": true,
+  "nested_disclosure_reveal": true,
+  "html_first_edit_and_exact_undo": true,
+  "no_results": true,
+  "source_unchanged": true,
+  "binary_sha256": "d26f7153b9292fb7cff6c0759d134e0fc461fcd3cc80807938b0f602d5baea97",
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0
+}

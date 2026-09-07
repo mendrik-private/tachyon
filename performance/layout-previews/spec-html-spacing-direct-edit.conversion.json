@@ -1,0 +1,17 @@
+{
+  "fixture": "23-disclosure-editing.md",
+  "native_conversion": true,
+  "edit_here": false,
+  "edit_within": "ordinary rich text",
+  "opening_menu_preserves_source": false,
+  "click_preserves_source": true,
+  "preedit_preserves_source": null,
+  "ime_transport": null,
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "undos_to_restore_exact_html": 1,
+  "binary_sha256": "7cc483c66aa99932a035e2cadc9347652698b05f1a7d9f96131fc7fc0795601a"
+}

@@ -1,0 +1,9 @@
+{
+  "fixture": "13-inline-math.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "f1354834ecd1fb08a1415f69d99565ed8b535b45361a1c4ca2edc84e1f152aa5",
+  "edit_within": "\\frac{a+b}{c+d}",
+  "first_changed_byte": 231
+}

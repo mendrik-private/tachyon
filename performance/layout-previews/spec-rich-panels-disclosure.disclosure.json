@@ -1,0 +1,13 @@
+{
+  "binary_sha256": "e67fb5ff8c7695d8c3604f8def4ed42bcb6a371b68cce1a82766f938664aa456",
+  "native_mouse_open": true,
+  "native_enter_close": true,
+  "native_space_open": true,
+  "native_tab_return_activate": true,
+  "changed_body_pixels": 6052,
+  "exact_closed_geometry": true,
+  "source_unchanged": true,
+  "width": 1280,
+  "height": 1400,
+  "zoom_steps": 0
+}

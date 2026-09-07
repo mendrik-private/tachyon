@@ -11,11 +11,10 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use document_core::{BlockNode, BlockSequence, Document, NodeId, Revision, SourceIdentity};
+use document_core::{Document, Revision, SourceIdentity};
 use document_view::{
-    EditorEvent, EditorScrollAnchor, EditorViewState, LayoutBuildStatus, LayoutIndex,
-    MineralPalette, Minimap, MinimapPrimitiveKind, PreparedDocumentView, RichDocumentEditor,
-    SharedDocumentSession, init_editor,
+    EditorEvent, EditorScrollAnchor, EditorViewState, MineralPalette, OutlineEntry,
+    PreparedDocumentView, RichDocumentEditor, SharedDocumentSession, init_editor, project_outline,
 };
 use futures::{
     StreamExt as _,
@@ -31,9 +30,10 @@ use gpui::{
     prelude::FluentBuilder as _, px, relative, rgb, size, uniform_list,
 };
 use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Root, Sizable as _, Theme, TitleBar,
+    ActiveTheme as _, Icon, IconName, Root, Sizable as _, Theme, ThemeMode, TitleBar,
     button::{Button, ButtonVariants as _},
     menu::{DropdownMenu as _, PopupMenuItem},
+    scroll::{Scrollbar, ScrollbarMode},
 };
 use notify::Watcher as _;
 use persistence::{
@@ -42,6 +42,8 @@ use persistence::{
     read_source_with_identity, save_with_recovery, source_identity,
 };
 
+mod assets;
+mod file_dialog;
 mod fonts;
 mod image_cache;
 mod instance;
@@ -65,6 +67,12 @@ gpui::actions!(
         UndoDocumentAction,
         RedoDocumentAction,
         ToggleNavigationAction,
+        FindDocumentAction,
+        FindNextAction,
+        FindPreviousAction,
+        ZoomInAction,
+        ZoomOutAction,
+        ResetZoomAction,
         CloseDocumentWindowAction,
     ]
 );
@@ -150,18 +158,18 @@ fn main() {
         .iter()
         .map(|path| start_document_preload(path, startup_trace_started_at))
         .collect::<Vec<_>>();
-    let http_client = reqwest_client::ReqwestClient::user_agent("Mineral Markdown/0.1")
+    let http_client = reqwest_client::ReqwestClient::user_agent("Mineral/0.1")
         .expect("HTTP client initialization must succeed");
     let mut application = gpui_platform::application()
         .with_http_client(Arc::new(http_client))
-        .with_assets(gpui_component_assets::Assets);
+        .with_assets(assets::Assets);
     if resident_server {
         application = application.with_quit_mode(QuitMode::Explicit);
     }
     startup_trace(startup_trace_started_at, "application-created");
     application.run(move |cx| {
         startup_trace(startup_trace_started_at, "application-run");
-        cx.set_app_identity("dev.mineral.Markdown", "Mineral Markdown");
+        cx.set_app_identity("dev.mineral.Markdown", "Mineral");
         cx.set_reduce_motion(prefers_reduced_motion());
         fonts::register(cx);
         gpui_component::init(cx);
@@ -171,8 +179,14 @@ fn main() {
             KeyBinding::new("ctrl-n", NewDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-o", OpenFileAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-shift-o", OpenFolderAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("ctrl-s", SaveDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-shift-s", SaveAsAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-alt-shift-s", SaveCopyAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("ctrl-z", UndoDocumentAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("ctrl-f", FindDocumentAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("f3", FindNextAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("shift-f3", FindPreviousAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("ctrl-shift-z", RedoDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new(
                 "ctrl-alt-n",
                 ToggleNavigationAction,
@@ -183,6 +197,9 @@ fn main() {
                 CloseDocumentWindowAction,
                 Some(WINDOW_KEY_CONTEXT),
             ),
+            KeyBinding::new("ctrl-=", ZoomInAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("ctrl--", ZoomOutAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("ctrl-0", ResetZoomAction, Some(WINDOW_KEY_CONTEXT)),
         ]);
 
         let initial_items = if initial_paths.is_empty() {
@@ -576,6 +593,19 @@ impl SessionRegistry {
         session.listeners.push(listener);
     }
 
+    fn detach(&mut self, path: &std::path::Path, listener_id: EntityId) {
+        let remove = self.sessions.get_mut(path).is_some_and(|session| {
+            session
+                .listeners
+                .retain(|listener| listener.id != listener_id);
+            session.listeners.is_empty() && !session.dirty && !session.save_in_flight
+        });
+        if remove {
+            self.sessions.remove(path);
+        }
+        self.prune();
+    }
+
     fn contains_other(&self, path: &std::path::Path, document: &SharedDocumentSession) -> bool {
         self.sessions
             .get(path)
@@ -592,18 +622,46 @@ impl SessionRegistry {
         if self.contains_other(&path, &document) {
             return false;
         }
-        self.sessions.insert(
-            path,
-            FileSession {
-                document,
-                source_identity,
-                saved_revision,
-                dirty: false,
-                save_in_flight: false,
-                listeners: Vec::new(),
-            },
-        );
+        let dirty = document.snapshot().revision() != saved_revision;
+        if let Some(session) = self.sessions.get_mut(&path) {
+            session.source_identity = source_identity;
+            session.saved_revision = saved_revision;
+            session.dirty = dirty;
+            session.save_in_flight = false;
+        } else {
+            self.sessions.insert(
+                path,
+                FileSession {
+                    document,
+                    source_identity,
+                    saved_revision,
+                    dirty,
+                    save_in_flight: false,
+                    listeners: Vec::new(),
+                },
+            );
+        }
         true
+    }
+
+    fn has_other_listener(&mut self, path: &std::path::Path, listener_id: EntityId) -> bool {
+        self.prune();
+        self.sessions.get(path).is_some_and(|session| {
+            session
+                .listeners
+                .iter()
+                .any(|listener| listener.id != listener_id)
+        })
+    }
+
+    fn forget_if_same(&mut self, path: &std::path::Path, document: &SharedDocumentSession) {
+        if self
+            .sessions
+            .get(path)
+            .is_some_and(|session| session.document.ptr_eq(document))
+        {
+            self.sessions.remove(path);
+        }
     }
 
     fn listeners(&mut self, path: &std::path::Path) -> Vec<SessionListener> {
@@ -689,8 +747,8 @@ fn reduced_motion_from_values(explicit: Option<&str>, gtk_animations: Option<&st
 }
 
 fn sync_mineral_component_theme(window: Option<&mut gpui::Window>, cx: &mut App) {
-    Theme::sync_system_appearance(window, cx);
-    let palette = MineralPalette::for_dark(Theme::global(cx).is_dark());
+    Theme::change(ThemeMode::Light, window, cx);
+    let palette = MineralPalette::LIGHT;
     {
         let theme = Theme::global_mut(cx);
         let colors = &mut theme.colors;
@@ -706,9 +764,17 @@ fn sync_mineral_component_theme(window: Option<&mut gpui::Window>, cx: &mut App)
         colors.primary = rgb(palette.accent).into();
         colors.primary_foreground = rgb(palette.panel).into();
         colors.primary_hover = rgb(palette.accent).into();
+        colors.info = rgb(palette.info).into();
+        colors.info_foreground = rgb(palette.panel).into();
+        colors.success = rgb(palette.success).into();
+        colors.success_foreground = rgb(palette.panel).into();
+        colors.warning = rgb(palette.warning).into();
+        colors.warning_foreground = rgb(palette.panel).into();
+        colors.danger = rgb(palette.error).into();
+        colors.danger_foreground = rgb(palette.panel).into();
         colors.ring = rgb(palette.accent).into();
         colors.selection = rgb(palette.selection).into();
-        colors.link = rgb(palette.image).into();
+        colors.link = rgb(palette.accent).into();
         colors.input = rgb(palette.border).into();
         colors.button = rgb(palette.surface).into();
         colors.button_foreground = rgb(palette.text).into();
@@ -744,6 +810,8 @@ struct MarkdownWindow {
     recovery_in_flight: bool,
     recovery_dirty: bool,
     workspace_state_store: WorkspaceStateStore,
+    last_open_directory: Option<PathBuf>,
+    file_chooser_open: bool,
     workspace_state_dirty: bool,
     workspace_state_in_flight: bool,
     workspace_state_generation: u64,
@@ -761,6 +829,7 @@ struct MarkdownWindow {
     close_after_save: bool,
     force_close: bool,
     external_watch_cancel: Option<oneshot::Sender<()>>,
+    external_change_pending: bool,
     conflict: bool,
     recovery_entry: Option<RecoveryEntry>,
     navigation_root: Option<PathBuf>,
@@ -775,14 +844,10 @@ struct MarkdownWindow {
     navigation_dragging: bool,
     navigation_split: f32,
     navigation_split_dragging: bool,
-    layout_index: LayoutIndex,
-    layout_in_flight: bool,
-    layout_requested: Option<Revision>,
-    layout_cancel_epoch: Arc<AtomicU64>,
-    minimap: Minimap,
-    minimap_dirty: bool,
-    minimap_height: f32,
-    minimap_dragging: bool,
+    outline_in_flight: bool,
+    outline_requested: Option<Revision>,
+    outline_request: u64,
+    outline_cancel_epoch: Arc<AtomicU64>,
     startup_error: Option<String>,
     startup_config: Option<performance::StartupConfig>,
     startup_started_at: SystemTime,
@@ -856,13 +921,6 @@ struct NavigationRow {
     directory_expanded: Option<bool>,
 }
 
-#[derive(Clone)]
-struct OutlineEntry {
-    node_id: NodeId,
-    level: u8,
-    label: String,
-}
-
 impl MarkdownWindow {
     fn new(
         path: Option<PathBuf>,
@@ -907,7 +965,9 @@ impl MarkdownWindow {
         let image_cache = cx.new(|cx| image_cache::BoundedImageCache::new(256 * 1024 * 1024, cx));
         let image_dimensions = image_cache.read(cx).dimensions();
         editor.update(cx, |editor, cx| {
+            editor.set_layout_trace_mode(performance::layout_trace_mode());
             editor.set_image_dimensions(image_dimensions, cx);
+            editor.set_image_cache(image_cache.clone().into());
         });
         let recovery = RecoveryJournal::for_current_user();
         let recovery_key = initial_file
@@ -926,12 +986,20 @@ impl MarkdownWindow {
                     this.schedule_autosave(cx);
                     this.schedule_recovery(cx);
                     this.schedule_workspace_state(cx);
-                    this.refresh_layout(cx);
+                    this.refresh_outline(cx);
                 }
                 EditorEvent::ViewChanged => {
                     this.schedule_workspace_state(cx);
                 }
                 EditorEvent::SaveRequested => this.queue_save(true, cx),
+                EditorEvent::OpenLocalDocument { path, fragment } => {
+                    this.open_file_at(path.clone(), fragment.clone(), cx);
+                }
+                EditorEvent::LinkFailed(error) => this.startup_error = Some(error.clone()),
+                EditorEvent::LayoutDiagnostics(report) => {
+                    performance::emit_layout_diagnostics(report);
+                    return;
+                }
                 EditorEvent::RetryImage {
                     source,
                     document_directory,
@@ -945,12 +1013,9 @@ impl MarkdownWindow {
             cx.notify();
         })
         .detach();
-        let outline = Arc::new(outline_entries(
+        let outline = Arc::new(project_outline(
             editor.read(cx).document().snapshot().blocks(),
         ));
-        let mut layout_index = LayoutIndex::default();
-        let _ = layout_index.rebuild(&editor.read(cx).document().snapshot(), 760., 1, 1.);
-
         let mut this = Self {
             editor,
             image_cache,
@@ -965,6 +1030,8 @@ impl MarkdownWindow {
             recovery_dirty: false,
             workspace_state_store,
             workspace_state_dirty: false,
+            last_open_directory: None,
+            file_chooser_open: false,
             workspace_state_in_flight: false,
             workspace_state_generation: 0,
             pending_view_state: None,
@@ -981,6 +1048,7 @@ impl MarkdownWindow {
             close_after_save: false,
             force_close: false,
             external_watch_cancel: None,
+            external_change_pending: false,
             conflict: false,
             recovery_entry: None,
             navigation_nodes: Vec::new(),
@@ -995,14 +1063,10 @@ impl MarkdownWindow {
             navigation_dragging: false,
             navigation_split: 0.6,
             navigation_split_dragging: false,
-            layout_index,
-            layout_in_flight: false,
-            layout_requested: None,
-            layout_cancel_epoch: Arc::new(AtomicU64::new(0)),
-            minimap: Minimap::default(),
-            minimap_dirty: true,
-            minimap_height: 0.,
-            minimap_dragging: false,
+            outline_in_flight: false,
+            outline_requested: None,
+            outline_request: 0,
+            outline_cancel_epoch: Arc::new(AtomicU64::new(0)),
             startup_error: initial_file.as_ref().map(|_| "Loading document…".into()),
             startup_config: startup,
             startup_started_at,
@@ -1044,10 +1108,11 @@ impl MarkdownWindow {
     fn accept_initial_preload(&mut self, preload: InitialPreload, cx: &mut gpui::Context<Self>) {
         let ticket = self.begin_open_ticket(cx);
         match preload.try_recv() {
-            Ok(result) => self.finish_document_load(result, ticket, cx),
+            Ok(result) => self.finish_document_load(result, ticket, None, cx),
             Err(TryRecvError::Disconnected) => self.finish_document_load(
                 Err("initial document loader stopped unexpectedly".into()),
                 ticket,
+                None,
                 cx,
             ),
             Err(TryRecvError::Empty) => {
@@ -1062,7 +1127,7 @@ impl MarkdownWindow {
                 cx.spawn(async move |this, cx| {
                     let result = wait.await;
                     let _ = this.update(cx, |this, cx| {
-                        this.finish_document_load(result, ticket, cx);
+                        this.finish_document_load(result, ticket, None, cx);
                     });
                 })
                 .detach();
@@ -1105,6 +1170,7 @@ impl MarkdownWindow {
         cx: &mut gpui::Context<Self>,
     ) -> bool {
         if self.force_close {
+            self.detach_active_session(cx);
             return true;
         }
         if self.unsaved || self.save_in_flight {
@@ -1117,6 +1183,7 @@ impl MarkdownWindow {
     fn request_close(&mut self, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
         if !self.unsaved && !self.save_in_flight {
             self.force_close = true;
+            self.detach_active_session(cx);
             window.remove_window();
             return;
         }
@@ -1143,6 +1210,7 @@ impl MarkdownWindow {
                     Some(1) => {
                         this.close_after_save = false;
                         this.force_close = true;
+                        this.detach_active_session(cx);
                         window.remove_window();
                     }
                     _ => {
@@ -1161,9 +1229,18 @@ impl MarkdownWindow {
         }
         self.close_after_save = false;
         self.force_close = true;
+        self.detach_active_session(cx);
         let _ = self
             .window_handle
             .update(cx, |_, window, _| window.remove_window());
+    }
+
+    fn detach_active_session(&mut self, cx: &mut gpui::Context<Self>) {
+        if let Some(path) = self.source_path.as_deref() {
+            self.session_registry
+                .borrow_mut()
+                .detach(path, cx.entity_id());
+        }
     }
 
     fn new_document(&mut self, cx: &mut gpui::Context<Self>) {
@@ -1173,11 +1250,12 @@ impl MarkdownWindow {
             cx.notify();
             return;
         }
+        self.detach_active_session(cx);
         self.open_request = self.open_request.wrapping_add(1);
         self.reload_request = self.reload_request.wrapping_add(1);
         self.document_epoch = self.document_epoch.wrapping_add(1);
         self.autosave_generation = self.autosave_generation.wrapping_add(1);
-        self.layout_cancel_epoch.fetch_add(1, Ordering::AcqRel);
+        self.outline_cancel_epoch.fetch_add(1, Ordering::AcqRel);
         if let Some(cancel) = self.external_watch_cancel.take() {
             let _ = cancel.send(());
         }
@@ -1199,39 +1277,58 @@ impl MarkdownWindow {
         self.startup_error = None;
         self.saved_revision = self.editor.read(cx).document().snapshot().revision();
         self.unsaved = false;
-        self.refresh_layout(cx);
+        self.refresh_outline(cx);
         self.queue_workspace_state(cx);
         cx.notify();
     }
 
     fn prompt_open_file(&mut self, cx: &mut gpui::Context<Self>) {
+        if self.file_chooser_open {
+            return;
+        }
+        self.file_chooser_open = true;
         let ticket = self.current_document_ticket(cx);
-        let receiver = cx.prompt_for_paths(PathPromptOptions {
-            files: true,
-            directories: false,
-            multiple: false,
-            prompt: Some("Open a Markdown file".into()),
-        });
+        let candidates = self
+            .last_open_directory
+            .iter()
+            .cloned()
+            .chain(
+                self.source_path
+                    .as_deref()
+                    .and_then(|path| path.parent())
+                    .map(PathBuf::from),
+            )
+            .chain(self.navigation_root.iter().cloned())
+            .collect::<Vec<_>>();
+        let directory = cx
+            .background_executor()
+            .spawn_dedicated(move |_| async move { file_dialog::existing_directory(&candidates) });
         cx.spawn(async move |this, cx| {
-            let result = receiver.await;
-            let _ = this.update(cx, |this, cx| match result {
-                Ok(Ok(Some(paths))) => {
+            let directory = directory.await;
+            if this.update(cx, |_, _| ()).is_err() {
+                return;
+            }
+            let result = file_dialog::open_file(directory.as_deref()).await;
+            let _ = this.update(cx, |this, cx| {
+                this.file_chooser_open = false;
+                match result {
+                Ok(Some(path)) => {
                     if !this.document_matches_ticket(&ticket, cx) {
                         this.startup_error = Some(
                             "The document changed while the file chooser was open; no file was opened."
                                 .into(),
                         );
-                    } else if let Some(path) = paths.into_iter().next() {
+                    } else {
                         this.open_file(path, cx);
                     }
                     cx.notify();
                 }
-                Ok(Ok(None)) => {}
-                Ok(Err(error)) => {
+                Ok(None) => {}
+                Err(error) => {
                     this.startup_error = Some(format!("Could not open the file chooser: {error}"));
                     cx.notify();
                 }
-                Err(_) => {}
+                }
             });
         })
         .detach();
@@ -1331,6 +1428,25 @@ impl MarkdownWindow {
         let document = self.editor.read(cx).shared_session();
         if mode == SaveTargetMode::Adopt
             && self
+                .source_path
+                .as_ref()
+                .is_some_and(|path| path != &target)
+            && self.source_path.as_deref().is_some_and(|path| {
+                self.session_registry
+                    .borrow_mut()
+                    .has_other_listener(path, cx.entity_id())
+            })
+        {
+            self.close_after_save = false;
+            self.startup_error = Some(
+                "This document is open in another window. Close the other view before changing its file path."
+                    .into(),
+            );
+            cx.notify();
+            return;
+        }
+        if mode == SaveTargetMode::Adopt
+            && self
                 .session_registry
                 .borrow()
                 .contains_other(&target, &document)
@@ -1405,27 +1521,36 @@ impl MarkdownWindow {
                     }
                     Ok((path, identity, recovery_warning)) => {
                         let document = this.editor.read(cx).shared_session();
-                        if !this.session_registry.borrow_mut().adopt(
-                            path.clone(),
-                            document,
-                            identity.clone(),
-                            revision,
-                        ) {
-                            this.close_after_save = false;
-                            this.startup_error = Some(
-                                "The file was written, but another window opened that path before it could be attached."
-                                    .into(),
+                        let previous_path = this.source_path.clone();
+                        {
+                            let mut registry = this.session_registry.borrow_mut();
+                            if !registry.adopt(
+                                path.clone(),
+                                document.clone(),
+                                identity.clone(),
+                                revision,
+                            ) {
+                                this.close_after_save = false;
+                                this.startup_error = Some(
+                                    "The file was written, but another window opened that path before it could be attached."
+                                        .into(),
+                                );
+                                cx.notify();
+                                return;
+                            }
+                            if let Some(previous_path) = previous_path.as_deref()
+                                && previous_path != path
+                            {
+                                registry.forget_if_same(previous_path, &document);
+                            }
+                            registry.subscribe(
+                                &path,
+                                SessionListener {
+                                    id: cx.entity_id(),
+                                    window: cx.entity().downgrade(),
+                                },
                             );
-                            cx.notify();
-                            return;
                         }
-                        this.session_registry.borrow_mut().subscribe(
-                            &path,
-                            SessionListener {
-                                id: cx.entity_id(),
-                                window: cx.entity().downgrade(),
-                            },
-                        );
                         this.document_epoch = this.document_epoch.wrapping_add(1);
                         this.source_path = Some(path.clone());
                         this.recovery_key = path.clone();
@@ -1453,7 +1578,7 @@ impl MarkdownWindow {
                         {
                             this.load_navigation(parent, false, cx);
                         }
-                        this.arm_external_watch(cx);
+                        this.reconcile_external_watch(cx);
                         this.queue_workspace_state(cx);
                         if this.unsaved {
                             this.close_after_save = false;
@@ -1612,7 +1737,7 @@ impl MarkdownWindow {
                     window.startup_error = None;
                 }
                 if projection_changed {
-                    window.refresh_layout(cx);
+                    window.refresh_outline(cx);
                 }
                 window.schedule_workspace_state(cx);
                 cx.notify();
@@ -1629,6 +1754,15 @@ impl MarkdownWindow {
             let result = load.await;
             let _ = this.update(cx, |this, cx| match result {
                 Ok(state) => {
+                    if this.last_open_directory.is_none() {
+                        this.last_open_directory = state.last_open_directory.or_else(|| {
+                            state
+                                .active_path
+                                .as_deref()
+                                .and_then(|path| path.parent())
+                                .map(PathBuf::from)
+                        });
+                    }
                     this.navigation_width = clamp_navigation_width(state.navigation_width);
                     this.navigation_split = clamp_navigation_split(state.navigation_split);
                     this.expanded_folders = state.expanded_folders.into_iter().collect();
@@ -1688,6 +1822,7 @@ impl MarkdownWindow {
         let mut expanded_folders = self.expanded_folders.iter().cloned().collect::<Vec<_>>();
         expanded_folders.sort();
         let state = WorkspaceState {
+            last_open_directory: self.last_open_directory.clone(),
             active_path: self.source_path.clone(),
             draft_recovery_key: self
                 .source_path
@@ -1789,6 +1924,10 @@ impl MarkdownWindow {
 
     fn queue_recovery(&mut self, cx: &mut gpui::Context<Self>) {
         if self.recovery_in_flight || !self.recovery_dirty {
+            return;
+        }
+        if self.editor.read(cx).composition_active() {
+            self.schedule_recovery(cx);
             return;
         }
         let snapshot = self.editor.read(cx).document().snapshot();
@@ -1909,6 +2048,7 @@ impl MarkdownWindow {
 
     fn inspect_external_change(&mut self, cx: &mut gpui::Context<Self>) {
         if self.save_in_flight || self.reload_in_flight {
+            self.external_change_pending = true;
             self.arm_external_watch(cx);
             return;
         }
@@ -1937,7 +2077,7 @@ impl MarkdownWindow {
                     Ok(ExternalState::Modified(_)) if this.unsaved => {
                         this.conflict = true;
                         this.startup_error = Some(
-                            "File changed outside Mineral Markdown. Choose Reload, Save copy, or Overwrite."
+                            "File changed outside Mineral. Choose Reload, Save copy, or Overwrite."
                                 .into(),
                         );
                         this.arm_external_watch(cx);
@@ -1962,6 +2102,15 @@ impl MarkdownWindow {
             });
         })
         .detach();
+    }
+
+    fn reconcile_external_watch(&mut self, cx: &mut gpui::Context<Self>) {
+        if self.external_change_pending {
+            self.external_change_pending = false;
+            self.inspect_external_change(cx);
+        } else {
+            self.arm_external_watch(cx);
+        }
     }
 
     fn queue_reload(&mut self, force: bool, cx: &mut gpui::Context<Self>) {
@@ -2013,7 +2162,7 @@ impl MarkdownWindow {
                             .mark_reloaded(&path, identity.clone());
                         this.source_identity = Some(identity);
                         this.saved_revision = this.editor.read(cx).document().snapshot().revision();
-                        this.refresh_layout(cx);
+                        this.refresh_outline(cx);
                         this.unsaved = false;
                         this.conflict = false;
                         this.autosave_generation = this.autosave_generation.wrapping_add(1);
@@ -2038,7 +2187,7 @@ impl MarkdownWindow {
                     Ok(_) => {}
                     Err(error) => this.startup_error = Some(error),
                 }
-                this.arm_external_watch(cx);
+                this.reconcile_external_watch(cx);
                 cx.notify();
             });
         })
@@ -2068,9 +2217,9 @@ impl MarkdownWindow {
         self.conflict = false;
         self.autosave_generation = self.autosave_generation.wrapping_add(1);
         self.startup_error = None;
-        self.refresh_layout(cx);
+        self.refresh_outline(cx);
         self.broadcast_session_state(path, true, cx);
-        self.arm_external_watch(cx);
+        self.reconcile_external_watch(cx);
         cx.notify();
     }
 
@@ -2122,7 +2271,7 @@ impl MarkdownWindow {
                             this.session_registry.borrow_mut().mark_dirty(&path);
                             this.broadcast_session_state(path, false, cx);
                         }
-                        this.refresh_layout(cx);
+                        this.refresh_outline(cx);
                         this.schedule_workspace_state(cx);
                         this.conflict = this.source_path.is_some();
                         this.startup_error = Some(if this.conflict {
@@ -2174,14 +2323,48 @@ impl MarkdownWindow {
     }
 
     fn open_file(&mut self, path: PathBuf, cx: &mut gpui::Context<Self>) {
+        self.open_file_at(path, None, cx);
+    }
+
+    fn reveal_heading(&mut self, fragment: &str, cx: &mut gpui::Context<Self>) {
+        let editor = self.editor.clone();
+        let found = self
+            .window_handle
+            .update(cx, |_, window, cx| {
+                editor.update(cx, |editor, cx| {
+                    editor.navigate_to_heading(fragment, window, cx)
+                })
+            })
+            .unwrap_or(false);
+        if !found {
+            self.startup_error = Some(format!("Heading not found: #{fragment}"));
+        }
+        cx.notify();
+    }
+
+    fn open_file_at(
+        &mut self,
+        path: PathBuf,
+        fragment: Option<String>,
+        cx: &mut gpui::Context<Self>,
+    ) {
         startup_trace(self.startup_trace_started_at, "open-file-start");
+        // An explicit link back into this file is navigation, not a reload;
+        // it remains usable with unsaved edits and preserves content history.
+        if self.source_path.as_ref() == Some(&path) {
+            if let Some(fragment) = fragment.as_deref() {
+                self.reveal_heading(fragment, cx);
+            }
+            self.navigation_overlay = false;
+            return;
+        }
         if self.unsaved {
             self.startup_error =
                 Some("Save or resolve the current document before opening another file.".into());
             cx.notify();
             return;
         }
-        if self.reload_in_flight || self.source_path.as_ref() == Some(&path) {
+        if self.reload_in_flight {
             self.navigation_overlay = false;
             return;
         }
@@ -2198,7 +2381,7 @@ impl MarkdownWindow {
         cx.spawn(async move |this, cx| {
             let result = load.await;
             let _ = this.update(cx, |this, cx| {
-                this.finish_document_load(result, ticket, cx);
+                this.finish_document_load(result, ticket, fragment, cx);
             });
         })
         .detach();
@@ -2208,6 +2391,7 @@ impl MarkdownWindow {
         &mut self,
         result: Result<LoadedDocument, String>,
         ticket: DocumentCompletionTicket,
+        fragment: Option<String>,
         cx: &mut gpui::Context<Self>,
     ) {
         let current_revision = self.editor.read(cx).document().snapshot().revision();
@@ -2240,6 +2424,7 @@ impl MarkdownWindow {
         match result {
             Ok(loaded) => {
                 startup_trace(self.startup_trace_started_at, "open-file-install");
+                self.detach_active_session(cx);
                 let attachment = self.session_registry.borrow_mut().attach(
                     loaded.canonical.clone(),
                     loaded.document,
@@ -2253,6 +2438,7 @@ impl MarkdownWindow {
                     },
                 );
                 let document_directory = loaded.canonical.parent().map(PathBuf::from);
+                self.last_open_directory.clone_from(&document_directory);
                 let view_state = self.pending_view_state.take();
                 let reused_session = attachment.reused;
                 self.editor.update(cx, |editor, cx| {
@@ -2291,7 +2477,7 @@ impl MarkdownWindow {
                 self.saved_revision = attachment.saved_revision;
                 self.startup_source_bytes = loaded.source_bytes;
                 self.recovery_entry = loaded.recovery_entry;
-                self.refresh_layout(cx);
+                self.refresh_outline(cx);
                 self.unsaved = attachment.dirty;
                 self.conflict = false;
                 self.autosave_generation = self.autosave_generation.wrapping_add(1);
@@ -2304,7 +2490,10 @@ impl MarkdownWindow {
                         )
                     })
                 });
-                self.arm_external_watch(cx);
+                self.reconcile_external_watch(cx);
+                if let Some(fragment) = fragment.as_deref() {
+                    self.reveal_heading(fragment, cx);
+                }
                 self.queue_workspace_state(cx);
             }
             Err(error) => {
@@ -2442,114 +2631,53 @@ impl MarkdownWindow {
         .detach();
     }
 
-    fn refresh_layout(&mut self, cx: &mut gpui::Context<Self>) {
+    fn refresh_outline(&mut self, cx: &mut gpui::Context<Self>) {
         let snapshot = self.editor.read(cx).document().snapshot();
         let revision = snapshot.revision();
-        self.layout_requested = Some(revision);
-        let epoch = self.layout_cancel_epoch.fetch_add(1, Ordering::AcqRel) + 1;
-        if self.layout_in_flight {
+        self.outline_requested = Some(revision);
+        self.outline_request = self.outline_request.wrapping_add(1);
+        let request = self.outline_request;
+        let document_epoch = self.document_epoch;
+        let epoch = self.outline_cancel_epoch.fetch_add(1, Ordering::AcqRel) + 1;
+        if self.outline_in_flight {
             return;
         }
-        self.layout_in_flight = true;
-        let cancellation = self.layout_cancel_epoch.clone();
-        let mut layout_index = self.layout_index.fresh_with_shared_cache();
+        self.outline_in_flight = true;
+        let cancellation = self.outline_cancel_epoch.clone();
         let rebuild = cx
             .background_executor()
             .spawn_dedicated(move |_| async move {
-                layout_index
-                    .rebuild_cancellable(&snapshot, 760., 1, 1., || {
-                        cancellation.load(Ordering::Acquire) != epoch
-                    })
-                    .map(|status| {
-                        if status == LayoutBuildStatus::Cancelled
-                            || cancellation.load(Ordering::Acquire) != epoch
-                        {
-                            return None;
-                        }
-                        let outline = Arc::new(outline_entries(snapshot.blocks()));
-                        (cancellation.load(Ordering::Acquire) == epoch).then_some((
-                            revision,
-                            layout_index,
-                            outline,
-                        ))
-                    })
-                    .map_err(|error| error.to_string())
+                if cancellation.load(Ordering::Acquire) != epoch {
+                    return None;
+                }
+                let outline = Arc::new(project_outline(snapshot.blocks()));
+                (cancellation.load(Ordering::Acquire) == epoch).then_some((revision, outline))
             });
         cx.spawn(async move |this, cx| {
             let result = rebuild.await;
             let _ = this.update(cx, |this, cx| {
-                this.layout_in_flight = false;
-                match result {
-                    Ok(Some((completed_revision, layout_index, outline))) => {
-                        let current_revision =
-                            this.editor.read(cx).document().snapshot().revision();
-                        if current_revision == completed_revision {
-                            this.layout_index = layout_index;
-                            this.outline = outline;
-                            this.layout_requested = None;
-                            this.minimap_dirty = true;
-                            cx.notify();
-                        }
-                    }
-                    Ok(None) => {}
-                    Err(error) => {
-                        this.layout_requested = None;
-                        this.startup_error = Some(error);
+                this.outline_in_flight = false;
+                if let Some((completed_revision, outline)) = result {
+                    let current_revision = this.editor.read(cx).document().snapshot().revision();
+                    if outline_completion_is_current(
+                        this.outline_request,
+                        request,
+                        this.document_epoch,
+                        document_epoch,
+                        current_revision,
+                        completed_revision,
+                    ) {
+                        this.outline = outline;
+                        this.outline_requested = None;
+                        cx.notify();
                     }
                 }
-                if this.layout_requested.is_some() {
-                    this.refresh_layout(cx);
+                if this.outline_requested.is_some() {
+                    this.refresh_outline(cx);
                 }
             });
         })
         .detach();
-    }
-
-    fn update_minimap_scroll(
-        &mut self,
-        pointer_y: gpui::Pixels,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        let window_height: f32 = window.bounds().size.height.into();
-        let minimap_height = (window_height - 84.).max(1.);
-        let pointer: f32 = pointer_y.into();
-        let document_y = self
-            .minimap
-            .document_offset_for_pointer(pointer - 60., minimap_height);
-        self.editor
-            .update(cx, |editor, cx| editor.set_scroll_y(document_y, cx));
-    }
-
-    fn minimap_mouse_down(
-        &mut self,
-        event: &MouseDownEvent,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        self.minimap_dragging = true;
-        self.update_minimap_scroll(event.position.y, window, cx);
-    }
-
-    fn minimap_mouse_move(
-        &mut self,
-        event: &MouseMoveEvent,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        if self.minimap_dragging {
-            self.update_minimap_scroll(event.position.y, window, cx);
-        }
-    }
-
-    fn minimap_mouse_up(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        self.minimap_dragging = false;
-        cx.notify();
     }
 
     fn navigation_resize_start(
@@ -2638,6 +2766,20 @@ impl MarkdownWindow {
         if self.save_in_flight || (self.conflict && !explicit) {
             return;
         }
+        if self.editor.read(cx).composition_active() {
+            if !explicit {
+                self.schedule_autosave(cx);
+                return;
+            }
+            let error = self
+                .editor
+                .update(cx, |editor, cx| editor.commit_pending_composition(cx).err());
+            if let Some(error) = error {
+                self.startup_error = Some(format!("Could not finish text composition: {error}"));
+                cx.notify();
+                return;
+            }
+        }
         let (Some(path), Some(identity)) = (self.source_path.clone(), self.source_identity.clone())
         else {
             if explicit {
@@ -2705,13 +2847,13 @@ impl MarkdownWindow {
                             this.finish_pending_close(cx);
                         }
                         this.broadcast_session_state(path.clone(), true, cx);
-                        this.arm_external_watch(cx);
+                        this.reconcile_external_watch(cx);
                     }
                     Err(error) => {
                         this.close_after_save = false;
                         this.conflict = error.is_external_change();
                         this.startup_error = Some(error.to_string());
-                        this.arm_external_watch(cx);
+                        this.reconcile_external_watch(cx);
                     }
                 }
                 cx.notify();
@@ -2852,6 +2994,19 @@ fn clamp_navigation_split(split: f32) -> f32 {
     split.clamp(0.25, 0.75)
 }
 
+fn outline_completion_is_current(
+    current_request: u64,
+    request: u64,
+    current_document_epoch: u64,
+    document_epoch: u64,
+    current_revision: Revision,
+    completed_revision: Revision,
+) -> bool {
+    current_request == request
+        && current_document_epoch == document_epoch
+        && current_revision == completed_revision
+}
+
 fn navigation_is_visible(wide: bool, collapsed: bool, overlay: bool) -> bool {
     if wide { !collapsed } else { overlay }
 }
@@ -2863,39 +3018,6 @@ fn toggle_navigation(wide: bool, collapsed: &mut bool, overlay: &mut bool) {
     } else {
         *overlay = !*overlay;
     }
-}
-
-fn outline_entries(blocks: &BlockSequence) -> Vec<OutlineEntry> {
-    fn visit(blocks: &BlockSequence, output: &mut Vec<OutlineEntry>) {
-        for block in blocks {
-            match block.as_ref() {
-                BlockNode::Heading(heading) => output.push(OutlineEntry {
-                    node_id: heading.id,
-                    level: heading.level,
-                    label: heading.content.as_string(),
-                }),
-                BlockNode::List(list) => {
-                    for item in list.items.iter() {
-                        visit(&item.blocks, output);
-                    }
-                }
-                BlockNode::BlockQuote { blocks, .. }
-                | BlockNode::Alert { blocks, .. }
-                | BlockNode::FootnoteDefinition { blocks, .. } => visit(blocks, output),
-                BlockNode::Table(table) => {
-                    for row in table.rows.iter() {
-                        for cell in row.cells.iter() {
-                            visit(&cell.blocks, output);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    let mut output = Vec::new();
-    visit(blocks, &mut output);
-    output
 }
 
 impl Render for MarkdownWindow {
@@ -2931,46 +3053,10 @@ impl Render for MarkdownWindow {
             self.navigation_collapsed,
             self.navigation_overlay,
         );
-        let show_minimap = width >= 1000.;
-        let window_height: f32 = window.bounds().size.height.into();
-        let minimap_height = (window_height - 84.).max(1.);
-        if self.minimap_dirty || (self.minimap_height - minimap_height).abs() > f32::EPSILON {
-            self.minimap.rebuild(&self.layout_index, minimap_height);
-            self.minimap_dirty = false;
-            self.minimap_height = minimap_height;
-        }
-        let (scroll_y, editor_viewport_height) = self.editor.read(cx).scroll_metrics();
-        let indicator = self.minimap.viewport_indicator(
-            scroll_y,
-            editor_viewport_height.max(window_height - 36.),
-            minimap_height,
-        );
-        let minimap_primitives = self
-            .minimap
-            .primitives()
-            .iter()
-            .enumerate()
-            .map(|(index, primitive)| {
-                let color = match primitive.kind {
-                    MinimapPrimitiveKind::Heading => palette.accent,
-                    MinimapPrimitiveKind::TableGrid => palette.secondary,
-                    MinimapPrimitiveKind::Image => palette.image,
-                    MinimapPrimitiveKind::TextLine => palette.minimap_text,
-                    MinimapPrimitiveKind::Placeholder => palette.minimap_placeholder,
-                };
-                div()
-                    .id(("minimap-fragment", index))
-                    .absolute()
-                    .top(px(primitive.rect.origin.y))
-                    .left(px(primitive.rect.origin.x))
-                    .w(px(primitive.rect.size.width))
-                    .h(px(primitive.rect.size.height.clamp(1., 8.)))
-                    .bg(rgb(color))
-            })
-            .collect::<Vec<_>>();
         let runtime_error = self.editor.read(cx).last_error().map(ToOwned::to_owned);
         let status = runtime_error.or_else(|| self.startup_error.clone());
         let active_path = self.source_path.clone();
+        let active_heading = self.editor.read(cx).active_heading_node();
         let files_empty = self.navigation_nodes.is_empty();
         let file_rows = navigation_rows(&self.navigation_nodes)
             .into_iter()
@@ -3058,8 +3144,9 @@ impl Render for MarkdownWindow {
                         div()
                             .id(("outline-heading", node_id.get() as usize))
                             .role(Role::TreeItem)
-                            .aria_label(entry.label.clone())
+                            .aria_label(entry.title.clone())
                             .aria_level(entry.level as usize)
+                            .aria_selected(active_heading == Some(node_id))
                             .tab_stop(true)
                             .flex()
                             .items_center()
@@ -3096,10 +3183,10 @@ impl Render for MarkdownWindow {
                                     .overflow_hidden()
                                     .whitespace_nowrap()
                                     .text_ellipsis()
-                                    .child(if entry.label.is_empty() {
+                                    .child(if entry.title.is_empty() {
                                         "Untitled heading".to_owned()
                                     } else {
-                                        entry.label
+                                        entry.title
                                     }),
                             )
                     })
@@ -3235,13 +3322,56 @@ impl Render for MarkdownWindow {
             "Noto Sans".into(),
             "DejaVu Sans".into(),
         ]));
+        let zoom_percent = self.editor.read(cx).zoom_percent();
+        let zoom_out_editor = self.editor.clone();
+        let reset_zoom_editor = self.editor.clone();
+        let zoom_in_editor = self.editor.clone();
+        let application_menu_focus = self.editor.focus_handle(cx);
+        let zoom_controls = div()
+            .ml_auto()
+            .flex()
+            .items_center()
+            .gap(px(2.))
+            .child(
+                Button::new("zoom-out")
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::Minus)
+                    .tooltip("Zoom out — Ctrl+−")
+                    .on_click(move |_, _, cx| {
+                        zoom_out_editor.update(cx, |editor, cx| editor.zoom_out(cx));
+                    }),
+            )
+            .child(
+                Button::new("zoom-reset")
+                    .ghost()
+                    .xsmall()
+                    .label(format!("{zoom_percent}%"))
+                    .tooltip("Reset zoom — Ctrl+0")
+                    .on_click(move |_, _, cx| {
+                        reset_zoom_editor.update(cx, |editor, cx| editor.reset_zoom(cx));
+                    }),
+            )
+            .child(
+                Button::new("zoom-in")
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::Plus)
+                    .tooltip("Zoom in — Ctrl++")
+                    .on_click(move |_, _, cx| {
+                        zoom_in_editor.update(cx, |editor, cx| editor.zoom_in(cx));
+                    }),
+            );
         let application_menu = Button::new("application-menu")
             .ghost()
             .xsmall()
             .icon(IconName::Menu)
             .tooltip("Application menu")
             .dropdown_menu(move |menu, _window, _cx| {
-                menu.item(PopupMenuItem::new("New document").action(Box::new(NewDocumentAction)))
+                menu.action_context(application_menu_focus.clone())
+                    .min_w(px(320.))
+                    .max_w(px(320.))
+                    .item(PopupMenuItem::new("New document").action(Box::new(NewDocumentAction)))
                     .item(PopupMenuItem::new("Open file…").action(Box::new(OpenFileAction)))
                     .item(PopupMenuItem::new("Open folder…").action(Box::new(OpenFolderAction)))
                     .item(PopupMenuItem::separator())
@@ -3251,11 +3381,20 @@ impl Render for MarkdownWindow {
                     .item(PopupMenuItem::separator())
                     .item(PopupMenuItem::new("Undo").action(Box::new(UndoDocumentAction)))
                     .item(PopupMenuItem::new("Redo").action(Box::new(RedoDocumentAction)))
+                    .item(
+                        PopupMenuItem::new("Find in document…")
+                            .icon(IconName::Search)
+                            .action(Box::new(FindDocumentAction)),
+                    )
                     .item(PopupMenuItem::separator())
                     .item(
                         PopupMenuItem::new("Toggle navigation")
                             .action(Box::new(ToggleNavigationAction)),
                     )
+                    .item(PopupMenuItem::separator())
+                    .item(PopupMenuItem::new("Zoom in").action(Box::new(ZoomInAction)))
+                    .item(PopupMenuItem::new("Zoom out").action(Box::new(ZoomOutAction)))
+                    .item(PopupMenuItem::new("Actual size").action(Box::new(ResetZoomAction)))
                     .item(
                         PopupMenuItem::new("Close window")
                             .action(Box::new(CloseDocumentWindowAction)),
@@ -3302,6 +3441,27 @@ impl Render for MarkdownWindow {
                 );
                 cx.notify();
             }))
+            .on_action(cx.listener(|this, _: &FindDocumentAction, window, cx| {
+                this.editor
+                    .update(cx, |editor, cx| editor.open_find(window, cx));
+            }))
+            .on_action(cx.listener(|this, _: &FindNextAction, _, cx| {
+                this.editor
+                    .update(cx, |editor, cx| editor.find_next(false, cx));
+            }))
+            .on_action(cx.listener(|this, _: &FindPreviousAction, _, cx| {
+                this.editor
+                    .update(cx, |editor, cx| editor.find_next(true, cx));
+            }))
+            .on_action(cx.listener(|this, _: &ZoomInAction, _, cx| {
+                this.editor.update(cx, |editor, cx| editor.zoom_in(cx));
+            }))
+            .on_action(cx.listener(|this, _: &ZoomOutAction, _, cx| {
+                this.editor.update(cx, |editor, cx| editor.zoom_out(cx));
+            }))
+            .on_action(cx.listener(|this, _: &ResetZoomAction, _, cx| {
+                this.editor.update(cx, |editor, cx| editor.reset_zoom(cx));
+            }))
             .on_action(
                 cx.listener(|this, _: &CloseDocumentWindowAction, window, cx| {
                     this.request_close(window, cx);
@@ -3327,6 +3487,19 @@ impl Render for MarkdownWindow {
                             .child(application_menu)
                             .child(
                                 div()
+                                    .id("document-window-title")
+                                    .aria_label(self.filename.clone())
+                                    .tooltip({
+                                        let filename = self.filename.clone();
+                                        move |window, cx| {
+                                            gpui_component::tooltip::Tooltip::new(filename.clone())
+                                                .build(window, cx)
+                                        }
+                                    })
+                                    // Do not let a filename's intrinsic width
+                                    // push native window controls offscreen.
+                                    .flex_1()
+                                    .w_0()
                                     .min_w_0()
                                     .overflow_hidden()
                                     .whitespace_nowrap()
@@ -3336,10 +3509,10 @@ impl Render for MarkdownWindow {
                             .when(self.unsaved, |header| {
                                 header.child(div().text_color(rgb(palette.accent)).child("●"))
                             })
+                            .child(zoom_controls)
                             .when_some(status, |header, message| {
                                 header.child(
                                     div()
-                                        .ml_auto()
                                         .max_w(px(420.))
                                         .text_color(rgb(palette.error))
                                         .overflow_hidden()
@@ -3438,13 +3611,28 @@ impl Render for MarkdownWindow {
                             .flex_1()
                             .min_w_0()
                             .justify_center()
-                            .px(px(32.))
+                            .relative()
+                            .px(px(28.))
+                            .capture_any_mouse_down(cx.listener(|this, _, _, cx| {
+                                this.editor.update(cx, |editor, cx| {
+                                    editor.stop_momentum();
+                                    cx.notify();
+                                });
+                            }))
+                            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                                if event.pressed_button == Some(MouseButton::Left) {
+                                    this.editor.update(cx, |_, cx| {
+                                        cx.emit(EditorEvent::ViewChanged);
+                                        cx.notify();
+                                    });
+                                }
+                            }))
                             .child(
                                 div()
                                     .w_full()
-                                    .max_w(px(760.))
+                                    .max_w(px(1280.))
                                     .h_full()
-                                    .py(px(32.))
+                                    .py(px(20.))
                                     .text_size(px(18.))
                                     .line_height(px(28.8))
                                     .child(
@@ -3452,52 +3640,22 @@ impl Render for MarkdownWindow {
                                             .size_full()
                                             .child(self.editor.clone()),
                                     ),
-                            ),
-                    )
-                    .when(show_minimap, |workspace| {
-                        workspace.child(
-                            div().w(px(64.)).h_full().px(px(12.)).py(px(24.)).child(
+                            )
+                            .child(
                                 div()
-                                    .id("rendered-minimap")
-                                    .role(Role::ScrollBar)
-                                    .aria_label("Rendered document minimap")
-                                    .relative()
-                                    .w(px(40.))
-                                    .h(px(minimap_height))
-                                    .border_l_1()
-                                    .border_color(rgb(palette.border))
-                                    .cursor(gpui::CursorStyle::PointingHand)
-                                    .on_mouse_down(
-                                        MouseButton::Left,
-                                        cx.listener(Self::minimap_mouse_down),
-                                    )
-                                    .on_mouse_move(cx.listener(Self::minimap_mouse_move))
-                                    .on_mouse_up(
-                                        MouseButton::Left,
-                                        cx.listener(Self::minimap_mouse_up),
-                                    )
-                                    .on_mouse_up_out(
-                                        MouseButton::Left,
-                                        cx.listener(Self::minimap_mouse_up),
-                                    )
-                                    .children(minimap_primitives)
+                                    .absolute()
+                                    .top(px(20.))
+                                    .bottom(px(20.))
+                                    .left_0()
+                                    .right_0()
                                     .child(
-                                        div()
-                                            .absolute()
-                                            .top(px(indicator.origin.y))
-                                            .left(px(0.))
-                                            .w(px(40.))
-                                            .h(px(indicator.size.height.max(16.)))
-                                            .border_1()
-                                            .border_color(rgb(palette.accent))
-                                            .bg(gpui::rgba(MineralPalette::with_alpha(
-                                                palette.accent,
-                                                0x24,
-                                            ))),
+                                        Scrollbar::vertical(&self.editor.read(cx).scroll_handle())
+                                            .viewport_from_layout()
+                                            .id("document-scrollbar")
+                                            .mode(ScrollbarMode::Scrolling),
                                     ),
                             ),
-                        )
-                    }),
+                    ),
             );
         startup_trace(self.startup_trace_started_at, "root-render-end");
         scene
@@ -3581,6 +3739,53 @@ mod tests {
     }
 
     #[test]
+    fn explicit_detach_releases_idle_session_before_view_clone_drops() {
+        let path = PathBuf::from("/tmp/mineral-detached.md");
+        let mut registry = SessionRegistry::default();
+        let attachment = registry.attach(
+            path.clone(),
+            Document::from_markdown("clean").expect("document"),
+            test_identity(path.clone()),
+        );
+        assert_eq!(attachment.document.strong_count(), 2);
+
+        registry.detach(&path, EntityId::from(1));
+
+        assert!(!registry.sessions.contains_key(&path));
+        assert_eq!(attachment.document.strong_count(), 1);
+    }
+
+    #[test]
+    fn adopting_a_saved_revision_preserves_newer_dirty_content() {
+        let path = PathBuf::from("/tmp/mineral-adopted.md");
+        let mut registry = SessionRegistry::default();
+        let attachment = registry.attach(
+            path.clone(),
+            Document::from_markdown("base").expect("document"),
+            test_identity(path.clone()),
+        );
+        let saved_revision = attachment.document.snapshot().revision();
+        attachment
+            .document
+            .apply(document_core::EditCommand::ReplaceSelection {
+                text: "new ".into(),
+                typing: false,
+            })
+            .expect("newer edit");
+
+        assert!(registry.adopt(
+            path.clone(),
+            attachment.document.clone(),
+            test_identity(path.clone()),
+            saved_revision,
+        ));
+
+        let (_, revision, dirty) = registry.status(&path).expect("adopted session");
+        assert_eq!(revision, saved_revision);
+        assert!(dirty, "an edit newer than the adopted save stays dirty");
+    }
+
+    #[test]
     fn native_watch_events_are_filtered_to_the_active_file() {
         let target = PathBuf::from("/tmp/docs/active.md");
         let unrelated = notify::Event::new(notify::EventKind::Any)
@@ -3590,6 +3795,28 @@ mod tests {
             .add_path(target.clone());
         assert!(!event_targets_path(&unrelated, &target));
         assert!(event_targets_path(&atomic_rename, &target));
+    }
+
+    #[test]
+    fn outline_completion_rejects_same_revision_from_a_new_document() {
+        let revision = Revision(7);
+        assert!(outline_completion_is_current(
+            3, 3, 9, 9, revision, revision
+        ));
+        assert!(!outline_completion_is_current(
+            3, 3, 10, 9, revision, revision
+        ));
+        assert!(!outline_completion_is_current(
+            4, 3, 9, 9, revision, revision
+        ));
+        assert!(!outline_completion_is_current(
+            3,
+            3,
+            9,
+            9,
+            revision,
+            Revision(8)
+        ));
     }
 
     #[test]

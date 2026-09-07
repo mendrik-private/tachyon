@@ -1,17 +1,80 @@
 use std::{ops::Range, sync::Arc};
 
 use document_core::{
-    Affinity, BlockNode, BlockSequence, DocumentPosition, DocumentSnapshot, ListKind, NodeId,
-    RichText, Selection, TableBorder,
+    Affinity, AlertKind, BlockNode, BlockSequence, DocumentPosition, DocumentSnapshot, ListKind,
+    NodeId, RichText, Selection, TableBorder,
 };
 use rustc_hash::FxHashMap;
+
+/// Native document-unit constraints, never persisted into Markdown.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TableMeasurements {
+    pub minimum: Vec<f32>,
+    pub preferred: Vec<f32>,
+}
+
+/// Transient presentation constraints for the focused table. Never copied to
+/// content, export or preference storage; font/width changes and blur release it.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TableLayoutLock {
+    id: NodeId,
+    widths: Vec<f32>,
+    measured: Option<TableMeasurements>,
+}
+
+impl TableMeasurements {
+    pub fn fit(&self, available: f32) -> Vec<f32> {
+        let minimum = self.minimum.iter().sum::<f32>();
+        let preferred = self.preferred.iter().sum::<f32>();
+        if available <= minimum {
+            return self.minimum.clone();
+        }
+        if available >= preferred {
+            return self.preferred.clone();
+        }
+        let fraction = (available - minimum) / (preferred - minimum).max(f32::EPSILON);
+        self.minimum
+            .iter()
+            .zip(&self.preferred)
+            .map(|(low, high)| low + (high - low) * fraction)
+            .collect()
+    }
+}
+
+fn fit_columns(weights: &[f32], available: f32) -> Vec<f32> {
+    let minimum = 96.;
+    let remaining = (available - minimum * weights.len() as f32).max(0.);
+    let flexible = weights.iter().map(|w| (w - minimum).max(1.)).sum::<f32>();
+    weights
+        .iter()
+        .map(|w| minimum + remaining * (w - minimum).max(1.) / flexible.max(1.))
+        .collect()
+}
+
+#[test]
+fn automatic_columns_fit_without_squeezing_short_labels() {
+    for width in [384., 640., 1100., 1600.] {
+        let fitted = fit_columns(&[96., 400., 400., 200.], width);
+        assert!((fitted.iter().sum::<f32>() - width).abs() < 0.01);
+        assert!(fitted.iter().all(|width| *width >= 96.));
+        assert!(fitted[1] >= fitted[3] && fitted[3] >= fitted[0]);
+    }
+    assert_eq!(fit_columns(&[400., 400., 400.], 200.), vec![96.; 3]);
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProjectionContext {
     pub list_depth: usize,
+    pub ordered_list_depth: usize,
     pub list_marker: Option<String>,
     pub task_checked: Option<bool>,
     pub quote_depth: usize,
+    pub quote: Option<NodeId>,
+    pub quote_first: bool,
+    pub quote_last: bool,
+    pub alert: Option<(NodeId, AlertKind)>,
+    pub alert_first: bool,
+    pub alert_last: bool,
     pub table_cell: Option<(NodeId, usize, usize)>,
     pub table_header: bool,
     pub table_border: Option<TableBorder>,
@@ -28,17 +91,107 @@ pub struct ProjectionSegment {
     pub context: ProjectionContext,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub(crate) struct ContainerEdges {
+    pub starts: Vec<NodeId>,
+    pub ends: Vec<NodeId>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TableContext {
+    pub outer: ProjectionContext,
+    pub containers: Vec<NodeId>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct TextProjection {
     text: String,
+    // Canonical roots, including non-text barriers. Deriving roots from text
+    // segments loses thematic breaks and can incorrectly join distant groups.
+    roots: Vec<NodeId>,
+    revisions: FxHashMap<NodeId, document_core::Revision>,
     segments: Vec<ProjectionSegment>,
     by_node: FxHashMap<NodeId, usize>,
     blocks: FxHashMap<NodeId, Arc<BlockNode>>,
     image_segments: Vec<usize>,
     utf16_ranges: Vec<Range<usize>>,
+    table_widths: FxHashMap<NodeId, Vec<f32>>,
+    table_contexts: FxHashMap<NodeId, TableContext>,
+    container_cells: FxHashMap<NodeId, (NodeId, usize, usize)>,
+    container_edges: FxHashMap<NodeId, ContainerEdges>,
+    measured_tables: FxHashMap<NodeId, TableMeasurements>,
+    pub(crate) table_layout_lock: Option<TableLayoutLock>,
+    pub(crate) math_edit_node: Option<NodeId>,
+    pub(crate) html_disclosures: Arc<FxHashMap<NodeId, crate::html::DisclosureState>>,
+    pub(crate) html_image_references: FxHashMap<NodeId, Vec<document_core::InertHtmlImage>>,
+    pub(crate) html_images: Arc<FxHashMap<NodeId, crate::html::images::BoundImages>>,
+}
+
+/// Exact inputs to renderer geometry, without copying the projected text or
+/// every leaf's metadata. Immutable root allocation identity includes all
+/// descendants and their order; view-only constraints are compared separately.
+pub(crate) struct ProjectionGeometryKey {
+    roots: Vec<Arc<BlockNode>>,
+    measured_tables: FxHashMap<NodeId, TableMeasurements>,
+    table_layout_lock: Option<TableLayoutLock>,
+    math_edit_node: Option<NodeId>,
+    html_disclosures: Arc<FxHashMap<NodeId, crate::html::DisclosureState>>,
+    html_images: Arc<FxHashMap<NodeId, crate::html::images::BoundImages>>,
+}
+
+impl ProjectionGeometryKey {
+    pub(crate) fn matches(&self, projection: &TextProjection) -> bool {
+        self.math_edit_node == projection.math_edit_node
+            && self.table_layout_lock == projection.table_layout_lock
+            && self.measured_tables == projection.measured_tables
+            && self.html_disclosures == projection.html_disclosures
+            && self.html_images == projection.html_images
+            && self.roots.len() == projection.roots.len()
+            && self.roots.iter().zip(&projection.roots).all(|(root, id)| {
+                projection
+                    .block_handle(*id)
+                    .is_some_and(|current| Arc::ptr_eq(root, current))
+            })
+    }
 }
 
 impl TextProjection {
+    pub(crate) fn geometry_key(&self) -> ProjectionGeometryKey {
+        ProjectionGeometryKey {
+            roots: self
+                .roots
+                .iter()
+                .map(|id| self.blocks[id].clone())
+                .collect(),
+            measured_tables: self.measured_tables.clone(),
+            table_layout_lock: self.table_layout_lock.clone(),
+            math_edit_node: self.math_edit_node,
+            html_disclosures: self.html_disclosures.clone(),
+            html_images: self.html_images.clone(),
+        }
+    }
+
+    pub(crate) fn html_disclosure_overrides(
+        &self,
+        node: NodeId,
+    ) -> Option<&crate::html::DisclosureOverrides> {
+        let state = self.html_disclosures.get(&node)?;
+        matches!(self.block(node), Some(BlockNode::PreservedSource { source, .. }) if *source == state.source)
+            .then_some(&state.overrides)
+    }
+
+    pub(crate) fn html_images(&self, node: NodeId) -> Option<&crate::html::images::BoundImages> {
+        let images = self.html_images.get(&node)?;
+        matches!(self.block(node), Some(BlockNode::PreservedSource { source, .. }) if *source == images.source)
+            .then_some(images)
+    }
+
+    pub(crate) fn retain_html_disclosures(&mut self) {
+        let mut states = self.html_disclosures.as_ref().clone();
+        states.retain(|node, state| matches!(self.block(*node), Some(BlockNode::PreservedSource { source, .. }) if *source == state.source));
+        self.html_disclosures = Arc::new(states);
+    }
+
     #[must_use]
     pub fn from_snapshot(snapshot: &DocumentSnapshot) -> Self {
         let source_bytes = snapshot.source_spine().original().len();
@@ -52,18 +205,55 @@ impl TextProjection {
         blocks.reserve(segment_capacity);
         let mut projection = Self {
             text: String::with_capacity(source_bytes),
+            roots: snapshot.blocks().iter().map(|block| block.id()).collect(),
+            revisions: FxHashMap::default(),
             segments: Vec::with_capacity(segment_capacity),
             by_node,
             blocks,
             image_segments: Vec::new(),
             utf16_ranges: Vec::with_capacity(segment_capacity),
+            table_widths: FxHashMap::default(),
+            table_contexts: FxHashMap::default(),
+            container_cells: FxHashMap::default(),
+            container_edges: FxHashMap::default(),
+            measured_tables: FxHashMap::default(),
+            table_layout_lock: None,
+            html_disclosures: Arc::default(),
+            html_image_references: FxHashMap::default(),
+            html_images: Arc::default(),
+            math_edit_node: match snapshot.selection() {
+                Selection::Text(selection) => Some(selection.head.node_id),
+                _ => None,
+            },
         };
         append_sequence(
             snapshot.blocks(),
             &mut projection,
             &ProjectionContext::default(),
             None,
+            &mut Vec::new(),
         );
+        projection.math_edit_node = projection.math_edit_node.filter(|id| {
+            projection
+                .block(*id)
+                .and_then(BlockNode::text)
+                .is_some_and(|text| {
+                    text.runs().iter().any(|run| {
+                        run.styles
+                            .iter()
+                            .any(|style| matches!(style, document_core::InlineStyle::Math { .. }))
+                    })
+                })
+        });
+        projection.revisions = projection
+            .segments
+            .iter()
+            .filter_map(|segment| {
+                snapshot
+                    .node_revision(segment.node_id)
+                    .map(|revision| (segment.node_id, revision))
+            })
+            .collect();
         projection
     }
 
@@ -80,6 +270,150 @@ impl TextProjection {
     #[must_use]
     pub fn block(&self, node_id: NodeId) -> Option<&BlockNode> {
         self.blocks.get(&node_id).map(Arc::as_ref)
+    }
+
+    pub(crate) fn roots(&self) -> impl ExactSizeIterator<Item = &BlockNode> {
+        self.roots.iter().map(|id| self.blocks[id].as_ref())
+    }
+
+    /// Immutable canonical allocation identity for renderer-owned caches.
+    pub(crate) fn block_handle(&self, id: NodeId) -> Option<&Arc<BlockNode>> {
+        self.blocks.get(&id)
+    }
+
+    pub(crate) fn node_revision(&self, id: NodeId) -> document_core::Revision {
+        self.revisions.get(&id).copied().unwrap_or_default()
+    }
+
+    pub(crate) fn table_widths(&self, node_id: NodeId) -> Option<&[f32]> {
+        if let Some(lock) = &self.table_layout_lock
+            && lock.id == node_id
+        {
+            return Some(&lock.widths);
+        }
+        self.measured_tables
+            .get(&node_id)
+            .map(|m| m.preferred.as_slice())
+            .or_else(|| self.table_widths.get(&node_id).map(Vec::as_slice))
+    }
+
+    pub(crate) fn table_measurements(&self, id: NodeId) -> Option<&TableMeasurements> {
+        if let Some(lock) = &self.table_layout_lock
+            && lock.id == id
+        {
+            return lock.measured.as_ref();
+        }
+        self.measured_tables.get(&id)
+    }
+
+    pub(crate) fn table_layout_is_locked(&self, id: NodeId) -> bool {
+        self.table_layout_lock
+            .as_ref()
+            .is_some_and(|lock| lock.id == id)
+    }
+
+    pub(crate) fn lock_table_for_node(&mut self, node: Option<NodeId>) {
+        let table = node
+            .and_then(|node| self.segment_for_node(node))
+            .and_then(|segment| segment.context.table_cell)
+            .map(|(id, _, _)| id);
+        self.table_layout_lock = table.and_then(|id| {
+            Some(TableLayoutLock {
+                id,
+                widths: self.table_widths(id)?.to_vec(),
+                measured: self.table_measurements(id).cloned(),
+            })
+        });
+    }
+
+    /// A structural edit can replace the focused leaf without replacing its
+    /// table. Retain that table's presentation constraints, but never carry a
+    /// lock across a column command or into an unrelated editing target.
+    pub(crate) fn retain_table_layout_lock(&mut self, previous: &Self, node: Option<NodeId>) {
+        self.table_layout_lock = previous.table_layout_lock.as_ref().and_then(|lock| {
+            let table_id = self.segment_for_node(node?)?.context.table_cell?.0;
+            if table_id != lock.id {
+                return None;
+            }
+            let BlockNode::Table(before) = previous.block(table_id)? else {
+                return None;
+            };
+            let BlockNode::Table(after) = self.block(table_id)? else {
+                return None;
+            };
+            (before.columns == after.columns).then(|| lock.clone())
+        });
+    }
+
+    pub(crate) fn install_table_measurements(&mut self, id: NodeId, measured: TableMeasurements) {
+        if measured.minimum.len() == measured.preferred.len()
+            && measured
+                .minimum
+                .iter()
+                .zip(&measured.preferred)
+                .all(|(low, high)| low.is_finite() && *low > 0. && high.is_finite() && high >= low)
+        {
+            self.measured_tables.insert(id, measured);
+        }
+    }
+
+    /// Untouched canonical table Arcs survive transactions. Reuse only under
+    /// the same font environment (edit refresh, never font/zoom reflow).
+    pub(crate) fn reuse_table_measurements(&mut self, previous: &Self) {
+        for (id, measured) in &previous.measured_tables {
+            if self
+                .blocks
+                .get(id)
+                .zip(previous.blocks.get(id))
+                .is_some_and(|(a, b)| Arc::ptr_eq(a, b))
+            {
+                self.measured_tables.insert(*id, measured.clone());
+            }
+        }
+    }
+
+    pub(crate) fn table_context(&self, id: NodeId) -> Option<&TableContext> {
+        self.table_contexts.get(&id)
+    }
+
+    pub(crate) fn container_cell(&self, id: NodeId) -> Option<(NodeId, usize, usize)> {
+        self.container_cells.get(&id).copied()
+    }
+
+    pub(crate) fn container_edges(&self, leaf: NodeId) -> Option<&ContainerEdges> {
+        self.container_edges.get(&leaf)
+    }
+
+    pub(crate) fn table_available_width(&self, id: NodeId, canvas: f32) -> f32 {
+        let Some(BlockNode::Table(table)) = self.block(id) else {
+            return canvas;
+        };
+        if table.columns.iter().any(|column| column.width.is_some()) {
+            return canvas;
+        }
+        if let Some(measured) = self.table_measurements(id) {
+            return canvas.min(measured.preferred.iter().sum::<f32>());
+        }
+        if table.columns.len() == 2 {
+            canvas.min(crate::adaptive::PROSE_WIDTH)
+        } else {
+            canvas
+        }
+    }
+
+    /// Water-fill intrinsic column weights, preserving a readable minimum.
+    /// Evaluated during geometry preparation, never in the scroll paint loop.
+    pub(crate) fn fitted_table_widths(&self, id: NodeId, available: f32) -> Option<Vec<f32>> {
+        let widths = self.table_widths(id)?;
+        let explicit = matches!(self.block(id), Some(BlockNode::Table(table))
+            if table.columns.iter().any(|column| column.width.is_some()));
+        if explicit {
+            return Some(widths.to_vec());
+        }
+        if let Some(measured) = self.table_measurements(id) {
+            return Some(measured.fit(available));
+        }
+        Some(fit_columns(widths, available))
     }
 
     #[must_use]
@@ -110,6 +444,10 @@ impl TextProjection {
     ) -> Option<(Range<usize>, isize)> {
         let index = *self.by_node.get(&node_id)?;
         let block = snapshot.node(node_id)?.clone();
+        let table = match self.segments[index].context.table_cell {
+            Some((id, _, _)) => Some((id, snapshot.node(id)?.clone())),
+            None => None,
+        };
         let rich_text = block.text()?;
         let mut replacement = String::with_capacity(rich_text.len());
         rich_text.append_to(&mut replacement);
@@ -137,6 +475,14 @@ impl TextProjection {
             following.end = following.end.checked_add_signed(utf16_delta)?;
         }
         self.blocks.insert(node_id, Arc::new(block));
+        if let Some((id, table)) = table {
+            self.blocks.insert(id, Arc::new(table));
+            // The lock retains the visible widths, but these measurements no
+            // longer describe the canonical content. Do not reuse them on blur.
+            self.measured_tables.remove(&id);
+        }
+        self.revisions
+            .insert(node_id, snapshot.node_revision(node_id)?);
         Some((old_range, delta))
     }
 
@@ -351,11 +697,38 @@ impl TextProjection {
     }
 }
 
+fn record_container(
+    projection: &mut TextProjection,
+    id: NodeId,
+    start: usize,
+    end: usize,
+    cell: Option<(NodeId, usize, usize)>,
+) {
+    if let Some(cell) = cell {
+        projection.container_cells.insert(id, cell);
+    }
+    let first = projection.segments[start].node_id;
+    let last = projection.segments[end - 1].node_id;
+    projection
+        .container_edges
+        .entry(first)
+        .or_default()
+        .starts
+        .push(id);
+    projection
+        .container_edges
+        .entry(last)
+        .or_default()
+        .ends
+        .push(id);
+}
+
 fn append_sequence(
     blocks: &BlockSequence,
     projection: &mut TextProjection,
     context: &ProjectionContext,
     top_level_node_id: Option<NodeId>,
+    containers: &mut Vec<NodeId>,
 ) {
     for block in blocks {
         let top_level_node_id = top_level_node_id.unwrap_or_else(|| block.id());
@@ -395,6 +768,8 @@ fn append_sequence(
                     let start = projection.segments.len();
                     let mut list_context = context.clone();
                     list_context.list_depth += 1;
+                    list_context.ordered_list_depth +=
+                        usize::from(matches!(list.kind, ListKind::Ordered { .. }));
                     list_context.list_marker = Some(match list.kind {
                         ListKind::Unordered | ListKind::Task => "•".into(),
                         ListKind::Ordered { start } => format!("{}.", start + index as u64),
@@ -405,6 +780,7 @@ fn append_sequence(
                         projection,
                         &list_context,
                         Some(top_level_node_id),
+                        containers,
                     );
                     for segment in projection.segments.iter_mut().skip(start + 1) {
                         if segment.context.list_depth == list_context.list_depth {
@@ -414,15 +790,90 @@ fn append_sequence(
                     }
                 }
             }
-            BlockNode::BlockQuote { blocks, .. } => {
+            BlockNode::BlockQuote { id, blocks, .. } => {
+                let start = projection.segments.len();
                 let mut quote_context = context.clone();
                 quote_context.quote_depth += 1;
-                append_sequence(blocks, projection, &quote_context, Some(top_level_node_id));
+                quote_context.quote = Some(*id);
+                containers.push(*id);
+                append_sequence(
+                    blocks,
+                    projection,
+                    &quote_context,
+                    Some(top_level_node_id),
+                    containers,
+                );
+                let _ = containers.pop();
+                let end = projection.segments.len();
+                if start < end {
+                    projection.segments[start].context.quote_first = true;
+                    projection.segments[end - 1].context.quote_last = true;
+                    record_container(projection, *id, start, end, context.table_cell);
+                }
             }
-            BlockNode::Alert { blocks, .. } | BlockNode::FootnoteDefinition { blocks, .. } => {
-                append_sequence(blocks, projection, context, Some(top_level_node_id));
+            BlockNode::Alert {
+                id, kind, blocks, ..
+            } => {
+                let start = projection.segments.len();
+                let mut alert_context = context.clone();
+                alert_context.alert = Some((*id, kind.clone()));
+                containers.push(*id);
+                append_sequence(
+                    blocks,
+                    projection,
+                    &alert_context,
+                    Some(top_level_node_id),
+                    containers,
+                );
+                let _ = containers.pop();
+                let end = projection.segments.len();
+                if start < end {
+                    projection.segments[start].context.alert_first = true;
+                    projection.segments[end - 1].context.alert_last = true;
+                    record_container(projection, *id, start, end, context.table_cell);
+                }
+            }
+            BlockNode::FootnoteDefinition { blocks, .. } => {
+                append_sequence(
+                    blocks,
+                    projection,
+                    context,
+                    Some(top_level_node_id),
+                    containers,
+                );
             }
             BlockNode::Table(table) => {
+                projection.table_contexts.insert(
+                    table.id,
+                    TableContext {
+                        outer: context.clone(),
+                        containers: containers.clone(),
+                    },
+                );
+                let mut widths = vec![96_f32; table.columns.len()];
+                // Analyze once per projection, not once per cell or frame.
+                // Long descriptive columns can negotiate more room while
+                // authored column widths continue to take precedence.
+                for row in table.rows.iter() {
+                    for (column, cell) in row.cells.iter().enumerate() {
+                        if let Some(width) = widths.get_mut(column) {
+                            let length = cell
+                                .blocks
+                                .iter()
+                                .filter_map(|block| block.text())
+                                .map(|text| text.len().min(72))
+                                .sum::<usize>()
+                                .min(72);
+                            *width = width.max((length as f32 * 7.7 + 24.).clamp(96., 400.));
+                        }
+                    }
+                }
+                for (width, column) in widths.iter_mut().zip(table.columns.iter()) {
+                    if let Some(explicit) = column.width {
+                        *width = explicit.max(32.);
+                    }
+                }
+                projection.table_widths.insert(table.id, widths);
                 for (row_index, row) in table.rows.iter().enumerate() {
                     for (column_index, cell) in row.cells.iter().enumerate() {
                         let mut cell_context = context.clone();
@@ -434,18 +885,35 @@ fn append_sequence(
                             projection,
                             &cell_context,
                             Some(top_level_node_id),
+                            containers,
                         );
                     }
                 }
             }
             BlockNode::PreservedSource {
-                id, description, ..
+                id,
+                description,
+                source,
+                ..
             } => {
+                if let Some(fragment) = document_core::inert_html_fragment(source)
+                    && !fragment.images().is_empty()
+                {
+                    projection
+                        .html_image_references
+                        .insert(*id, fragment.images().to_vec());
+                }
                 let mut preserved_context = context.clone();
                 preserved_context.preserved_source = true;
                 projection.push_text(*id, top_level_node_id, description, preserved_context);
             }
-            BlockNode::ThematicBreak { .. } => {}
+            BlockNode::ThematicBreak { id } => {
+                let mut rule_context = context.clone();
+                // A source-order geometry/semantic anchor, never an editable
+                // text node. Empty text adds no invented document content.
+                rule_context.preserved_source = true;
+                projection.push_text(*id, top_level_node_id, "", rule_context);
+            }
         }
     }
 }
@@ -455,6 +923,49 @@ mod tests {
     use document_core::{Document, EditCommand};
 
     use super::*;
+
+    #[test]
+    fn table_lock_survives_only_the_same_table_and_column_definition() {
+        let mut document =
+            Document::from_markdown("| A | B |\n| --- | --- |\n| one | two |\n\nOutside\n")
+                .unwrap();
+        let mut previous = TextProjection::from_snapshot(&document.snapshot());
+        let cell = previous
+            .segments()
+            .iter()
+            .find(|segment| segment.context.table_cell.is_some())
+            .unwrap();
+        let node = cell.node_id;
+        let table = cell.context.table_cell.unwrap().0;
+        let outside = previous
+            .segments()
+            .iter()
+            .find(|segment| segment.context.table_cell.is_none())
+            .unwrap()
+            .node_id;
+        previous.lock_table_for_node(Some(node));
+        assert!(previous.table_layout_is_locked(table));
+        let mut next = TextProjection::from_snapshot(&document.snapshot());
+        next.retain_table_layout_lock(&previous, Some(node));
+        assert!(next.table_layout_is_locked(table));
+        next.retain_table_layout_lock(&previous, Some(outside));
+        assert!(!next.table_layout_is_locked(table));
+        next.retain_table_layout_lock(&previous, None);
+        assert!(!next.table_layout_is_locked(table));
+        document
+            .apply(document_core::EditCommand::SetTableColumnWidth {
+                table_id: table,
+                column: 0,
+                width: 180.,
+            })
+            .unwrap();
+        let mut resized = TextProjection::from_snapshot(&document.snapshot());
+        resized.retain_table_layout_lock(&previous, Some(node));
+        assert!(
+            !resized.table_layout_is_locked(table),
+            "explicit column commands must remain effective"
+        );
+    }
 
     #[test]
     fn maps_utf16_and_stable_positions_across_blocks() {
@@ -559,6 +1070,29 @@ mod tests {
                 .map(|segment| segment.node_id),
             projection.segments().get(1).map(|segment| segment.node_id)
         );
+    }
+
+    #[test]
+    fn alert_segments_retain_semantic_kind_and_edges() {
+        let document =
+            Document::from_markdown("> [!TIP]\n> First paragraph.\n>\n> Second paragraph.")
+                .expect("alert document");
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let segments = projection
+            .segments()
+            .iter()
+            .filter(|segment| segment.context.alert.is_some())
+            .collect::<Vec<_>>();
+
+        assert_eq!(segments.len(), 2);
+        assert!(matches!(
+            segments[0].context.alert,
+            Some((_, AlertKind::Tip))
+        ));
+        assert!(segments[0].context.alert_first);
+        assert!(!segments[0].context.alert_last);
+        assert!(!segments[1].context.alert_first);
+        assert!(segments[1].context.alert_last);
     }
 
     #[test]

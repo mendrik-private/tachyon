@@ -88,6 +88,10 @@ struct mineral_input_implementation {
 		       struct wl_resource *resource,
 		       int32_t horizontal_milli,
 		       int32_t vertical_milli);
+	void (*continuous_scroll)(struct wl_client *client,
+				 struct wl_resource *resource,
+				 int32_t horizontal_milli,
+				 int32_t vertical_milli);
 };
 
 static const struct wl_message mineral_input_requests[] = {
@@ -95,12 +99,13 @@ static const struct wl_message mineral_input_requests[] = {
 	{ "button", "uu", NULL },
 	{ "key", "uu", NULL },
 	{ "scroll", "ii", NULL },
+	{ "continuous_scroll", "ii", NULL },
 };
 
 static const struct wl_interface mineral_input_interface = {
 	.name = "mineral_input_v1",
 	.version = 1,
-	.method_count = 4,
+	.method_count = 5,
 	.methods = mineral_input_requests,
 	.event_count = 0,
 	.events = NULL,
@@ -150,8 +155,8 @@ handle_key(struct wl_client *client, struct wl_resource *resource,
 }
 
 static void
-handle_scroll(struct wl_client *client, struct wl_resource *resource,
-	      int32_t horizontal_milli, int32_t vertical_milli)
+send_scroll(struct wl_client *client, struct wl_resource *resource,
+	    int32_t horizontal_milli, int32_t vertical_milli, bool continuous)
 {
 	struct mineral_input *input = wl_resource_get_user_data(resource);
 	struct weston_pointer_axis_event event = { 0 };
@@ -159,22 +164,36 @@ handle_scroll(struct wl_client *client, struct wl_resource *resource,
 
 	(void)client;
 	weston_compositor_get_time(&time);
-	notify_axis_source(input->seat, WL_POINTER_AXIS_SOURCE_WHEEL);
+	notify_axis_source(input->seat, continuous ? WL_POINTER_AXIS_SOURCE_FINGER : WL_POINTER_AXIS_SOURCE_WHEEL);
 	if (vertical_milli != 0) {
 		event.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
 		event.value = vertical_milli / 1000.0;
-		event.has_discrete = true;
+		event.has_discrete = !continuous;
 		event.discrete = vertical_milli < 0 ? -1 : 1;
 		notify_axis(input->seat, &time, &event);
 	}
 	if (horizontal_milli != 0) {
 		event.axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
 		event.value = horizontal_milli / 1000.0;
-		event.has_discrete = true;
+		event.has_discrete = !continuous;
 		event.discrete = horizontal_milli < 0 ? -1 : 1;
 		notify_axis(input->seat, &time, &event);
 	}
 	notify_pointer_frame(input->seat);
+}
+
+static void
+handle_scroll(struct wl_client *client, struct wl_resource *resource,
+	      int32_t horizontal_milli, int32_t vertical_milli)
+{
+	send_scroll(client, resource, horizontal_milli, vertical_milli, false);
+}
+
+static void
+handle_continuous_scroll(struct wl_client *client, struct wl_resource *resource,
+			 int32_t horizontal_milli, int32_t vertical_milli)
+{
+	send_scroll(client, resource, horizontal_milli, vertical_milli, true);
 }
 
 static const struct mineral_input_implementation input_implementation = {
@@ -182,6 +201,7 @@ static const struct mineral_input_implementation input_implementation = {
 	.button = handle_button,
 	.key = handle_key,
 	.scroll = handle_scroll,
+	.continuous_scroll = handle_continuous_scroll,
 };
 
 static void

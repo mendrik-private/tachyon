@@ -1,0 +1,676 @@
+{
+  "method": "Measure the adaptive redesign's >60 fps scroll contract on the active display.\n\nUses the existing release instrumentation and kernel uinput client. Run with no\nconcurrent build/capture workload. Synthetic files and application state are\nisolated; the driver scrolls without editing. The original mixed-interaction\nqualification remains a separate test.\n",
+  "environment": {
+    "captured_at": "2026-09-06T13:09:43.081311+00:00",
+    "uname": "Linux deathstar 7.2.3-070203-generic #202609030700 SMP PREEMPT_DYNAMIC Thu Sep  3 07:52:10 UTC 2026 x86_64 GNU/Linux",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)\nbinary: rustc\ncommit-hash: 88d9e12ae178fab0fb5cc050a94da85685d449ea\ncommit-date: 2026-08-18\nhost: x86_64-unknown-linux-gnu\nrelease: 1.98.0\nLLVM version: 22.1.8",
+    "weston": "weston 14.0.2",
+    "wayland_display": "wayland-0",
+    "desktop": "ubuntu:GNOME",
+    "session_type": "wayland",
+    "power_profile": "balanced",
+    "mutter_display_state": "(uint32 1, [(('eDP-1', 'SDC', '0x41b3', '0x0000ffa1'), [('2880x1800@120.001', 2880, 1800, 120.00139617919922, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'is-current': <true>, 'is-preferred': <true>}), ('2880x1800@120.001+vrr', 2880, 1800, 120.00139617919922, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'refresh-rate-mode': <'variable'>}), ('2880x1800@120.000', 2880, 1800, 120.00029754638672, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {}), ('2880x1800@120.000+vrr', 2880, 1800, 120.00029754638672, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'refresh-rate-mode': <'variable'>}), ('2880x1800@48.001', 2880, 1800, 48.000560760498047, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {}), ('2880x1800@48.001+vrr', 2880, 1800, 48.000560760498047, 1.6666666269302368, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0, 2.25, 2.5, 2.6666667461395264, 3.0, 3.3333332538604736], {'refresh-rate-mode': <'variable'>}), ('1920x1200@120.001', 1920, 1200, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {}), ('1920x1200@120.001+vrr', 1920, 1200, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {'refresh-rate-mode': <'variable'>}), ('1920x1080@120.001', 1920, 1080, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {}), ('1920x1080@120.001+vrr', 1920, 1080, 120.00139617919922, 1.25, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368, 2.0], {'refresh-rate-mode': <'variable'>}), ('1680x1050@120.001', 1680, 1050, 120.00139617919922, 1.0, [1.0, 1.25, 1.5, 1.6666666269302368, 1.75, 2.0], {}), ('1680x1050@120.001+vrr', 1680, 1050, 120.00139617919922, 1.0, [1.0, 1.25, 1.5, 1.6666666269302368, 1.75, 2.0], {'refresh-rate-mode': <'variable'>}), ('1600x1200@120.001', 1600, 1200, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.6666666269302368, 2.0], {}), ('1600x1200@120.001+vrr', 1600, 1200, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.6666666269302368, 2.0], {'refresh-rate-mode': <'variable'>}), ('1440x900@120.001', 1440, 900, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368], {}), ('1440x900@120.001+vrr', 1440, 900, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632, 1.5, 1.6666666269302368], {'refresh-rate-mode': <'variable'>}), ('1280x1024@120.001', 1280, 1024, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {}), ('1280x1024@120.001+vrr', 1280, 1024, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('1280x800@120.001', 1280, 800, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {}), ('1280x800@120.001+vrr', 1280, 800, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('1280x720@120.001', 1280, 720, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {}), ('1280x720@120.001+vrr', 1280, 720, 120.00139617919922, 1.0, [1.0, 1.25, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('1024x768@120.001', 1024, 768, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {}), ('1024x768@120.001+vrr', 1024, 768, 120.00139617919922, 1.0, [1.0, 1.3333333730697632], {'refresh-rate-mode': <'variable'>}), ('800x600@120.001', 800, 600, 120.00139617919922, 1.0, [1.0], {}), ('800x600@120.001+vrr', 800, 600, 120.00139617919922, 1.0, [1.0], {'refresh-rate-mode': <'variable'>})], {'is-underscanning': <false>, 'is-builtin': <true>, 'display-name': <'Built-in display'>, 'min-refresh-rate': <48>, 'is-for-lease': <false>, 'color-mode': <uint32 0>, 'supported-color-modes': <[uint32 0, 2]>, 'rgb-range': <uint32 1>})], [(0, 0, 1.6666666269302368, uint32 0, true, [('eDP-1', 'SDC', '0x41b3', '0x0000ffa1')], @a{sv} {})], {'layout-mode': <uint32 1>, 'supports-changing-layout-mode': <true>})"
+  },
+  "binary_sha256": "0d98fc40e3bae72ca489a49bb84bada6b908c5097aa6b9ab7852ebcaec5a4618",
+  "fixtures": {
+    "100k": {
+      "bytes": 102400,
+      "sha256": "4ec95d32761f4c47cde245d8d98418e4512d7d15a5cfe9d370604fb1c54ce00c"
+    },
+    "1m": {
+      "bytes": 1048576,
+      "sha256": "e658053ad13e1e2424888818b2bd1685cf821a50ad05e6202df48a1bc91c37da"
+    },
+    "10m": {
+      "bytes": 10485760,
+      "sha256": "16834e22b862cffa330391dc2564890634d9e719a8d368446c6ff1161ba437d9"
+    },
+    "adaptive": {
+      "bytes": 135612,
+      "sha256": "bf326da8dbbf4b25cc5abc7e510a4899b11d89b3d6558b7d04ee51ba398ad880"
+    }
+  },
+  "reports": [
+    {
+      "schema_version": 2,
+      "label": "100k-1",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.016919977,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1733,
+        "p50_ms": 3.123199,
+        "p95_ms": 5.394431,
+        "p99_ms": 6.553599,
+        "max_ms": 11.771903,
+        "threshold_ms": 6.0,
+        "over_threshold": 38,
+        "over_threshold_percent": 2.192729371032891
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1207,
+          "p50_ms": 7.626751,
+          "p95_ms": 11.436031,
+          "p99_ms": 15.073279,
+          "max_ms": 79.364095,
+          "threshold_ms": 16.7,
+          "over_threshold": 6,
+          "over_threshold_percent": 0.4971002485501243
+        },
+        "events_per_frame": {
+          "samples": 1207,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 6
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1733,
+          "p50_ms": 8.273919,
+          "p95_ms": 11.730943,
+          "p99_ms": 15.409151,
+          "max_ms": 81.985535,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 78,
+        "deadline_opportunities": 1811,
+        "missed_deadline_percent": 4.307012700165655,
+        "intervals_at_least_25_ms": 1,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1340,
+        "duration_seconds": 16.338290959000005,
+        "load_average_before": [
+          32.3525390625,
+          19.2626953125,
+          11.0478515625
+        ],
+        "load_average_after": [
+          32.9404296875,
+          20.03466796875,
+          11.43212890625
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 115.40315874721797,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "100k-2",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.017059914,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1697,
+        "p50_ms": 3.207167,
+        "p95_ms": 5.619711,
+        "p99_ms": 6.967295,
+        "max_ms": 11.042815,
+        "threshold_ms": 6.0,
+        "over_threshold": 57,
+        "over_threshold_percent": 3.3588685916322922
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1195,
+          "p50_ms": 7.639039,
+          "p95_ms": 13.361151,
+          "p99_ms": 16.343039,
+          "max_ms": 75.825151,
+          "threshold_ms": 16.7,
+          "over_threshold": 9,
+          "over_threshold_percent": 0.7531380753138075
+        },
+        "events_per_frame": {
+          "samples": 1195,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 6
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1697,
+          "p50_ms": 8.331263,
+          "p95_ms": 12.861439,
+          "p99_ms": 16.506879,
+          "max_ms": 85.000191,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 110,
+        "deadline_opportunities": 1807,
+        "missed_deadline_percent": 6.087437742114001,
+        "intervals_at_least_25_ms": 2,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1339,
+        "duration_seconds": 16.320386033999966,
+        "load_average_before": [
+          32.9404296875,
+          20.03466796875,
+          11.43212890625
+        ],
+        "load_average_after": [
+          32.4775390625,
+          20.775390625,
+          11.8603515625
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 113.00480984416481,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "1m-1",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.016872091,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1721,
+        "p50_ms": 3.211263,
+        "p95_ms": 5.554175,
+        "p99_ms": 6.778879,
+        "max_ms": 8.822783,
+        "threshold_ms": 6.0,
+        "over_threshold": 46,
+        "over_threshold_percent": 2.672864613596746
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1200,
+          "p50_ms": 7.622655,
+          "p95_ms": 12.009471,
+          "p99_ms": 15.147007,
+          "max_ms": 23.117823,
+          "threshold_ms": 16.7,
+          "over_threshold": 6,
+          "over_threshold_percent": 0.5
+        },
+        "events_per_frame": {
+          "samples": 1200,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 6
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1721,
+          "p50_ms": 8.278015,
+          "p95_ms": 12.099583,
+          "p99_ms": 15.745023,
+          "max_ms": 75.825151,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 95,
+        "deadline_opportunities": 1816,
+        "missed_deadline_percent": 5.2312775330396475,
+        "intervals_at_least_25_ms": 4,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1343,
+        "duration_seconds": 16.35640701599914,
+        "load_average_before": [
+          32.4775390625,
+          20.775390625,
+          11.8603515625
+        ],
+        "load_average_after": [
+          32.7744140625,
+          21.6005859375,
+          12.32275390625
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 114.60442558017391,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "1m-2",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.017264009,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1729,
+        "p50_ms": 3.213311,
+        "p95_ms": 5.435391,
+        "p99_ms": 6.430719,
+        "max_ms": 11.329535,
+        "threshold_ms": 6.0,
+        "over_threshold": 32,
+        "over_threshold_percent": 1.8507807981492193
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1203,
+          "p50_ms": 7.581695,
+          "p95_ms": 11.837439,
+          "p99_ms": 15.917055,
+          "max_ms": 83.427327,
+          "threshold_ms": 16.7,
+          "over_threshold": 5,
+          "over_threshold_percent": 0.41562759767248547
+        },
+        "events_per_frame": {
+          "samples": 1203,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 7
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1729,
+          "p50_ms": 8.261631,
+          "p95_ms": 11.829247,
+          "p99_ms": 16.556031,
+          "max_ms": 86.441983,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 74,
+        "deadline_opportunities": 1803,
+        "missed_deadline_percent": 4.1042706600110925,
+        "intervals_at_least_25_ms": 1,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1344,
+        "duration_seconds": 16.367069381001784,
+        "load_average_before": [
+          32.7744140625,
+          21.6005859375,
+          12.32275390625
+        ],
+        "load_average_after": [
+          32.2763671875,
+          22.0439453125,
+          12.61767578125
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 115.13415486095154,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "10m-1",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.016881121,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1696,
+        "p50_ms": 3.317759,
+        "p95_ms": 5.664767,
+        "p99_ms": 7.106559,
+        "max_ms": 17.121279,
+        "threshold_ms": 6.0,
+        "over_threshold": 49,
+        "over_threshold_percent": 2.8891509433962264
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1198,
+          "p50_ms": 7.671807,
+          "p95_ms": 13.058047,
+          "p99_ms": 16.637951,
+          "max_ms": 23.642111,
+          "threshold_ms": 16.7,
+          "over_threshold": 11,
+          "over_threshold_percent": 0.9181969949916527
+        },
+        "events_per_frame": {
+          "samples": 1198,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 4
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1696,
+          "p50_ms": 8.302591,
+          "p95_ms": 13.434879,
+          "p99_ms": 17.317887,
+          "max_ms": 48.365567,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 116,
+        "deadline_opportunities": 1812,
+        "missed_deadline_percent": 6.401766004415011,
+        "intervals_at_least_25_ms": 2,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1381,
+        "duration_seconds": 16.834055747000093,
+        "load_average_before": [
+          32.2763671875,
+          22.0439453125,
+          12.61767578125
+        ],
+        "load_average_after": [
+          32.5888671875,
+          22.78564453125,
+          13.0634765625
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 112.93956357077829,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "10m-2",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.01697583,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1716,
+        "p50_ms": 3.282943,
+        "p95_ms": 5.529599,
+        "p99_ms": 6.840319,
+        "max_ms": 17.973247,
+        "threshold_ms": 6.0,
+        "over_threshold": 47,
+        "over_threshold_percent": 2.738927738927739
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1201,
+          "p50_ms": 7.675903,
+          "p95_ms": 12.468223,
+          "p99_ms": 15.769599,
+          "max_ms": 75.038719,
+          "threshold_ms": 16.7,
+          "over_threshold": 5,
+          "over_threshold_percent": 0.4163197335553705
+        },
+        "events_per_frame": {
+          "samples": 1201,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 6
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1716,
+          "p50_ms": 8.306687,
+          "p95_ms": 12.976127,
+          "p99_ms": 16.113663,
+          "max_ms": 79.167487,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 106,
+        "deadline_opportunities": 1822,
+        "missed_deadline_percent": 5.817782656421515,
+        "intervals_at_least_25_ms": 1,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1384,
+        "duration_seconds": 16.8549062029997,
+        "load_average_before": [
+          32.5888671875,
+          22.78564453125,
+          13.0634765625
+        ],
+        "load_average_after": [
+          33.1259765625,
+          23.54541015625,
+          13.521484375
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 114.27067736047624,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "adaptive-1",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.01691597,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1753,
+        "p50_ms": 2.533375,
+        "p95_ms": 4.395007,
+        "p99_ms": 5.300223,
+        "max_ms": 8.716287,
+        "threshold_ms": 6.0,
+        "over_threshold": 11,
+        "over_threshold_percent": 0.6274957216200798
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1212,
+          "p50_ms": 7.327743,
+          "p95_ms": 10.567679,
+          "p99_ms": 13.836287,
+          "max_ms": 81.264639,
+          "threshold_ms": 16.7,
+          "over_threshold": 6,
+          "over_threshold_percent": 0.49504950495049505
+        },
+        "events_per_frame": {
+          "samples": 1212,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "max": 7
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1753,
+          "p50_ms": 8.245247,
+          "p95_ms": 11.018239,
+          "p99_ms": 14.581759,
+          "max_ms": 81.330175,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 55,
+        "deadline_opportunities": 1808,
+        "missed_deadline_percent": 3.0420353982300883,
+        "intervals_at_least_25_ms": 3,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1342,
+        "duration_seconds": 16.34687445199961,
+        "load_average_before": [
+          33.1259765625,
+          23.54541015625,
+          13.521484375
+        ],
+        "load_average_after": [
+          33.3134765625,
+          24.05810546875,
+          13.8505859375
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 116.73502092587124,
+      "scroll_gate_passes": true
+    },
+    {
+      "schema_version": 2,
+      "label": "adaptive-2",
+      "scenario": "continuous bidirectional vertical wheel scrolling",
+      "input_source": "temporary kernel uinput device on active Mutter Wayland display",
+      "configured_duration_seconds": 15.0,
+      "actual_duration_seconds": 15.021550411,
+      "configured_refresh_hz": 120.0,
+      "refresh_period_ms": 8.333333,
+      "viewport_logical_px": {
+        "width": 1100.0,
+        "height": 720.0
+      },
+      "scale_factor": 1.6666666,
+      "draw": {
+        "samples": 1754,
+        "p50_ms": 2.551807,
+        "p95_ms": 4.657151,
+        "p99_ms": 5.705727,
+        "max_ms": 6.623231,
+        "threshold_ms": 6.0,
+        "over_threshold": 7,
+        "over_threshold_percent": 0.3990877993158495
+      },
+      "application_stalls_at_least_25_ms": 0,
+      "input": {
+        "latency": {
+          "samples": 1212,
+          "p50_ms": 7.360511,
+          "p95_ms": 10.878975,
+          "p99_ms": 14.442495,
+          "max_ms": 80.412671,
+          "threshold_ms": 16.7,
+          "over_threshold": 5,
+          "over_threshold_percent": 0.41254125412541254
+        },
+        "events_per_frame": {
+          "samples": 1212,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 6
+        },
+        "mid_draw_events_dropped": 0
+      },
+      "presentation": {
+        "interval": {
+          "samples": 1754,
+          "p50_ms": 8.253439,
+          "p95_ms": 11.214847,
+          "p99_ms": 15.032319,
+          "max_ms": 84.213759,
+          "threshold_ms": null,
+          "over_threshold": null,
+          "over_threshold_percent": null
+        },
+        "missed_deadlines": 57,
+        "deadline_opportunities": 1811,
+        "missed_deadline_percent": 3.1474323578133627,
+        "intervals_at_least_25_ms": 3,
+        "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+      },
+      "driver": {
+        "scroll_events": 1344,
+        "duration_seconds": 16.365918987999976,
+        "load_average_before": [
+          33.3134765625,
+          24.05810546875,
+          13.8505859375
+        ],
+        "load_average_after": [
+          33.4794921875,
+          24.70166015625,
+          14.28125
+        ],
+        "pattern": "240 ticks down, then repeat 160 up / 160 down; 12 ms target tick"
+      },
+      "average_presented_fps": 116.7655769217789,
+      "scroll_gate_passes": true
+    }
+  ],
+  "passes": true
+}

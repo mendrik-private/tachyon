@@ -1,0 +1,14 @@
+{
+  "binary_sha256": "075300a4a287552f4a576ee548238c10e8629dedcb5da752aee8b5189d3dcea4",
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0,
+  "source_unchanged": true,
+  "image_band_pixels": [
+    13730,
+    11672,
+    11328,
+    10310
+  ],
+  "passes": true
+}

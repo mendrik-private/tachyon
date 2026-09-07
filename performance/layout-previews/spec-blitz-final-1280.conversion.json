@@ -1,0 +1,8 @@
+{
+  "fixture": "10-html-fragments.md",
+  "native_conversion": true,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "two_undos_restore_exact_html": true,
+  "binary_sha256": "1a0581e6ceda984c9a7144a34eb3b84cfa465ad5d66fa932ad5b5592e5ff94f3"
+}

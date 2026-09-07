@@ -1,0 +1,21 @@
+{
+  "markers": [
+    "North figure 1",
+    "South figure 2",
+    "East figure 3",
+    "West figure 4",
+    "Above figure 5",
+    "Below figure 6"
+  ],
+  "positions": [
+    257,
+    272,
+    287,
+    301,
+    315,
+    330
+  ],
+  "source_order": true,
+  "clipboard_sha256": "7ac572cd6fe9511c3ac7e4442066508f8f8ec39ccf60e8da8f0062819e1fe104",
+  "binary_sha256": "63e07285f10d9f0caf5130bed82627a268c0388498b3953137c1382857d1f0b7"
+}

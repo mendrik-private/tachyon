@@ -1,0 +1,13 @@
+{
+  "fixture": "12-measured-tables.md",
+  "zoom_steps": 10,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "5868fe1d26792d7bdd27c0f01995934db437950d49a7aaca3fc1051b7ff59e1d",
+  "edit_within": "Property",
+  "edit_paste_bytes": 7,
+  "edit_zoom_steps": 0,
+  "edit_idle_seconds": 3.0,
+  "edit_blur": null,
+  "first_changed_byte": 206
+}

@@ -1,0 +1,17 @@
+{
+  "markers": [
+    "Trace each connection",
+    "Three connected components",
+    "This authored paragraph",
+    "A boundary stays"
+  ],
+  "positions": [
+    160,
+    293,
+    342,
+    454
+  ],
+  "source_order": true,
+  "clipboard_sha256": "dbe18e343e084bb9765df94dbe15a2cab6e43a24a1e1696adc1e99c3a6dadecf",
+  "binary_sha256": "cc362833f3c59f05c7133885b191fd66daed44ebb61b34dca9c0efdaa3197c3b"
+}

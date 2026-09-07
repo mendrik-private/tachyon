@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "continuous bidirectional wheel scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.023178227,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1084,
+    "p50_ms": 4.685823,
+    "p95_ms": 6.746111,
+    "p99_ms": 7.413759,
+    "max_ms": 8.191999,
+    "threshold_ms": 6.0,
+    "over_threshold": 184,
+    "over_threshold_percent": 16.974169741697416
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 829,
+      "p50_ms": 8.601599,
+      "p95_ms": 10.510335,
+      "p99_ms": 11.501567,
+      "max_ms": 12.435455,
+      "threshold_ms": 16.7,
+      "over_threshold": 0,
+      "over_threshold_percent": 0.0
+    },
+    "events_per_frame": {
+      "samples": 829,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 1
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1084,
+      "p50_ms": 9.109503,
+      "p95_ms": 11.165695,
+      "p99_ms": 12.173311,
+      "max_ms": 12.845055,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 6,
+    "deadline_opportunities": 1090,
+    "missed_deadline_percent": 0.5504587155963303,
+    "intervals_at_least_25_ms": 0,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "5868fe1d26792d7bdd27c0f01995934db437950d49a7aaca3fc1051b7ff59e1d",
+  "average_presented_fps": 108.14932903018406,
+  "driver_events": 1013,
+  "passes": true
+}

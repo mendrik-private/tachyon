@@ -1,0 +1,12 @@
+{
+  "binary_sha256": "63b9e6f5941f87375b7ab468a49dd8b1eb29d078fc1c94d818a19d5cafe2bc7a",
+  "fixture": "26-html-anchors.md",
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0,
+  "activation": "pointer",
+  "target_top_px": 54,
+  "target_visible_rows": 69,
+  "source_unchanged": true,
+  "nested_body_revealed": true
+}

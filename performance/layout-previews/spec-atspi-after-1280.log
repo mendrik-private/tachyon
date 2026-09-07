@@ -1,0 +1,60 @@
+Date: 2026-09-07 EEST
+[06:44:27.319] weston 14.0.2
+               https://wayland.freedesktop.org
+               Bug reports to: https://gitlab.freedesktop.org/wayland/weston/issues/
+               Build: 14.0.2
+[06:44:27.319] Command line: weston --backend=headless --renderer=gl --width=1280 --height=1000 --socket=layout --idle-time=0 --debug --no-config --shell=kiosk --refresh-rate=120000 --modules=/home/mendrik/desk/supercell/markdown/performance/wayland-harness/build/virtual-input.so,/home/mendrik/desk/supercell/markdown/performance/wayland-harness/build/fractional-scale.so
+[06:44:27.319] OS: Linux, 7.2.3-070203-generic, #202609030700 SMP PREEMPT_DYNAMIC Thu Sep  3 07:52:10 UTC 2026, x86_64
+[06:44:27.319] Flight recorder: enabled
+[06:44:27.319] Starting with no config file.
+WARNING: debug protocol has been enabled. This is a potential denial-of-service attack vector and information leak.
+[06:44:27.319] Output repaint window is 7 ms maximum.
+[06:44:27.319] Loading module '/usr/lib/x86_64-linux-gnu/libweston-14/headless-backend.so'
+[06:44:27.323] Loading module '/usr/lib/x86_64-linux-gnu/libweston-14/gl-renderer.so'
+[06:44:27.364] Using rendering device: /dev/dri/renderD128
+[06:44:27.371] EGL version: 1.5
+[06:44:27.371] EGL vendor: Mesa Project
+[06:44:27.371] EGL client APIs: OpenGL OpenGL_ES 
+[06:44:27.371] EGL features:
+               EGL Wayland extension: no
+               context priority: yes
+               buffer age: no
+               partial update: no
+               swap buffers with damage: no
+               configless context: yes
+               surfaceless context: yes
+               dmabuf support: modifiers
+[06:44:27.374] GL version: OpenGL ES 3.2 Mesa 26.0.8-1ubuntu0.3
+[06:44:27.374] GLSL version: OpenGL ES GLSL ES 3.20
+[06:44:27.374] GL vendor: AMD
+[06:44:27.374] GL renderer: Radeon 8060S Graphics (radeonsi, strix_halo, ACO, DRM 3.64, 7.2.3-070203-generic)
+[06:44:27.384] GL ES 3.2 - renderer features:
+               read-back format: ARGB8888
+               glReadPixels supports y-flip: yes
+               glReadPixels supports PBO: yes
+               wl_shm 10 bpc formats: yes
+               wl_shm 16 bpc formats: yes
+               wl_shm half-float formats: yes
+               internal R and RG formats: yes
+               OES_EGL_image_external: yes
+[06:44:27.384] Using GL renderer
+[06:44:27.384] Registered plugin API 'weston_windowed_output_api_headless_v2' of size 16
+[06:44:27.384] Color manager: no-op
+                 protocol support: no
+[06:44:27.384] Output 'headless' attempts EOTF mode SDR and colorimetry mode default.
+[06:44:27.384] Output 'headless' using color profile: stock sRGB color profile
+[06:44:27.386] Output 'headless' enabled with head(s) headless
+[06:44:27.386] Compositor capabilities:
+               arbitrary surface rotation: yes
+               screen capture uses y-flip: yes
+               cursor planes: no
+               arbitrary resolutions: no
+               view mask clipping: yes
+               explicit sync: yes
+               color operations: yes
+               presentation clock: CLOCK_MONOTONIC_RAW, id 4
+               presentation clock resolution: 0.000000001 s
+[06:44:27.386] Loading module '/usr/lib/x86_64-linux-gnu/weston/kiosk-shell.so'
+[06:44:27.386] Loading module '/home/mendrik/desk/supercell/markdown/performance/wayland-harness/build/virtual-input.so'
+[06:44:27.390] Loading module '/home/mendrik/desk/supercell/markdown/performance/wayland-harness/build/fractional-scale.so'
+[06:44:38.110] caught signal 15

@@ -1,0 +1,19 @@
+{
+  "fixture": "10-html-fragments.md",
+  "native_conversion": true,
+  "edit_here": false,
+  "edit_within": "ordinary rich text",
+  "opening_menu_preserves_source": false,
+  "click_preserves_source": true,
+  "preedit_preserves_source": null,
+  "ime_transport": null,
+  "width": 1920,
+  "height": 1080,
+  "zoom_steps": 10,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "edit_paste_bytes": 0,
+  "blur_preserves_source": null,
+  "undos_to_restore_exact_html": 1,
+  "binary_sha256": "8bf3098c67eebb5748373589ae0b43f685b656f696f2081133867f7b30358931"
+}

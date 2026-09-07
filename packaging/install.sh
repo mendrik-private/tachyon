@@ -26,8 +26,8 @@ install -Dm644 packaging/dev.mineral.Markdown.desktop \
     "$mineral_prefix/share/applications/dev.mineral.Markdown.desktop"
 install -Dm644 packaging/dev.mineral.Markdown.metainfo.xml \
     "$mineral_prefix/share/metainfo/dev.mineral.Markdown.metainfo.xml"
-install -Dm644 packaging/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg \
-    "$mineral_prefix/share/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg"
+install -Dm644 packaging/icons/hicolor/scalable/apps/dev.mineral.Markdown.png \
+    "$mineral_prefix/share/icons/hicolor/scalable/apps/dev.mineral.Markdown.png"
 install -Dm644 LICENSE-MIT \
     "$mineral_prefix/share/licenses/mineral-markdown/LICENSE-MIT"
 install -Dm644 LICENSE-APACHE \

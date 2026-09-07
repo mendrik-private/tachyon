@@ -4,10 +4,13 @@
 //! invalidation here makes hit testing, minimap projection, and performance
 //! behavior independently testable.
 
+mod adaptive;
 mod editor;
 mod geometry;
 mod height_tree;
+mod html;
 mod layout;
+mod math;
 mod minimap;
 mod outline;
 mod projection;
@@ -17,8 +20,8 @@ mod theme;
 mod viewport;
 
 pub use editor::{
-    EditorEvent, EditorScrollAnchor, EditorViewState, PreparedDocumentView, RichDocumentEditor,
-    SharedImageDimensions, init as init_editor,
+    EditorEvent, EditorScrollAnchor, EditorViewState, LayoutDiagnosticsReport, LayoutTraceMode,
+    PreparedDocumentView, RichDocumentEditor, SharedImageDimensions, init as init_editor,
 };
 pub use geometry::{Point, Rect, Size};
 pub use height_tree::{HeightTree, HeightTreeError};
@@ -26,7 +29,10 @@ pub use layout::{
     FragmentId, FragmentKind, LayoutBuildStatus, LayoutFragment, LayoutIndex, LayoutKey,
     LayoutSummary, PositionMapping,
 };
-pub use minimap::{Minimap, MinimapPrimitive, MinimapPrimitiveKind};
+pub use minimap::{
+    MINIMAP_WIDTH, Minimap, MinimapAlertTone, MinimapCodeTone, MinimapPrimitive,
+    MinimapPrimitiveKind,
+};
 pub use outline::{OutlineEntry, project_outline};
 pub use projection::{ProjectionContext, ProjectionSegment, TextProjection};
 pub use responsive::{ResponsiveLayout, WindowClass};

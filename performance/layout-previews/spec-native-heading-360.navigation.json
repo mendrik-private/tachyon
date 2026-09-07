@@ -1,0 +1,12 @@
+{
+  "binary_sha256": "98171907a9acb3c64cc252ad7a0e1ac18ad799008a29969eef5f3954e92808ca",
+  "origin": "18-native-links.md",
+  "destination": "18-native-links.md",
+  "native_navigation": true,
+  "exact_destination_typing": true,
+  "navigation_source_unchanged": true,
+  "exact_undo": true,
+  "width": 360,
+  "height": 1000,
+  "zoom_steps": 0
+}

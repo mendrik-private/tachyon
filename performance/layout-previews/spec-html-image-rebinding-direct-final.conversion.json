@@ -1,0 +1,18 @@
+{
+  "fixture": "30-html-images.md",
+  "native_conversion": true,
+  "edit_here": false,
+  "edit_within": "independent",
+  "opening_menu_preserves_source": false,
+  "click_preserves_source": true,
+  "preedit_preserves_source": null,
+  "ime_transport": null,
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "blur_preserves_source": true,
+  "undos_to_restore_exact_html": 1,
+  "binary_sha256": "075300a4a287552f4a576ee548238c10e8629dedcb5da752aee8b5189d3dcea4"
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "bidirectional continuous scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.016809343,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1093,
+    "p50_ms": 4.163583,
+    "p95_ms": 5.238783,
+    "p99_ms": 6.045695,
+    "max_ms": 7.102463,
+    "threshold_ms": 6.0,
+    "over_threshold": 11,
+    "over_threshold_percent": 1.0064043915827996
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 827,
+      "p50_ms": 8.699903,
+      "p95_ms": 9.576447,
+      "p99_ms": 10.731519,
+      "max_ms": 12.935167,
+      "threshold_ms": 16.7,
+      "over_threshold": 0,
+      "over_threshold_percent": 0.0
+    },
+    "events_per_frame": {
+      "samples": 827,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 3
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1093,
+      "p50_ms": 9.117695,
+      "p95_ms": 10.108927,
+      "p99_ms": 11.149311,
+      "max_ms": 35.356671,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 4,
+    "deadline_opportunities": 1097,
+    "missed_deadline_percent": 0.3646308113035551,
+    "intervals_at_least_25_ms": 1,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "cbc32948b229e6b36a523f84c0bbf9cdf336b998934f30bf58954e789ad44fc6",
+  "average_presented_fps": 109.11658219429084,
+  "driver_events": 1023,
+  "native_input_kind": "continuous",
+  "accessibility_active": false,
+  "accessible_nodes": 0,
+  "fixture": "generated-scroll.md",
+  "fixture_sha256": "16834e22b862cffa330391dc2564890634d9e719a8d368446c6ff1161ba437d9",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "startup_wait_seconds": 12.0,
+  "configured_warmup_ms": 14000,
+  "passes": true
+}

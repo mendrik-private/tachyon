@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "continuous bidirectional wheel scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.017434886,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1091,
+    "p50_ms": 3.768319,
+    "p95_ms": 5.603327,
+    "p99_ms": 6.938623,
+    "max_ms": 9.420799,
+    "threshold_ms": 6.0,
+    "over_threshold": 39,
+    "over_threshold_percent": 3.5747021081576533
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 827,
+      "p50_ms": 8.593407,
+      "p95_ms": 10.117119,
+      "p99_ms": 11.493375,
+      "max_ms": 14.082047,
+      "threshold_ms": 16.7,
+      "over_threshold": 0,
+      "over_threshold_percent": 0.0
+    },
+    "events_per_frame": {
+      "samples": 827,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 1
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1091,
+      "p50_ms": 9.109503,
+      "p95_ms": 10.534911,
+      "p99_ms": 12.197887,
+      "max_ms": 14.147583,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 6,
+    "deadline_opportunities": 1097,
+    "missed_deadline_percent": 0.5469462169553327,
+    "intervals_at_least_25_ms": 0,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "d6f3be3206aa8004deb6bd4ccd93ea8dd44dd712a7c9cb26be6084c0646b3c92",
+  "average_presented_fps": 108.91011645353858,
+  "driver_events": 1016,
+  "fixture": "21-disclosure-stress.md",
+  "fixture_sha256": "2466acf82ae4d4f16489de4254b2bd5718f7a395398cb2b20e7ed62f094735c9",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "passes": true
+}

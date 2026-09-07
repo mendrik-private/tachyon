@@ -1,0 +1,27 @@
+{
+  "markers": [
+    "Quoted cell text.",
+    "Quote neighbor.",
+    "First cell item",
+    "Second cell item",
+    "List neighbor.",
+    "First numbered cell item",
+    "Second numbered cell item",
+    "Nested quote in a quoted table.",
+    "Numbered inside and outside."
+  ],
+  "positions": [
+    205,
+    223,
+    239,
+    255,
+    272,
+    330,
+    355,
+    518,
+    645
+  ],
+  "source_order": true,
+  "clipboard_sha256": "9623ad0c79ef8cc739bc1f9e33dda3f6ab148260793e97b348670fba858bdc9d",
+  "binary_sha256": "1be4b45ef17d1a5afb4b2716033aefc45bfc5051af9a49cd1e74e77245eb9ab5"
+}

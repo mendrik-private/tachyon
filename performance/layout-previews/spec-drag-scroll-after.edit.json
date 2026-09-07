@@ -1,0 +1,16 @@
+{
+  "fixture": "45-drag-scroll-selection.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "2e99b74fa7c568830c8342f4c3065d56bc6a8eeb2537c0aee8a3e058199a686e",
+  "edit_within": null,
+  "expected_edited_source_exact": true,
+  "preserved_fragments": [],
+  "edit_markdown": false,
+  "edit_paste_bytes": 0,
+  "edit_zoom_steps": 0,
+  "edit_idle_seconds": 0,
+  "edit_blur": null,
+  "first_changed_byte": 33
+}

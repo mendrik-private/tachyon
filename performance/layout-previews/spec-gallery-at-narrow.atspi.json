@@ -1,0 +1,576 @@
+{
+  "nodes": [
+    {
+      "parent": null,
+      "role": "application",
+      "name": "mineral-markdown",
+      "path": "/org/a11y/atspi/accessible/root",
+      "interfaces": [
+        "Accessible",
+        "Application"
+      ],
+      "states": [],
+      "actions": []
+    },
+    {
+      "parent": 0,
+      "role": "frame",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/0",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "active",
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": -1,
+        "y": -1,
+        "width": -1,
+        "height": -1
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/328423109464194277084162345878689939456",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 24,
+        "y": 6,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/311510640687613300027276930400275922944",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 167,
+        "y": 6,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "100%",
+      "path": "/org/a11y/atspi/accessible/0/217409533874894367088802763930974814208",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 189,
+        "y": 6,
+        "width": 39,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "button",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/224741334569137759559783639469697007616",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "focusable",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 230,
+        "y": 6,
+        "width": 20,
+        "height": 20
+      }
+    },
+    {
+      "parent": 1,
+      "role": "entry",
+      "name": "Markdown document editor",
+      "path": "/org/a11y/atspi/accessible/0/103257238808632377204869266533672550400",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "editable",
+        "enabled",
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "selectable-text"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 54,
+        "width": 304,
+        "height": 726
+      }
+    },
+    {
+      "parent": 6,
+      "role": "document frame",
+      "name": "",
+      "path": "/org/a11y/atspi/accessible/0/182881162782678781990643988542701699072",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 54,
+        "width": 304,
+        "height": 2042
+      }
+    },
+    {
+      "parent": 7,
+      "role": "heading",
+      "name": "Accessible gallery",
+      "path": "/org/a11y/atspi/accessible/0/83376270599433419667572709973831974912",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 62,
+        "width": 304,
+        "height": 100
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "The first complete figure links to an authored heading below. The second figure is not a link. Their descriptions must remain available in source order in both paired and stacked layouts.",
+      "path": "/org/a11y/atspi/accessible/0/74626442440978236428678826610237898752",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 172,
+        "width": 304,
+        "height": 217
+      }
+    },
+    {
+      "parent": 7,
+      "role": "link",
+      "name": "Linked landscape description",
+      "path": "/org/a11y/atspi/accessible/0/143050323211732122350428945834429120512",
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component",
+        "Hyperlink"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [
+        "click"
+      ],
+      "bounds": {
+        "x": 28,
+        "y": 413,
+        "width": 304,
+        "height": 108
+      }
+    },
+    {
+      "parent": 10,
+      "role": "image",
+      "name": "Linked landscape description",
+      "path": "/org/a11y/atspi/accessible/0/79958660386182292323624333018686029824",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 413,
+        "width": 304,
+        "height": 108
+      }
+    },
+    {
+      "parent": 7,
+      "role": "image",
+      "name": "Unlinked landscape description",
+      "path": "/org/a11y/atspi/accessible/0/4379584521656579761606787603015663616",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 545,
+        "width": 304,
+        "height": 108
+      }
+    },
+    {
+      "parent": 7,
+      "role": "heading",
+      "name": "Reading interval",
+      "path": "/org/a11y/atspi/accessible/0/58339608805265993754883497867897470976",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 697,
+        "width": 304,
+        "height": 34
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "This paragraph separates the gallery from its destination. It is ordinary authored content, not a generated caption, and must stay between the figures and the following heading.",
+      "path": "/org/a11y/atspi/accessible/0/173759073909900197310907753771667816448",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 741,
+        "width": 304,
+        "height": 172
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "The native accessibility check should activate the link that surrounds the first image. It must not activate a duplicate text control or rely on pointer coordinates.",
+      "path": "/org/a11y/atspi/accessible/0/255190608717876813338840892183297392640",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 937,
+        "width": 304,
+        "height": 172
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "The image keeps its accessible description whether the two figures share a row or stack. Neither arrangement changes the original Markdown or adds a content undo step.",
+      "path": "/org/a11y/atspi/accessible/0/279593759285159999943481383300133552128",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1134,
+        "width": 304,
+        "height": 172
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "The second image is intentionally unlinked. Its accessible role must not acquire a click action just because the adjacent figure has one.",
+      "path": "/org/a11y/atspi/accessible/0/6928942089800465509878177770386751488",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1331,
+        "width": 304,
+        "height": 144
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "The destination remains part of the same document. This synthetic test performs no external navigation and requires no network resources.",
+      "path": "/org/a11y/atspi/accessible/0/283472537568664747953547745737649946624",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1499,
+        "width": 304,
+        "height": 144
+      }
+    },
+    {
+      "parent": 7,
+      "role": "heading",
+      "name": "Gallery destination",
+      "path": "/org/a11y/atspi/accessible/0/217670383145278661746553012380053274624",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1687,
+        "width": 304,
+        "height": 34
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "Destination marker for native image-link activation.",
+      "path": "/org/a11y/atspi/accessible/0/194447728807562941924496973576582201344",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1731,
+        "width": 304,
+        "height": 57
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "The following prose leaves enough room for the destination heading to move into the viewport. Selection and the source remain canonical after this navigation.",
+      "path": "/org/a11y/atspi/accessible/0/40149543174687848868573735211153489920",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1813,
+        "width": 304,
+        "height": 144
+      }
+    },
+    {
+      "parent": 7,
+      "role": "paragraph",
+      "name": "One final paragraph follows the destination in source order. No figure description is promoted into a visible caption.",
+      "path": "/org/a11y/atspi/accessible/0/197841290389243348136611459245025525760",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 28,
+        "y": 1981,
+        "width": 304,
+        "height": 115
+      }
+    }
+  ],
+  "gallery": {
+    "image_descriptions": [
+      "Linked landscape description",
+      "Unlinked landscape description"
+    ],
+    "link_path": "/org/a11y/atspi/accessible/0/143050323211732122350428945834429120512",
+    "link_target": "#gallery-destination",
+    "destination_before": {
+      "x": 28,
+      "y": 1687,
+      "width": 304,
+      "height": 34
+    },
+    "destination_after": {
+      "x": 28,
+      "y": 477,
+      "width": 304,
+      "height": 34
+    },
+    "identities_retained": true,
+    "passes": true
+  },
+  "binary_sha256": "adc0c005c84b2306305dc965066ce37fae3acbdce31c3b8ebcbcd7b40a478a05",
+  "fixture": "32-accessible-gallery.md",
+  "width": 360,
+  "height": 800,
+  "display_scale_120": 120,
+  "zoom_steps": 0,
+  "private_session_bus": true,
+  "source_unchanged": true,
+  "passes": true
+}

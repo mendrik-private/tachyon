@@ -41,6 +41,7 @@ pub enum BlockStyle {
 pub enum InsertBlockKind {
     Paragraph,
     Heading(u8),
+    OrderedList,
     UnorderedList,
     TaskList,
     BlockQuote,
@@ -105,6 +106,27 @@ pub enum EditCommand {
     DeleteBlock {
         node_id: NodeId,
     },
+    ConvertHtmlToMarkdown {
+        node_id: NodeId,
+    },
+    ConvertHtmlToMarkdownAt {
+        node_id: NodeId,
+        expected_source: String,
+        position: crate::HtmlTextPosition,
+    },
+    EditHtmlSelection {
+        node_id: NodeId,
+        expected_source: String,
+        anchor: crate::HtmlTextPosition,
+        head: crate::HtmlTextPosition,
+        edit: HtmlTextEdit,
+    },
+    /// Convert the selected HTML fragments and edit the resolved range in one
+    /// transaction. Preview-only selection/copy must use the snapshot API.
+    EditPreviewSelection {
+        selection: PreviewSelection,
+        edit: HtmlTextEdit,
+    },
     InsertTable {
         index: usize,
     },
@@ -165,6 +187,61 @@ pub enum EditCommand {
     },
 }
 
+/// First authoring operation on a retained HTML preview. Conversion and the
+/// edit are one transaction, so undo restores the exact original HTML bytes.
+#[derive(Clone, Debug)]
+pub enum HtmlTextEdit {
+    Replace(String),
+    PasteMarkdown(String),
+    Format(InlineFormat),
+    Link(Option<String>),
+    Split,
+}
+
+/// A transient address in rendered text, not a second canonical text store.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PreviewPosition {
+    Document(DocumentPosition),
+    Html {
+        node_id: NodeId,
+        expected_source: Arc<str>,
+        position: crate::HtmlTextPosition,
+    },
+}
+
+impl PreviewPosition {
+    pub(crate) fn node_id(&self) -> NodeId {
+        match self {
+            Self::Document(position) => position.node_id,
+            Self::Html { node_id, .. } => *node_id,
+        }
+    }
+}
+
+/// Source-order range spanning preview fragments and/or ordinary Markdown.
+/// Any intervening content change invalidates it, including undo/redo.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PreviewSelection {
+    pub revision: Revision,
+    pub anchor: PreviewPosition,
+    pub head: PreviewPosition,
+}
+
+impl HtmlTextEdit {
+    pub(crate) fn into_command(self) -> EditCommand {
+        match self {
+            Self::Replace(text) => EditCommand::ReplaceSelection {
+                text,
+                typing: false,
+            },
+            Self::PasteMarkdown(markdown) => EditCommand::PasteMarkdown { markdown },
+            Self::Format(format) => EditCommand::ToggleInlineSelection { format },
+            Self::Link(target) => EditCommand::SetLinkSelection { target },
+            Self::Split => EditCommand::SplitSelection,
+        }
+    }
+}
+
 impl EditCommand {
     #[must_use]
     pub(crate) fn is_selection_only(&self) -> bool {
@@ -219,6 +296,10 @@ pub struct TransactionResult {
     pub selection: Selection,
     pub inverse_operations: Vec<InverseOperation>,
     pub dirty_node_ids: BTreeSet<NodeId>,
+    /// One paragraph, heading or code node changed without changing tree
+    /// structure. Ancestor IDs may also be dirty; consumers must not infer
+    /// this property from the number of dirty IDs.
+    pub text_changed_node: Option<NodeId>,
     pub revision: Revision,
 }
 
@@ -231,6 +312,7 @@ impl TransactionResult {
             snapshot,
             inverse_operations: Vec::new(),
             dirty_node_ids: BTreeSet::new(),
+            text_changed_node: None,
         }
     }
 }

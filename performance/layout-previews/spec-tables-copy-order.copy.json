@@ -1,0 +1,23 @@
+{
+  "markers": [
+    "Runtime properties",
+    "Cache",
+    "Environment comparison",
+    "Development",
+    "Staging",
+    "Production",
+    "Explanation and table"
+  ],
+  "positions": [
+    168,
+    225,
+    238,
+    298,
+    353,
+    400,
+    453
+  ],
+  "source_order": true,
+  "clipboard_sha256": "600beabb389e4b9352dfcc7c995dc5cc76dc4d115f4790de06ab93c795c5033f",
+  "binary_sha256": "b9def06a102efd9e4437cfa675fcb0439af97ba8176d946f8d78df731cc659f7"
+}

@@ -1,0 +1,25 @@
+{
+  "markers": [
+    "First complete landscape",
+    "Second complete landscape",
+    "North figure",
+    "South figure",
+    "East figure",
+    "West figure",
+    "Above figure",
+    "Below figure"
+  ],
+  "positions": [
+    163,
+    188,
+    553,
+    566,
+    579,
+    591,
+    603,
+    616
+  ],
+  "source_order": true,
+  "clipboard_sha256": "23281decde66cb9b75b2cd296321014728775d49ee852ca741b2ba4051873c5b",
+  "binary_sha256": "7ce30144d9e7efe023aff6c217ad5313cdea8310cdd0328b0dec7f0d7fb388f9"
+}

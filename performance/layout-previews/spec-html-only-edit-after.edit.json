@@ -1,0 +1,18 @@
+{
+  "fixture": "46-html-only-editing.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "preedit_text": null,
+  "preedit_preserves_source": null,
+  "binary_sha256": "51b71cc9ac895a52c2d265994d1685f0280489e35a4f947edaff909c5d0a7276",
+  "edit_within": null,
+  "expected_edited_source_exact": true,
+  "preserved_fragments": [],
+  "edit_markdown": false,
+  "edit_paste_bytes": 0,
+  "edit_zoom_steps": 0,
+  "edit_idle_seconds": 0,
+  "edit_blur": null,
+  "first_changed_byte": 0
+}

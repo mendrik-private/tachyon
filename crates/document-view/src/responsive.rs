@@ -38,7 +38,7 @@ impl ResponsiveLayout {
             Self {
                 class: WindowClass::Wide,
                 navigation_overlay: false,
-                minimap_visible: true,
+                minimap_visible: false,
                 navigation_width,
                 minimum_document_padding: 32.0,
             }
@@ -62,7 +62,7 @@ mod tests {
         );
         let wide = ResponsiveLayout::for_width(1000.0, 224.0);
         assert_eq!(wide.class, WindowClass::Wide);
-        assert!(wide.minimap_visible);
+        assert!(!wide.minimap_visible);
         assert_eq!(wide.navigation_width, 224.0);
     }
 }

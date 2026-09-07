@@ -647,6 +647,9 @@ mod tests {
 
     use super::*;
 
+    // Cache tests exercise image bytes, not the format of packaging artwork.
+    const TEST_SVG: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="green"/></svg>"#;
+
     struct TestHttpClient {
         not_modified: bool,
         saw_etag: Arc<AtomicBool>,
@@ -760,10 +763,7 @@ mod tests {
 
     #[test]
     fn image_headers_are_checked_before_decode() {
-        let dimensions = validate_image_dimensions(include_bytes!(
-            "../../../packaging/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg"
-        ))
-        .expect("bounded SVG dimensions");
+        let dimensions = validate_image_dimensions(TEST_SVG).expect("bounded SVG dimensions");
         assert_eq!(dimensions, (128, 128));
     }
 
@@ -776,11 +776,8 @@ mod tests {
         ));
         let cache = DiskImageCache::in_directory(directory.clone(), DISK_CACHE_BYTES);
         let url = "https://example.test/cached.png";
-        let image = include_bytes!(
-            "../../../packaging/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg"
-        );
         let prepared = cache
-            .store(url, image, Some("\"v1\"".into()), None)
+            .store(url, TEST_SVG, Some("\"v1\"".into()), None)
             .expect("seed cache");
         let saw_etag = Arc::new(AtomicBool::new(false));
         let revalidated = futures::executor::block_on(cache.resolve(

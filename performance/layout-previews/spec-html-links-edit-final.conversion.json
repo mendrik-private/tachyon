@@ -1,0 +1,17 @@
+{
+  "fixture": "10-html-fragments.md",
+  "native_conversion": true,
+  "edit_here": false,
+  "edit_within": "reference link",
+  "opening_menu_preserves_source": false,
+  "click_preserves_source": true,
+  "preedit_preserves_source": true,
+  "ime_transport": "native XKB US International dead-key compose",
+  "width": 1280,
+  "height": 1200,
+  "zoom_steps": 0,
+  "formatting_and_link_retained": true,
+  "typed_into_converted_text": true,
+  "undos_to_restore_exact_html": 1,
+  "binary_sha256": "c0fea7e942ee374a19d7da5cb7cd9cfbf4c5192d04bacb66ba372b3a92073440"
+}

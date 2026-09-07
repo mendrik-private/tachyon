@@ -173,6 +173,15 @@ pub struct CodeBlock {
     pub id: NodeId,
     pub language: Option<String>,
     pub content: RichText,
+    /// Authored literal-block syntax; independent of presentation or language.
+    pub syntax: CodeBlockSyntax,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CodeBlockSyntax {
+    #[default]
+    Fenced,
+    DisplayMath,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -186,12 +195,20 @@ pub enum AlertKind {
 }
 
 #[derive(Clone, Debug)]
+pub struct ImageLink {
+    pub target: LinkTarget,
+    pub title: Option<String>,
+}
+
+#[derive(Clone, Debug)]
 pub struct ImageNode {
     pub id: NodeId,
     pub source: String,
     pub alt: RichText,
     pub title: Option<String>,
     pub intrinsic_size: Option<(u32, u32)>,
+    /// Authored enclosing link, separate from the image's source and alt text.
+    pub link: Option<ImageLink>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

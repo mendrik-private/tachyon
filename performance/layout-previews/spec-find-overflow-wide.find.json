@@ -1,0 +1,17 @@
+{
+  "passes": true,
+  "exact_native_copy": true,
+  "html_first_edit_and_exact_undo": true,
+  "source_unchanged": true,
+  "captured_targets": [
+    "table-right",
+    "table-left",
+    "code",
+    "html"
+  ],
+  "visibility_requires_visual_review": true,
+  "binary_sha256": "891f048893f7b436f520f2b93f6418ff65d2889490c84153be637a6765c4f193",
+  "width": 1280,
+  "height": 1000,
+  "zoom_steps": 0
+}

@@ -1,0 +1,14 @@
+{
+  "fixture": "36-rich-cell-panels.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "e67fb5ff8c7695d8c3604f8def4ed42bcb6a371b68cce1a82766f938664aa456",
+  "edit_within": "Visible cell body",
+  "edit_markdown": false,
+  "edit_paste_bytes": 7,
+  "edit_zoom_steps": 2,
+  "edit_idle_seconds": 2.0,
+  "edit_blur": null,
+  "first_changed_byte": 627
+}

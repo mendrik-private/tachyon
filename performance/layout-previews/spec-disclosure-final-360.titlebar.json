@@ -1,0 +1,10 @@
+{
+  "binary_sha256": "d6f3be3206aa8004deb6bd4ccd93ea8dd44dd712a7c9cb26be6084c0646b3c92",
+  "fixture": "23-disclosure-editing.md",
+  "width": 360,
+  "height": 1000,
+  "zoom_steps": 0,
+  "native_close_inside_window": true,
+  "source_unchanged": true,
+  "passes": true
+}

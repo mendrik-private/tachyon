@@ -7,11 +7,16 @@ license.workspace = true
 description = "Native Wayland rich Markdown viewer and editor"
 publish = false
 
+[features]
+layout-validation = ["document-view/layout-validation"]
+
 [[bin]]
 name = "mineral-markdown"
 path = "src/main.rs"
 
 [dependencies]
+ashpd.workspace = true
+url.workspace = true
 document-core.workspace = true
 document-view.workspace = true
 futures.workspace = true

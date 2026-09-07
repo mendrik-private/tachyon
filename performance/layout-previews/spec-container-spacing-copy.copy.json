@@ -1,0 +1,21 @@
+{
+  "markers": [
+    "Setting",
+    "Worker count",
+    "Name",
+    "Primary",
+    "Source order",
+    "Stable editing"
+  ],
+  "positions": [
+    135,
+    149,
+    266,
+    277,
+    379,
+    535
+  ],
+  "source_order": true,
+  "clipboard_sha256": "77ee05bcfc7a9e4a4ba2e89ce1693260a6ba2fc04fc820bf2048758ba48072b2",
+  "binary_sha256": "5cb8cdde11a7fe38dda91cde2cf2cb9bce95cc64b350a625e6386e810159e827"
+}

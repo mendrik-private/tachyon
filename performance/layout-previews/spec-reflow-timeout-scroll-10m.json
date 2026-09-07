@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "bidirectional continuous scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.020214806,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1096,
+    "p50_ms": 2.660351,
+    "p95_ms": 3.469311,
+    "p99_ms": 3.921919,
+    "max_ms": 4.681727,
+    "threshold_ms": 6.0,
+    "over_threshold": 0,
+    "over_threshold_percent": 0.0
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 828,
+      "p50_ms": 7.544831,
+      "p95_ms": 9.584639,
+      "p99_ms": 9.977855,
+      "max_ms": 11.018239,
+      "threshold_ms": 16.7,
+      "over_threshold": 0,
+      "over_threshold_percent": 0.0
+    },
+    "events_per_frame": {
+      "samples": 828,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 1
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1096,
+      "p50_ms": 9.117695,
+      "p95_ms": 9.846783,
+      "p99_ms": 10.403839,
+      "max_ms": 19.087359,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 1,
+    "deadline_opportunities": 1097,
+    "missed_deadline_percent": 0.09115770282588878,
+    "intervals_at_least_25_ms": 0,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "bf286df723a0ddb96a12237e4054dcdc965bb205ac83373d4aab2342ae2f685d",
+  "average_presented_fps": 109.37889269037692,
+  "driver_events": 1013,
+  "native_input_kind": "continuous",
+  "accessibility_active": false,
+  "accessible_nodes": 0,
+  "fixture": "generated-scroll.md",
+  "fixture_sha256": "16834e22b862cffa330391dc2564890634d9e719a8d368446c6ff1161ba437d9",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "startup_wait_seconds": 12.0,
+  "configured_warmup_ms": 14000,
+  "passes": true
+}

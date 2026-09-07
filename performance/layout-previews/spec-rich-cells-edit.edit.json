@@ -1,0 +1,14 @@
+{
+  "fixture": "35-rich-table-cells.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "75ffae5b2734fce69d29971c0830a6ce28158df40c139489e8846ffdc2080a22",
+  "edit_within": "Quoted cell text.",
+  "edit_markdown": false,
+  "edit_paste_bytes": 59,
+  "edit_zoom_steps": 2,
+  "edit_idle_seconds": 2.0,
+  "edit_blur": null,
+  "first_changed_byte": 199
+}

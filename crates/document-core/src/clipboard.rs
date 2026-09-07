@@ -108,6 +108,13 @@ fn text_payload(
         let range = selection.anchor.text_offset.min(selection.head.text_offset)
             ..selection.anchor.text_offset.max(selection.head.text_offset);
         text.validate_range(node.id(), &range)?;
+        if matches!(node, BlockNode::Image(_)) && !range.is_empty() && range == (0..text.len()) {
+            let blocks = BlockSequence::new(vec![Arc::new(node.clone())]);
+            return Ok(Some(payload_from_markdown(
+                text.as_string(),
+                crate::markdown::serialize_clipboard_blocks(&blocks)?,
+            )));
+        }
         let fragment = text.slice(range);
         let markdown = crate::markdown::serialize_inline(&fragment);
         return Ok(Some(payload_from_markdown(fragment.as_string(), markdown)));
@@ -247,8 +254,19 @@ fn block_with_text(
         BlockNode::CodeBlock(code) => Ok(BlockNode::CodeBlock(crate::CodeBlock {
             id: code.id,
             language: code.language.clone(),
+            syntax: code.syntax,
             content,
         })),
+        BlockNode::Image(image) => {
+            if content.as_string() == image.alt.as_string() {
+                Ok(source.clone())
+            } else {
+                Ok(BlockNode::Paragraph(Paragraph {
+                    id: image.id,
+                    content,
+                }))
+            }
+        }
         _ => Err(DocumentError::Clipboard(
             "clipboard boundary must be a paragraph, heading, or code block".into(),
         )),
@@ -259,6 +277,47 @@ fn block_with_text(
 mod tests {
     use super::*;
     use crate::{Affinity, Document, DocumentPosition, EditCommand, TextSelection};
+
+    #[test]
+    fn gallery_copy_preserves_boundary_figures_and_enclosing_links() {
+        let source = "[![First](first.png)](full-first.png)\n\n![Middle](middle.png)\n\n[![Last](last.png)](full-last.png)\n";
+        let mut document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let first = snapshot.blocks().get(0).unwrap().id();
+        let last = snapshot.blocks().get(2).unwrap().id();
+        for (end, offset, expected_images) in [(first, 5, 1), (last, 4, 3)] {
+            let selection = Selection::Text(TextSelection {
+                anchor: DocumentPosition::new(first, 0, Affinity::Downstream),
+                head: DocumentPosition::new(end, offset, Affinity::Upstream),
+            });
+            document
+                .apply(EditCommand::SetSelection(selection))
+                .unwrap();
+            let payload = document.snapshot().clipboard_payload().unwrap().unwrap();
+            let rich = RichClipboard::from_json(payload.rich_json.as_ref().unwrap()).unwrap();
+            let copied = Document::from_markdown(rich.markdown).unwrap();
+            let copied = copied.snapshot();
+            assert_eq!(copied.blocks().len(), expected_images);
+            let BlockNode::Image(image) = copied.blocks().get(0).unwrap().as_ref() else {
+                panic!("first copied figure")
+            };
+            assert_eq!(image.link.as_ref().unwrap().target.0, "full-first.png");
+            assert!(
+                payload
+                    .html
+                    .as_ref()
+                    .unwrap()
+                    .contains("href=\"full-first.png\"")
+            );
+            if expected_images == 3 {
+                let BlockNode::Image(image) = copied.blocks().get(2).unwrap().as_ref() else {
+                    panic!("last copied figure")
+                };
+                assert_eq!(image.link.as_ref().unwrap().target.0, "full-last.png");
+            }
+        }
+        assert_eq!(snapshot.serialize().unwrap(), source);
+    }
 
     #[test]
     fn paste_precedence_is_rich_then_html_then_plain() {

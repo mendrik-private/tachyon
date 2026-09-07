@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "bidirectional continuous scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.016879693,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1082,
+    "p50_ms": 2.275327,
+    "p95_ms": 4.198399,
+    "p99_ms": 5.308415,
+    "max_ms": 7.032831,
+    "threshold_ms": 6.0,
+    "over_threshold": 6,
+    "over_threshold_percent": 0.5545286506469501
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 818,
+      "p50_ms": 7.282687,
+      "p95_ms": 10.412031,
+      "p99_ms": 12.492799,
+      "max_ms": 14.270463,
+      "threshold_ms": 16.7,
+      "over_threshold": 0,
+      "over_threshold_percent": 0.0
+    },
+    "events_per_frame": {
+      "samples": 818,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 2
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1082,
+      "p50_ms": 9.134079,
+      "p95_ms": 11.591679,
+      "p99_ms": 13.230079,
+      "max_ms": 14.335999,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 26,
+    "deadline_opportunities": 1108,
+    "missed_deadline_percent": 2.3465703971119134,
+    "intervals_at_least_25_ms": 0,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "e26e10222087ffe8ce2a75f8ef14daf9a0411f947d7c4f6c556b774f1d3d2119",
+  "average_presented_fps": 108.01766949004326,
+  "driver_events": 997,
+  "native_input_kind": "continuous",
+  "accessibility_active": false,
+  "accessible_nodes": 0,
+  "fixture": "17-long-layout-spec.md",
+  "fixture_sha256": "8fac6613999003f3570fd451f68a45c5b65aaceabbc8c49d6c67787cdb9bd36e",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "startup_wait_seconds": 12.0,
+  "configured_warmup_ms": 14000,
+  "passes": true
+}

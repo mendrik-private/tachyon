@@ -1,0 +1,19 @@
+{
+  "fixture": "38-html-table-boundaries.md",
+  "zoom_steps": 0,
+  "native_type_autosaved": true,
+  "undo_restores_exact_bytes": true,
+  "binary_sha256": "8c4c5e70eda3774ffb10c6aaca0471c765643ea93917a67b5d21d0b55bcf8af9",
+  "edit_within": "Before wrapper marker",
+  "preserved_fragments": [
+    "After wrapper marker",
+    "Following fragment marker.",
+    "<table><tr><th>Second field</th><th>Second value</th></tr><tr><td>Next</td><td>Beta</td></tr></table>"
+  ],
+  "edit_markdown": false,
+  "edit_paste_bytes": 8,
+  "edit_zoom_steps": 2,
+  "edit_idle_seconds": 2.0,
+  "edit_blur": null,
+  "first_changed_byte": 146
+}

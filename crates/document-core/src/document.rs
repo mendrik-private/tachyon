@@ -11,6 +11,8 @@ use crate::{
     TextSelection, TransactionResult, command::caret_after,
 };
 
+mod preview;
+
 #[derive(Clone, Debug)]
 struct SnapshotState {
     revision: Revision,
@@ -21,6 +23,9 @@ struct SnapshotState {
     source: SourceSpine,
     next_node_id: u64,
     node_revisions: Arc<HashMap<NodeId, Revision>>,
+    /// Import/repair-only caret host, not authored content. Pointer identity
+    /// distinguishes the untouched host from a paragraph the user has edited.
+    transient_caret: Option<Arc<BlockNode>>,
 }
 
 #[derive(Clone, Debug)]
@@ -45,6 +50,13 @@ impl DocumentSnapshot {
     #[must_use]
     pub fn source_spine(&self) -> &SourceSpine {
         &self.0.source
+    }
+
+    pub(crate) fn is_transient_caret(&self, block: &Arc<BlockNode>) -> bool {
+        self.0
+            .transient_caret
+            .as_ref()
+            .is_some_and(|caret| Arc::ptr_eq(caret, block))
     }
 
     #[must_use]
@@ -80,6 +92,17 @@ impl DocumentSnapshot {
 
     pub fn serialize(&self) -> Result<String, DocumentError> {
         crate::markdown::serialize(self)
+    }
+
+    /// Copy a rendered range without changing this snapshot, its source,
+    /// selection or undo history. Uses the same resolver as conversion-on-edit.
+    pub fn preview_clipboard_payload(
+        &self,
+        selection: &crate::PreviewSelection,
+    ) -> Result<Option<crate::ClipboardPayload>, DocumentError> {
+        let mut state = (*self.0).clone();
+        preview::resolve(&mut state, selection)?;
+        DocumentSnapshot(Arc::new(state)).clipboard_payload()
     }
 
     pub fn save_snapshot(
@@ -206,6 +229,9 @@ struct TypingGroup {
 #[derive(Clone, Debug)]
 struct Composition {
     before: DocumentSnapshot,
+    /// Provisional edits restart here. Usually identical to `before`; HTML
+    /// composition uses a converted baseline without publishing a content edit.
+    baseline: DocumentSnapshot,
     range: TextSelection,
 }
 
@@ -344,9 +370,19 @@ impl Document {
             return Ok(TransactionResult::unchanged(self.current.clone()));
         }
 
+        if self.composition.is_some() {
+            return Err(DocumentError::CompositionAlreadyActive);
+        }
+
         let before = self.current.clone();
         let before_selection = before.selection().clone();
-        let localized_text_node = command
+        let mut text_changed_node = command.localized_text_node(&before_selection).filter(|id| {
+            matches!(
+                before.node(*id),
+                Some(BlockNode::Paragraph(_) | BlockNode::Heading(_) | BlockNode::CodeBlock(_))
+            )
+        });
+        let mut localized_text_node = command
             .localized_text_node(&before_selection)
             .filter(|node_id| before.blocks().top_index_of(*node_id).is_some());
         let typing_node = command.typing_node().or_else(|| match &command {
@@ -361,13 +397,30 @@ impl Document {
         });
         let selection_mutation = SelectionMutation::from_command(&command);
         let mut state = (*before.0).clone();
+        let mut preview_converted = false;
+        let command = match command {
+            EditCommand::EditPreviewSelection { selection, edit } => {
+                preview_converted = preview::resolve(&mut state, &selection)?;
+                if matches!(&edit, crate::HtmlTextEdit::Replace(text) if text.is_empty())
+                    && matches!(&state.selection, Selection::Text(range) if range.is_caret())
+                {
+                    return Ok(TransactionResult::unchanged(before));
+                }
+                edit.into_command()
+            }
+            command => command,
+        };
         let revision = self.allocate_revision();
         state.revision = revision;
-        let changed = apply_command(&mut state, command)?;
+        let changed = apply_command(&mut state, command)? || preview_converted;
         if !changed {
             return Ok(TransactionResult::unchanged(before));
         }
         reconcile_selection(&before, &mut state, selection_mutation)?;
+        if retire_transient_caret(&mut state) {
+            localized_text_node = None;
+            text_changed_node = None;
+        }
         let transaction_dirty = localized_text_node.map_or_else(
             || changed_node_ids(&before.0.blocks, &state.blocks),
             |node_id| BTreeSet::from([node_id]),
@@ -418,6 +471,7 @@ impl Document {
             revision: after.revision(),
             selection: after_selection,
             dirty_node_ids: transaction_dirty,
+            text_changed_node,
             inverse_operations: vec![InverseOperation::Restore {
                 snapshot: before,
                 selection: before_selection,
@@ -427,6 +481,9 @@ impl Document {
     }
 
     pub fn undo(&mut self) -> Result<DocumentSnapshot, DocumentError> {
+        if self.composition.is_some() {
+            return Err(DocumentError::CompositionAlreadyActive);
+        }
         let entry = self.undo.pop().ok_or(DocumentError::NothingToUndo)?;
         self.current = self.restore_with_fresh_revision(&entry.before);
         self.redo.push(entry);
@@ -435,6 +492,9 @@ impl Document {
     }
 
     pub fn redo(&mut self) -> Result<DocumentSnapshot, DocumentError> {
+        if self.composition.is_some() {
+            return Err(DocumentError::CompositionAlreadyActive);
+        }
         let entry = self.redo.pop().ok_or(DocumentError::NothingToRedo)?;
         self.current = self.restore_with_fresh_revision(&entry.after);
         self.undo.push(entry);
@@ -447,9 +507,61 @@ impl Document {
             return Err(DocumentError::CompositionAlreadyActive);
         }
         validate_selection(&self.current, &Selection::Text(range.clone()))?;
+        validate_composition_range(&self.current.0, &range)?;
         self.typing_group = None;
         self.composition = Some(Composition {
             before: self.current.clone(),
+            baseline: self.current.clone(),
+            range,
+        });
+        Ok(())
+    }
+
+    /// Prepare composition in verified HTML text. Conversion remains
+    /// provisional: begin leaves the current snapshot untouched, updates use
+    /// the converted baseline, and cancellation/undo restore the original HTML.
+    pub fn begin_html_composition(
+        &mut self,
+        node_id: NodeId,
+        expected_source: &str,
+        anchor: crate::HtmlTextPosition,
+        head: crate::HtmlTextPosition,
+    ) -> Result<(), DocumentError> {
+        let endpoint = |position| crate::PreviewPosition::Html {
+            node_id,
+            expected_source: Arc::from(expected_source),
+            position,
+        };
+        self.begin_preview_composition(&crate::PreviewSelection {
+            revision: self.current.revision(),
+            anchor: endpoint(anchor),
+            head: endpoint(head),
+        })
+    }
+
+    /// Prepare a source-verified preview selection for provisional IME edits.
+    /// All conversions and replacement validation happen on private snapshots.
+    /// Until update, neither the current source nor its revision changes. Each
+    /// update starts from the same baseline; cancel and one undo restore the
+    /// original HTML and Markdown. Unsupported nested replacements fail before
+    /// composition ownership is acquired.
+    pub fn begin_preview_composition(
+        &mut self,
+        selection: &crate::PreviewSelection,
+    ) -> Result<(), DocumentError> {
+        if self.composition.is_some() {
+            return Err(DocumentError::CompositionAlreadyActive);
+        }
+        let mut state = (*self.current.0).clone();
+        preview::resolve(&mut state, selection)?;
+        let Selection::Text(range) = state.selection.clone() else {
+            return Err(DocumentError::TableSelectionForTextCommand);
+        };
+        validate_composition_range(&state, &range)?;
+        self.typing_group = None;
+        self.composition = Some(Composition {
+            before: self.current.clone(),
+            baseline: DocumentSnapshot(Arc::new(state)),
             range,
         });
         Ok(())
@@ -461,23 +573,11 @@ impl Document {
             .as_ref()
             .ok_or(DocumentError::NoComposition)?
             .clone();
-        self.current = composition.before.clone();
-        let range = normalized_single_node_range(&composition.range)?;
-        let node_id = composition.range.anchor.node_id;
-        let selection_after = caret_after(node_id, range.start + text.len());
-        let mut state = (*self.current.0).clone();
+        let mut state = (*composition.baseline.0).clone();
         let revision = self.allocate_revision();
         state.revision = revision;
-        apply_command(
-            &mut state,
-            EditCommand::ReplaceText {
-                node_id,
-                range,
-                text,
-                selection_after: Some(selection_after),
-                typing: false,
-            },
-        )?;
+        replace_text_selection(&mut state, composition.range, text, false)?;
+        retire_transient_caret(&mut state);
         let transaction_dirty = changed_node_ids(&composition.before.0.blocks, &state.blocks);
         state.dirty_nodes.extend(&transaction_dirty);
         let node_revisions = Arc::make_mut(&mut state.node_revisions);
@@ -494,6 +594,9 @@ impl Document {
             .take()
             .ok_or(DocumentError::NoComposition)?;
         let after = self.current.clone();
+        if after.revision() == composition.before.revision() {
+            return Ok(after);
+        }
         self.undo.push(HistoryEntry {
             before: composition.before,
             after: after.clone(),
@@ -563,9 +666,162 @@ impl Document {
     }
 }
 
+/// Retire only an untouched, unselected caret scaffold once real editable
+/// content exists. A mutated host becomes authored content, even if empty.
+/// Run after resolving the complete selection, never midway through converting
+/// its endpoints: the scaffold itself can be a valid range endpoint.
+fn retire_transient_caret(state: &mut SnapshotState) -> bool {
+    let Some(caret) = state.transient_caret.as_ref() else {
+        return false;
+    };
+    let id = caret.id();
+    let index = state.blocks.top_index_of(id);
+    if !index
+        .and_then(|index| state.blocks.get(index))
+        .is_some_and(|current| Arc::ptr_eq(caret, current))
+    {
+        state.transient_caret = None;
+        return false;
+    }
+    if matches!(&state.selection, Selection::Text(selection)
+        if selection.anchor.node_id == id || selection.head.node_id == id)
+        || !state
+            .blocks
+            .iter()
+            .any(|block| block.id() != id && first_editable_in_block(block).is_some())
+    {
+        return false;
+    }
+    let mut blocks = state.blocks.to_vec();
+    blocks.remove(index.expect("verified top-level caret host"));
+    state.blocks = BlockSequence::new(blocks);
+    state.transient_caret = None;
+    state.structure_changed = true;
+    true
+}
+
+fn convert_html_to_markdown(
+    state: &mut SnapshotState,
+    node_id: NodeId,
+    target: Option<(&str, crate::HtmlTextPosition, crate::HtmlTextPosition)>,
+) -> Result<TextSelection, DocumentError> {
+    let Some(BlockNode::PreservedSource { source, .. }) = find_node(&state.blocks, node_id) else {
+        return Err(DocumentError::Html(
+            "Only preserved HTML can be converted".into(),
+        ));
+    };
+    if target.is_some_and(|(expected, _, _)| source.as_ref() != expected) {
+        return Err(DocumentError::Html(
+            "The HTML changed; choose the text again".into(),
+        ));
+    }
+    let markdown = crate::html::editable_html_markdown(source).ok_or_else(|| {
+        DocumentError::Html(
+            "This HTML needs its original structure; conversion is unavailable".into(),
+        )
+    })?;
+    let imported = crate::markdown::import(Arc::<str>::from(markdown))?;
+    let replacement = remap_sequence_ids(imported.blocks(), &mut state.next_node_id);
+    let selection = if let Some((_, anchor, head)) = target {
+        let leaves = crate::html::conversion_text_blocks(&replacement);
+        let position = |target: crate::HtmlTextPosition, affinity| {
+            let block = leaves
+                .get(target.text_node)
+                .ok_or_else(|| DocumentError::Html("The HTML text target is unavailable".into()))?;
+            let text = block
+                .text()
+                .ok_or_else(|| DocumentError::Html("No editable text at this target".into()))?;
+            text.validate_range(block.id(), &(target.byte_offset..target.byte_offset))?;
+            Ok::<_, DocumentError>(DocumentPosition::new(
+                block.id(),
+                target.byte_offset,
+                affinity,
+            ))
+        };
+        let anchor_position = position(anchor, crate::Affinity::Downstream)?;
+        if anchor == head {
+            TextSelection::caret(anchor_position)
+        } else {
+            TextSelection {
+                anchor: anchor_position,
+                head: position(head, crate::Affinity::Upstream)?,
+            }
+        }
+    } else {
+        TextSelection::caret(
+            first_editable_position_in_sequence(&replacement)
+                .ok_or_else(|| DocumentError::Html("No editable text in this fragment".into()))?,
+        )
+    };
+    replace_node_with_blocks(&mut state.blocks, node_id, &replacement)?;
+    state.selection = Selection::Text(selection.clone());
+    state.structure_changed = true;
+    Ok(selection)
+}
+
+/// Replace only the sequence owning a converted fragment. Immutable sibling
+/// allocations and all enclosing table/list identities remain canonical.
+fn replace_node_with_blocks(
+    blocks: &mut BlockSequence,
+    node_id: NodeId,
+    replacement: &BlockSequence,
+) -> Result<(), DocumentError> {
+    let index = blocks
+        .top_index_containing(node_id)
+        .ok_or(PositionError::UnknownNode(node_id))?;
+    let parent_id = blocks.get(index).expect("indexed owner").id();
+    if parent_id == node_id {
+        let mut next = blocks.to_vec();
+        next.splice(index..=index, replacement.iter().cloned());
+        *blocks = BlockSequence::new(next);
+        return Ok(());
+    }
+    mutate_node(blocks, parent_id, &mut |parent| {
+        match parent {
+            BlockNode::List(list) => {
+                let mut items = list.items.to_vec();
+                let item = items
+                    .iter_mut()
+                    .find(|item| item.blocks.contains_node(node_id))
+                    .ok_or(PositionError::UnknownNode(node_id))?;
+                replace_node_with_blocks(&mut item.blocks, node_id, replacement)?;
+                list.items = items.into();
+            }
+            BlockNode::BlockQuote { blocks, .. }
+            | BlockNode::Alert { blocks, .. }
+            | BlockNode::FootnoteDefinition { blocks, .. } => {
+                replace_node_with_blocks(blocks, node_id, replacement)?;
+            }
+            BlockNode::Table(table) => {
+                let mut rows = table.rows.to_vec();
+                let row = rows
+                    .iter_mut()
+                    .find(|row| {
+                        row.cells
+                            .iter()
+                            .any(|cell| cell.blocks.contains_node(node_id))
+                    })
+                    .ok_or(PositionError::UnknownNode(node_id))?;
+                let mut cells = row.cells.to_vec();
+                let cell = cells
+                    .iter_mut()
+                    .find(|cell| cell.blocks.contains_node(node_id))
+                    .ok_or(PositionError::UnknownNode(node_id))?;
+                replace_node_with_blocks(&mut cell.blocks, node_id, replacement)?;
+                row.cells = cells.into();
+                table.rows = rows.into();
+            }
+            _ => return Err(PositionError::UnknownNode(node_id).into()),
+        }
+        Ok(())
+    })
+}
+
 fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool, DocumentError> {
     match command {
-        EditCommand::SetSelection(_) => unreachable!("handled before transaction"),
+        EditCommand::SetSelection(_) | EditCommand::EditPreviewSelection { .. } => {
+            unreachable!("handled before transaction")
+        }
         EditCommand::ReplaceText {
             node_id,
             range,
@@ -656,6 +912,7 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
                         BlockNode::CodeBlock(crate::CodeBlock {
                             id: paragraph.id,
                             language: None,
+                            syntax: crate::CodeBlockSyntax::Fenced,
                             content: paragraph.content.clone(),
                         })
                     }
@@ -663,6 +920,7 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
                         BlockNode::CodeBlock(crate::CodeBlock {
                             id: heading.id,
                             language: None,
+                            syntax: crate::CodeBlockSyntax::Fenced,
                             content: heading.content.clone(),
                         })
                     }
@@ -760,6 +1018,39 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
             blocks.remove(index);
             state.blocks = BlockSequence::new(blocks);
             state.structure_changed = true;
+            Ok(true)
+        }
+        EditCommand::ConvertHtmlToMarkdown { node_id }
+        | EditCommand::ConvertHtmlToMarkdownAt { node_id, .. }
+        | EditCommand::EditHtmlSelection { node_id, .. } => {
+            let target = match &command {
+                EditCommand::ConvertHtmlToMarkdownAt {
+                    expected_source,
+                    position,
+                    ..
+                } => Some((expected_source.as_str(), *position, *position)),
+                EditCommand::EditHtmlSelection {
+                    expected_source,
+                    anchor,
+                    head,
+                    ..
+                } => Some((expected_source.as_str(), *anchor, *head)),
+                _ => None,
+            };
+            let selection = convert_html_to_markdown(state, node_id, target)?;
+            if let EditCommand::EditHtmlSelection {
+                edit: crate::HtmlTextEdit::Replace(text),
+                ..
+            } = &command
+                && text.is_empty()
+                && selection.anchor.node_id == selection.head.node_id
+                && selection.anchor.text_offset == selection.head.text_offset
+            {
+                return Ok(false);
+            }
+            if let EditCommand::EditHtmlSelection { edit, .. } = command {
+                apply_command(state, edit.into_command())?;
+            }
             Ok(true)
         }
         EditCommand::InsertTable { index } => {
@@ -1089,16 +1380,18 @@ fn new_block(state: &mut SnapshotState, kind: InsertBlockKind) -> BlockNode {
             level: level.clamp(1, 6),
             content: crate::RichText::default(),
         }),
-        InsertBlockKind::UnorderedList | InsertBlockKind::TaskList => {
+        InsertBlockKind::OrderedList
+        | InsertBlockKind::UnorderedList
+        | InsertBlockKind::TaskList => {
             let list_id = allocate_node_id(state);
             let item_id = allocate_node_id(state);
             let paragraph_id = allocate_node_id(state);
             BlockNode::List(crate::ListBlock {
                 id: list_id,
-                kind: if matches!(kind, InsertBlockKind::TaskList) {
-                    crate::ListKind::Task
-                } else {
-                    crate::ListKind::Unordered
+                kind: match kind {
+                    InsertBlockKind::OrderedList => crate::ListKind::Ordered { start: 1 },
+                    InsertBlockKind::TaskList => crate::ListKind::Task,
+                    _ => crate::ListKind::Unordered,
                 },
                 tight: false,
                 items: vec![crate::ListItem {
@@ -1130,6 +1423,7 @@ fn new_block(state: &mut SnapshotState, kind: InsertBlockKind) -> BlockNode {
         InsertBlockKind::CodeBlock => BlockNode::CodeBlock(crate::CodeBlock {
             id: allocate_node_id(state),
             language: None,
+            syntax: crate::CodeBlockSyntax::Fenced,
             content: crate::RichText::default(),
         }),
         InsertBlockKind::Image => BlockNode::Image(crate::ImageNode {
@@ -1138,6 +1432,7 @@ fn new_block(state: &mut SnapshotState, kind: InsertBlockKind) -> BlockNode {
             alt: crate::RichText::default(),
             title: None,
             intrinsic_size: None,
+            link: None,
         }),
         InsertBlockKind::Table => {
             let mut next = || allocate_node_id(state);
@@ -1216,6 +1511,15 @@ fn normalized_single_node_range(
     }
     Ok(selection.anchor.text_offset.min(selection.head.text_offset)
         ..selection.anchor.text_offset.max(selection.head.text_offset))
+}
+
+fn validate_composition_range(
+    state: &SnapshotState,
+    range: &TextSelection,
+) -> Result<(), DocumentError> {
+    let mut probe = state.clone();
+    replace_text_selection(&mut probe, range.clone(), String::new(), false)?;
+    validate_tree(&probe.blocks)
 }
 
 fn replace_text_selection(
@@ -1487,6 +1791,7 @@ fn block_with_text(
         BlockNode::CodeBlock(code) => Ok(BlockNode::CodeBlock(crate::CodeBlock {
             id,
             language: code.language.clone(),
+            syntax: code.syntax,
             content,
         })),
         _ => Err(DocumentError::Clipboard(
@@ -1518,6 +1823,7 @@ fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
         BlockNode::CodeBlock(code) => BlockNode::CodeBlock(crate::CodeBlock {
             id: allocate_from(next_id),
             language: code.language.clone(),
+            syntax: code.syntax,
             content: code.content.clone(),
         }),
         BlockNode::Image(image) => BlockNode::Image(crate::ImageNode {
@@ -1526,6 +1832,7 @@ fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
             alt: image.alt.clone(),
             title: image.title.clone(),
             intrinsic_size: image.intrinsic_size,
+            link: image.link.clone(),
         }),
         BlockNode::List(list) => BlockNode::List(crate::ListBlock {
             id: allocate_from(next_id),
@@ -1887,21 +2194,23 @@ fn toggle_inline_selection(
         .iter()
         .position(|id| *id == selection.head.node_id)
         .ok_or(PositionError::UnknownNode(selection.head.node_id))?;
-    let (start_index, start_offset, end_index, end_offset) = if anchor_index <= head_index {
-        (
-            anchor_index,
-            selection.anchor.text_offset,
-            head_index,
-            selection.head.text_offset,
-        )
-    } else {
-        (
-            head_index,
-            selection.head.text_offset,
-            anchor_index,
-            selection.anchor.text_offset,
-        )
-    };
+    let (start_index, start_offset, end_index, end_offset) =
+        if (anchor_index, selection.anchor.text_offset) <= (head_index, selection.head.text_offset)
+        {
+            (
+                anchor_index,
+                selection.anchor.text_offset,
+                head_index,
+                selection.head.text_offset,
+            )
+        } else {
+            (
+                head_index,
+                selection.head.text_offset,
+                anchor_index,
+                selection.anchor.text_offset,
+            )
+        };
     let style = format.as_style();
     let mut ranges = Vec::new();
     let mut covered = 0;
@@ -1952,21 +2261,23 @@ fn set_link_selection(
         .iter()
         .position(|id| *id == selection.head.node_id)
         .ok_or(PositionError::UnknownNode(selection.head.node_id))?;
-    let (start_index, start_offset, end_index, end_offset) = if anchor_index <= head_index {
-        (
-            anchor_index,
-            selection.anchor.text_offset,
-            head_index,
-            selection.head.text_offset,
-        )
-    } else {
-        (
-            head_index,
-            selection.head.text_offset,
-            anchor_index,
-            selection.anchor.text_offset,
-        )
-    };
+    let (start_index, start_offset, end_index, end_offset) =
+        if (anchor_index, selection.anchor.text_offset) <= (head_index, selection.head.text_offset)
+        {
+            (
+                anchor_index,
+                selection.anchor.text_offset,
+                head_index,
+                selection.head.text_offset,
+            )
+        } else {
+            (
+                head_index,
+                selection.head.text_offset,
+                anchor_index,
+                selection.anchor.text_offset,
+            )
+        };
     let mut ranges = Vec::new();
     for (relative, node_id) in node_ids[start_index..=end_index].iter().enumerate() {
         let node =
@@ -1988,6 +2299,13 @@ fn set_link_selection(
     }
     for (node_id, range) in ranges {
         mutate_node(&mut state.blocks, node_id, &mut |node| {
+            if let BlockNode::Image(image) = node {
+                image.link = target.map(|target| crate::ImageLink {
+                    target: crate::LinkTarget(target.to_owned()),
+                    title: image.link.as_ref().and_then(|link| link.title.clone()),
+                });
+                return Ok(());
+            }
             node.text_mut()
                 .ok_or(PositionError::NotText(node_id))?
                 .set_link(node_id, range.clone(), target)
@@ -2099,10 +2417,12 @@ fn reconcile_selection(
     if validate_selection_in_blocks(&state.blocks, &state.selection).is_err() {
         let id = allocate_node_id(state);
         let mut blocks = state.blocks.to_vec();
-        blocks.push(Arc::new(BlockNode::Paragraph(crate::Paragraph {
+        let caret = Arc::new(BlockNode::Paragraph(crate::Paragraph {
             id,
             content: crate::RichText::default(),
-        })));
+        }));
+        blocks.push(caret.clone());
+        state.transient_caret = Some(caret);
         state.blocks = BlockSequence::new(blocks);
         state.structure_changed = true;
         state.selection = Selection::Text(TextSelection::caret(DocumentPosition::new(
@@ -2469,6 +2789,7 @@ pub(crate) fn snapshot_from_import(
     selection: Selection,
     source: SourceSpine,
     next_node_id: u64,
+    transient_caret: Option<Arc<BlockNode>>,
 ) -> DocumentSnapshot {
     DocumentSnapshot(Arc::new(SnapshotState {
         revision: Revision::default(),
@@ -2479,6 +2800,7 @@ pub(crate) fn snapshot_from_import(
         source,
         next_node_id,
         node_revisions: Arc::new(HashMap::new()),
+        transient_caret,
     }))
 }
 
@@ -2711,6 +3033,7 @@ mod tests {
         assert!(result.dirty_node_ids.contains(&leaf));
         assert!(result.dirty_node_ids.contains(&inner_id));
         assert!(result.dirty_node_ids.contains(&outer_id));
+        assert_eq!(result.text_changed_node, Some(leaf));
         assert_eq!(result.snapshot.node_revision(leaf), Some(result.revision));
         assert_eq!(
             result.snapshot.node_revision(outer_id),
@@ -2816,6 +3139,7 @@ mod tests {
         let mut document = Document::from_markdown("before").expect("document");
         for kind in [
             InsertBlockKind::Heading(2),
+            InsertBlockKind::OrderedList,
             InsertBlockKind::UnorderedList,
             InsertBlockKind::TaskList,
             InsertBlockKind::BlockQuote,
@@ -2831,7 +3155,12 @@ mod tests {
         }
         let snapshot = document.snapshot();
         validate_tree(snapshot.blocks()).expect("valid stable IDs");
-        assert!(snapshot.serialize().expect("serialize").contains("|  |  |"));
+        let source = snapshot.serialize().expect("serialize");
+        assert!(source.contains("|  |  |"));
+        assert!(
+            source.contains("1. "),
+            "numbered-list command stays ordered"
+        );
     }
 
     #[test]
@@ -2843,9 +3172,10 @@ mod tests {
                 TextSelection::caret(DocumentPosition::new(paragraph_id, 2, Affinity::Downstream)),
             )))
             .expect("caret");
-        paragraph
+        let split = paragraph
             .apply(EditCommand::SplitSelection)
             .expect("split paragraph");
+        assert_eq!(split.text_changed_node, None);
         assert_eq!(paragraph.snapshot().blocks().len(), 2);
 
         let mut list = Document::from_markdown("- one").expect("list");
@@ -3284,6 +3614,99 @@ mod tests {
             DocumentError::Position(PositionError::UnknownNode(_))
         ));
         assert_eq!(document.snapshot().serialize().expect("serialize"), "old");
+    }
+
+    #[test]
+    fn html_conversion_preserves_a_caret_host_once_authored_even_if_emptied() {
+        let source = "<p>First</p>\n";
+        let mut document = Document::from_markdown(source).unwrap();
+        let html_id = document.snapshot().blocks().get(0).unwrap().id();
+        let host_id = document.snapshot().blocks().get(1).unwrap().id();
+        document
+            .apply(EditCommand::ReplaceSelection {
+                text: "Tail".into(),
+                typing: false,
+            })
+            .unwrap();
+        document
+            .apply(EditCommand::ReplaceText {
+                node_id: host_id,
+                range: 0..4,
+                text: String::new(),
+                selection_after: None,
+                typing: false,
+            })
+            .unwrap();
+        let authored = document.snapshot();
+        assert!(!authored.is_transient_caret(authored.blocks().get(1).unwrap()));
+        document
+            .apply(EditCommand::ConvertHtmlToMarkdown { node_id: html_id })
+            .unwrap();
+        let converted = document.snapshot();
+        assert_eq!(converted.blocks().len(), 2);
+        assert_eq!(converted.blocks().get(1).unwrap().id(), host_id);
+        assert!(Arc::ptr_eq(
+            converted.blocks().get(1).unwrap(),
+            authored.blocks().get(1).unwrap()
+        ));
+        assert_eq!(converted.serialize().unwrap(), "First\n\n\n");
+        document.undo().unwrap();
+        assert_eq!(
+            document.snapshot().serialize().unwrap(),
+            authored.serialize().unwrap()
+        );
+    }
+
+    #[test]
+    fn untouched_caret_host_does_not_export_separators_after_structural_edits() {
+        let source = "<!-- exact -->\n\n---\n";
+        let mut document = Document::from_markdown(source).unwrap();
+        let before = document.snapshot();
+        document
+            .apply(EditCommand::DeleteBlock {
+                node_id: before.blocks().get(1).unwrap().id(),
+            })
+            .unwrap();
+        let after = document.snapshot();
+        assert_eq!(
+            after.blocks().len(),
+            2,
+            "the noneditable document still needs a caret host"
+        );
+        assert!(after.is_transient_caret(after.blocks().get(1).unwrap()));
+        assert_eq!(after.serialize().unwrap(), "<!-- exact -->\n");
+        assert!(
+            matches!(after.selection(), Selection::Text(range) if after.validates_position(range.head))
+        );
+        document.undo().unwrap();
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+    }
+
+    #[test]
+    fn explicit_html_conversion_has_no_unnecessary_caret_block_or_separator() {
+        for ending in ["", "\n", "\r\n", "\n\n\n"] {
+            let source = format!("<div><p>First</p><p>Second</p></div>{ending}");
+            let mut document = Document::from_markdown(source.as_str()).unwrap();
+            let before = document.snapshot();
+            let id = before.blocks().get(0).unwrap().id();
+            document
+                .apply(EditCommand::ConvertHtmlToMarkdown { node_id: id })
+                .unwrap();
+            let after = document.snapshot();
+            let separator = if ending == "\r\n" { "\r\n\r\n" } else { "\n\n" };
+            assert_eq!(
+                after.serialize().unwrap(),
+                format!("First{separator}Second{ending}")
+            );
+            assert_eq!(after.blocks().len(), 2);
+            document.undo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+            document.redo().unwrap();
+            assert_eq!(
+                document.snapshot().serialize().unwrap(),
+                after.serialize().unwrap()
+            );
+        }
     }
 
     #[test]

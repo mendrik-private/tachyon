@@ -1,0 +1,37 @@
+{
+  "input": "wheel",
+  "samples": [
+    {
+      "seconds_after_release": 0.1445432799991977,
+      "thumb_top_px": 90
+    },
+    {
+      "seconds_after_release": 0.3448119469994708,
+      "thumb_top_px": 114
+    },
+    {
+      "seconds_after_release": 0.5447060400001646,
+      "thumb_top_px": 139
+    },
+    {
+      "seconds_after_release": 0.8445413469999039,
+      "thumb_top_px": 161
+    },
+    {
+      "seconds_after_release": 1.244276092000291,
+      "thumb_top_px": 177
+    },
+    {
+      "seconds_after_release": 2.864777728000263,
+      "thumb_top_px": 188
+    },
+    {
+      "seconds_after_release": 3.2647198619997653,
+      "thumb_top_px": 189
+    }
+  ],
+  "passes": true,
+  "early_thumb_speed_px_s": 122.45017502348693,
+  "late_thumb_speed_px_s": 54.319077684007446,
+  "binary_sha256": "75ffae5b2734fce69d29971c0830a6ce28158df40c139489e8846ffdc2080a22"
+}

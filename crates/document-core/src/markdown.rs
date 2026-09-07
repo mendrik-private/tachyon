@@ -75,14 +75,17 @@ pub(crate) fn import(source: Arc<str>) -> Result<DocumentSnapshot, DocumentError
         )
     });
     let (mut blocks, positions): (Vec<_>, Vec<_>) = imported.into_iter().unzip();
+    let mut transient_caret = None;
     let first_position = if let Some(position) = first_editable_position(&blocks) {
         position
     } else {
         let id = importer.allocate();
-        blocks.push(Arc::new(BlockNode::Paragraph(Paragraph {
+        let caret = Arc::new(BlockNode::Paragraph(Paragraph {
             id,
             content: RichText::default(),
-        })));
+        }));
+        blocks.push(caret.clone());
+        transient_caret = Some(caret);
         DocumentPosition::new(id, 0, Affinity::Downstream)
     };
     let spine = build_spine(source, &positions);
@@ -91,6 +94,7 @@ pub(crate) fn import(source: Arc<str>) -> Result<DocumentSnapshot, DocumentError
         Selection::Text(TextSelection::caret(first_position)),
         spine,
         importer.next_id,
+        transient_caret,
     ))
 }
 
@@ -158,6 +162,7 @@ fn markdown_options() -> Options<'static> {
     options.extension.tasklist = true;
     options.extension.footnotes = true;
     options.extension.alerts = true;
+    options.extension.math_dollars = true;
     options.extension.front_matter_delimiter = Some("---".to_owned());
     options.parse.smart = false;
     options.parse.tasklist_in_table = true;
@@ -179,7 +184,21 @@ impl Importer {
         let value = node.data.borrow().value.clone();
         Ok(match value {
             NodeValue::Paragraph => {
-                if let Some(image) = standalone_image(node, self.allocate()) {
+                let standalone_math = node
+                    .first_child()
+                    .filter(|child| child.next_sibling().is_none())
+                    .and_then(|child| match &child.data.borrow().value {
+                        NodeValue::Math(math) if math.display_math => Some(math.literal.clone()),
+                        _ => None,
+                    });
+                if let Some(source) = standalone_math {
+                    Some(BlockNode::CodeBlock(CodeBlock {
+                        id: self.allocate(),
+                        language: Some("math".into()),
+                        syntax: crate::CodeBlockSyntax::DisplayMath,
+                        content: RichText::new(source),
+                    }))
+                } else if let Some(image) = standalone_image(node, self.allocate()) {
                     Some(BlockNode::Image(image))
                 } else {
                     Some(BlockNode::Paragraph(Paragraph {
@@ -196,6 +215,7 @@ impl Importer {
             NodeValue::CodeBlock(code) => Some(BlockNode::CodeBlock(CodeBlock {
                 id: self.allocate(),
                 language: code.info.split_whitespace().next().map(str::to_owned),
+                syntax: crate::CodeBlockSyntax::Fenced,
                 content: RichText::new(code.literal),
             })),
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => {
@@ -232,8 +252,11 @@ impl Importer {
                 } else {
                     Some(BlockNode::PreservedSource {
                         id: self.allocate(),
+                        description: crate::html::inert_html_fragment(&html.literal)
+                            .map(|fragment| fragment.text().trim().to_owned())
+                            .filter(|text| !text.is_empty())
+                            .unwrap_or_else(|| "Unsupported or preserved HTML".to_owned()),
                         source: Arc::from(html.literal),
-                        description: "Unsupported or preserved HTML".to_owned(),
                     })
                 }
             }
@@ -454,7 +477,14 @@ fn append_inline<'a>(
             push_piece(text, runs, &code.literal, styles);
             styles.pop();
         }
-        NodeValue::SoftBreak => push_piece(text, runs, "\n", styles),
+        NodeValue::Math(math) => {
+            styles.push(InlineStyle::Math {
+                display: math.display_math,
+            });
+            push_piece(text, runs, &math.literal, styles);
+            styles.pop();
+        }
+        NodeValue::SoftBreak => push_piece(text, runs, " ", styles),
         NodeValue::LineBreak => push_piece(text, runs, "  \n", styles),
         NodeValue::Strong => with_style(node, InlineStyle::Bold, text, runs, styles),
         NodeValue::Emph => with_style(node, InlineStyle::Italic, text, runs, styles),
@@ -575,6 +605,22 @@ fn standalone_image<'a>(node: &'a AstNode<'a>, id: NodeId) -> Option<ImageNode> 
     if children.next().is_some() {
         return None;
     }
+    let (child, enclosing_link) = if let NodeValue::Link(link) = child.data.borrow().value.clone() {
+        let mut linked = child.children();
+        let image = linked.next()?;
+        if linked.next().is_some() {
+            return None;
+        }
+        (
+            image,
+            Some(crate::ImageLink {
+                target: LinkTarget(link.url),
+                title: (!link.title.is_empty()).then_some(link.title),
+            }),
+        )
+    } else {
+        (child, None)
+    };
     let NodeValue::Image(link) = child.data.borrow().value.clone() else {
         return None;
     };
@@ -584,6 +630,7 @@ fn standalone_image<'a>(node: &'a AstNode<'a>, id: NodeId) -> Option<ImageNode> 
         alt: RichText::new(inline_plain_text(child)),
         title: (!link.title.is_empty()).then_some(link.title),
         intrinsic_size: None,
+        link: enclosing_link,
     })
 }
 
@@ -672,7 +719,13 @@ pub(crate) fn serialize(snapshot: &DocumentSnapshot) -> Result<String, DocumentE
     let newline = snapshot.source_spine().line_ending().as_str();
     let (orphaned_before, orphaned_tail) = orphaned_prefixes(snapshot);
     let mut output = String::new();
-    for (index, block) in snapshot.blocks().iter().enumerate() {
+    let mut previous_generated = false;
+    for (index, block) in snapshot
+        .blocks()
+        .iter()
+        .filter(|block| !snapshot.is_transient_caret(block))
+        .enumerate()
+    {
         let dirty = block_or_descendant_dirty(block, snapshot.dirty_node_ids());
         if let Some(unit) = snapshot.source_spine().unit(block.id()) {
             if let Some(prefixes) = orphaned_before.get(&block.id()) {
@@ -681,6 +734,11 @@ pub(crate) fn serialize(snapshot: &DocumentSnapshot) -> Result<String, DocumentE
                 }
             }
             output.push_str(snapshot.source_spine().slice(unit.prefix.clone()));
+            // A generated block needs a separator, but the next source-owned
+            // prefix may already supply it. Do not append both separators.
+            if previous_generated {
+                ensure_blank_line(&mut output, newline);
+            }
             if dirty {
                 output.push_str(&serialize_block(block, newline, 0)?);
             } else {
@@ -691,8 +749,8 @@ pub(crate) fn serialize(snapshot: &DocumentSnapshot) -> Result<String, DocumentE
                 ensure_blank_line(&mut output, newline);
             }
             output.push_str(&serialize_block(block, newline, 0)?);
-            ensure_blank_line(&mut output, newline);
         }
+        previous_generated = snapshot.source_spine().unit(block.id()).is_none();
     }
     for prefix in orphaned_tail {
         output.push_str(snapshot.source_spine().slice(prefix));
@@ -718,7 +776,16 @@ fn orphaned_prefixes(snapshot: &DocumentSnapshot) -> OrphanedPrefixes {
                 before.insert(*id, std::mem::take(&mut pending));
             }
         } else if let Some(unit) = snapshot.source_spine().unit(*id) {
-            pending.push(unit.prefix.clone());
+            // Deleted blocks no longer own a visual gap. Keep non-rendered
+            // source such as reference definitions, not orphaned whitespace.
+            if !snapshot
+                .source_spine()
+                .slice(unit.prefix.clone())
+                .trim()
+                .is_empty()
+            {
+                pending.push(unit.prefix.clone());
+            }
         }
     }
     (before, pending)
@@ -782,6 +849,11 @@ fn serialize_block(
         ),
         BlockNode::CodeBlock(code) => {
             let content = code.content.as_string();
+            if code.syntax == crate::CodeBlockSyntax::DisplayMath && !content.contains("$$") {
+                // Keep the exact formula contents (including authored leading
+                // and trailing newlines) inside the original delimiter family.
+                return Ok(format!("$${content}$$"));
+            }
             let longest_fence = longest_backtick_run(&content).max(2) + 1;
             let fence = "`".repeat(longest_fence);
             let closing_separator = if content.ends_with(['\r', '\n']) {
@@ -795,15 +867,28 @@ fn serialize_block(
                 content
             )
         }
-        BlockNode::Image(image) => format!(
-            "![{}]({}{})",
-            escape_inline(&image.alt.as_string()),
-            serialize_destination(&image.source),
-            image
-                .title
-                .as_ref()
-                .map_or_else(String::new, |title| format!(" {}", serialize_title(title)))
-        ),
+        BlockNode::Image(image) => {
+            let figure = format!(
+                "![{}]({}{})",
+                escape_inline(&image.alt.as_string()),
+                serialize_destination(&image.source),
+                image
+                    .title
+                    .as_ref()
+                    .map_or_else(String::new, |title| format!(" {}", serialize_title(title)))
+            );
+            if let Some(link) = &image.link {
+                format!(
+                    "[{figure}]({}{})",
+                    serialize_destination(&link.target.0),
+                    link.title
+                        .as_ref()
+                        .map_or_else(String::new, |title| format!(" {}", serialize_title(title)))
+                )
+            } else {
+                figure
+            }
+        }
         BlockNode::ThematicBreak { .. } => "---".to_owned(),
         BlockNode::PreservedSource { source, .. } => source.to_string(),
         BlockNode::BlockQuote { blocks, .. } => {
@@ -1040,28 +1125,13 @@ fn table_metadata(table: &Table, newline: &str) -> Result<String, DocumentError>
 }
 
 pub(crate) fn serialize_inline(text: &RichText) -> String {
-    if inline_styles_cross(text) {
+    if inline_styles_need_html_boundaries(text) {
         return serialize_inline_with_html_boundaries(text);
     }
     let source = text.as_string();
     let mut output = String::new();
     for run in text.runs() {
         let value = &source[run.range.clone()];
-        if let Some(InlineStyle::Image { source, alt, title }) = run
-            .styles
-            .iter()
-            .find(|style| matches!(style, InlineStyle::Image { .. }))
-        {
-            output.push_str(&format!(
-                "![{}]({}{})",
-                escape_inline(alt),
-                serialize_destination(source),
-                title
-                    .as_ref()
-                    .map_or_else(String::new, |title| format!(" {}", serialize_title(title)))
-            ));
-            continue;
-        }
         if let Some(InlineStyle::FootnoteReference(label)) = run
             .styles
             .iter()
@@ -1095,7 +1165,16 @@ pub(crate) fn serialize_inline(text: &RichText) -> String {
         for style in &formatting {
             output.push_str(open_style(style));
         }
-        if run.styles.contains(&InlineStyle::Code) {
+        if let Some(image) = serialize_inline_image(&run.styles) {
+            output.push_str(&image);
+        } else if let Some(InlineStyle::Math { display }) = run
+            .styles
+            .iter()
+            .find(|style| matches!(style, InlineStyle::Math { .. }))
+        {
+            let delimiter = if *display { "$$" } else { "$" };
+            output.push_str(&format!("{delimiter}{value}{delimiter}"));
+        } else if run.styles.contains(&InlineStyle::Code) {
             output.push_str(&serialize_code_span(value));
         } else {
             output.push_str(&escape_inline(value));
@@ -1107,13 +1186,52 @@ pub(crate) fn serialize_inline(text: &RichText) -> String {
     output
 }
 
+fn serialize_inline_image(styles: &[InlineStyle]) -> Option<String> {
+    let (source, alt, title) = styles.iter().find_map(|style| match style {
+        InlineStyle::Image { source, alt, title } => Some((source, alt, title)),
+        _ => None,
+    })?;
+    Some(format!(
+        "![{}]({}{})",
+        escape_inline(alt),
+        serialize_destination(source),
+        title
+            .as_ref()
+            .map_or_else(String::new, |title| format!(" {}", serialize_title(title)))
+    ))
+}
+
+fn inline_styles_need_html_boundaries(text: &RichText) -> bool {
+    if inline_styles_cross(text) {
+        return true;
+    }
+
+    let source = text.as_string();
+    text.runs().iter().any(|run| {
+        let uses_markdown_delimiter = run.styles.iter().any(|style| {
+            matches!(
+                style,
+                InlineStyle::Bold | InlineStyle::Italic | InlineStyle::Strikethrough
+            )
+        });
+        uses_markdown_delimiter
+            && source.get(run.range.clone()).is_some_and(|value| {
+                value.chars().next().is_some_and(char::is_whitespace)
+                    || value.chars().next_back().is_some_and(char::is_whitespace)
+            })
+    })
+}
+
 fn inline_styles_cross(text: &RichText) -> bool {
     let mut intervals = Vec::<(usize, usize, InlineStyle)>::new();
     for run in text.runs() {
         for style in run.styles.iter().filter(|style| {
             matches!(
                 style,
-                InlineStyle::Bold | InlineStyle::Italic | InlineStyle::Strikethrough
+                InlineStyle::Bold
+                    | InlineStyle::Italic
+                    | InlineStyle::Strikethrough
+                    | InlineStyle::Link(_)
             )
         }) {
             if let Some(previous) = intervals
@@ -1141,21 +1259,6 @@ fn serialize_inline_with_html_boundaries(text: &RichText) -> String {
     let mut output = String::new();
     for run in text.runs() {
         let value = &source[run.range.clone()];
-        if let Some(InlineStyle::Image { source, alt, title }) = run
-            .styles
-            .iter()
-            .find(|style| matches!(style, InlineStyle::Image { .. }))
-        {
-            output.push_str(&format!(
-                "![{}]({}{})",
-                escape_inline(alt),
-                serialize_destination(source),
-                title
-                    .as_ref()
-                    .map_or_else(String::new, |title| format!(" {}", serialize_title(title)))
-            ));
-            continue;
-        }
         if let Some(InlineStyle::FootnoteReference(label)) = run
             .styles
             .iter()
@@ -1182,7 +1285,16 @@ fn serialize_inline_with_html_boundaries(text: &RichText) -> String {
                 _ => "",
             });
         }
-        if run.styles.contains(&InlineStyle::Code) {
+        if let Some(image) = serialize_inline_image(&run.styles) {
+            output.push_str(&image);
+        } else if let Some(InlineStyle::Math { display }) = run
+            .styles
+            .iter()
+            .find(|style| matches!(style, InlineStyle::Math { .. }))
+        {
+            let delimiter = if *display { "$$" } else { "$" };
+            output.push_str(&format!("{delimiter}{value}{delimiter}"));
+        } else if run.styles.contains(&InlineStyle::Code) {
             output.push_str(&serialize_code_span(value));
         } else {
             output.push_str(&escape_inline(value));
@@ -1405,11 +1517,12 @@ fn serialize_block_html(
             serialize_sequence_html(blocks, newline, indent + 2)?
         ),
         BlockNode::ThematicBreak { .. } => "<hr>".into(),
-        BlockNode::PreservedSource { description, .. } => format!(
-            "<p data-preserved-source=\"true\">{}</p>",
-            escape_html(description)
-        ),
-        BlockNode::Table(_) => "<p data-unsupported=\"nested-table\">Nested table</p>".into(),
+        // Serialization is source preservation, not rendering. An untouched
+        // HTML fragment in a changed table must survive save/reopen with its
+        // authored attributes and disclosure state. The renderer still applies
+        // its independent inert/sanitized policy when displaying this source.
+        BlockNode::PreservedSource { source, .. } => source.to_string(),
+        BlockNode::Table(table) => serialize_html_table(table, newline, indent)?,
     })
 }
 
@@ -1418,21 +1531,6 @@ fn serialize_inline_html(text: &RichText) -> String {
     let mut output = String::new();
     for run in text.runs() {
         let value = &source[run.range.clone()];
-        if let Some(InlineStyle::Image { source, alt, title }) = run
-            .styles
-            .iter()
-            .find(|style| matches!(style, InlineStyle::Image { .. }))
-        {
-            output.push_str(&format!(
-                "<img src=\"{}\" alt=\"{}\"{}>",
-                escape_html(source),
-                escape_html(alt),
-                title.as_ref().map_or_else(String::new, |title| {
-                    format!(" title=\"{}\"", escape_html(title))
-                })
-            ));
-            continue;
-        }
         if let Some(InlineStyle::FootnoteReference(label)) = run
             .styles
             .iter()
@@ -1471,7 +1569,23 @@ fn serialize_inline_html(text: &RichText) -> String {
                 _ => {}
             }
         }
-        output.push_str(&escape_html_inline_text(value));
+        if let Some(InlineStyle::Image { source, alt, title }) = run
+            .styles
+            .iter()
+            .find(|style| matches!(style, InlineStyle::Image { .. }))
+        {
+            output.push_str(&format!(
+                "<img src=\"{}\" alt=\"{}\"{}>",
+                escape_html(source),
+                escape_html(alt),
+                title.as_ref().map_or_else(String::new, |title| format!(
+                    " title=\"{}\"",
+                    escape_html(title)
+                ))
+            ));
+        } else {
+            output.push_str(&escape_html_inline_text(value));
+        }
         for style in formatting.iter().rev() {
             output.push_str(match style {
                 InlineStyle::Bold => "</strong>",
@@ -1509,13 +1623,188 @@ fn escape_html_inline_text(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nested_canonical_table_export_keeps_every_cell() {
+        let document = crate::Document::from_markdown("| Outer |\n| --- |\n| Container |\n\n| Nested key | Nested value |\n| --- | ---: |\n| Retry count | 17 |\n").unwrap();
+        let snapshot = document.snapshot();
+        let BlockNode::Table(outer) = snapshot.blocks().get(0).unwrap().as_ref() else {
+            panic!("outer table")
+        };
+        let nested = snapshot.blocks().get(1).unwrap().clone();
+        let mut outer = outer.clone();
+        let mut rows = outer.rows.to_vec();
+        let mut cells = rows[1].cells.to_vec();
+        cells[0].blocks = BlockSequence::new(vec![nested]);
+        rows[1].cells = cells.into();
+        outer.rows = rows.into();
+        let html = serialize_html_table(&outer, "\n", 0).unwrap();
+        assert_eq!(html.matches("<table>").count(), 2, "{html}");
+        for content in [
+            "Nested key",
+            "Nested value",
+            "Retry count",
+            "17",
+            "align=\"right\"",
+        ] {
+            assert!(html.contains(content), "missing {content}: {html}");
+        }
+        assert!(!html.contains("data-unsupported"));
+        let reopened = crate::Document::from_markdown(html.clone()).unwrap();
+        assert_eq!(reopened.snapshot().serialize().unwrap(), html);
+    }
+
+    #[test]
+    fn inline_images_keep_enclosing_links_and_formatting_in_every_export_path() {
+        let doc = crate::Document::from_markdown(
+            "**[![First](a.png \"Title\")](guide.md)** ![Second](b.png)",
+        )
+        .unwrap();
+        let snapshot = doc.snapshot();
+        let text = snapshot.blocks().iter().next().unwrap().text().unwrap();
+        assert!(
+            text.runs()[0]
+                .styles
+                .contains(&InlineStyle::Link(LinkTarget("guide.md".into()))),
+            "import retains the enclosing link"
+        );
+        for output in [
+            serialize_inline(text),
+            serialize_inline_with_html_boundaries(text),
+        ] {
+            assert!(
+                output.contains("[![First](a.png \"Title\")](guide.md)"),
+                "{output}"
+            );
+            let reparsed = crate::Document::from_markdown(output).unwrap();
+            let result = reparsed.snapshot();
+            let text = result.blocks().iter().next().unwrap().text().unwrap();
+            assert!(text.runs()[0].styles.contains(&InlineStyle::Bold));
+            assert!(
+                text.runs()[0]
+                    .styles
+                    .contains(&InlineStyle::Link(LinkTarget("guide.md".into())))
+            );
+            assert_eq!(
+                text.runs()
+                    .iter()
+                    .flat_map(|run| &run.styles)
+                    .filter(|style| matches!(style, InlineStyle::Image { .. }))
+                    .count(),
+                2
+            );
+        }
+        let html = serialize_inline_html(text);
+        assert!(html.contains("<strong><a href=\"guide.md\"><img src=\"a.png\" alt=\"First\" title=\"Title\"></a></strong>"), "{html}");
+    }
     use crate::{Document, EditCommand, InlineFormat};
+
+    #[test]
+    fn standalone_linked_images_keep_both_targets_titles_and_undo() {
+        let source =
+            "[![Résumé](thumb.png \"image title\")](https://example.test/full \"link title\")\n";
+        let mut document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let BlockNode::Image(image) = snapshot.blocks().get(0).unwrap().as_ref() else {
+            panic!("linked standalone image must be a figure")
+        };
+        let id = image.id;
+        assert_eq!(image.source, "thumb.png");
+        assert_eq!(image.alt.as_string(), "Résumé");
+        assert_eq!(image.title.as_deref(), Some("image title"));
+        let link = image.link.as_ref().unwrap();
+        assert_eq!(link.target.0, "https://example.test/full");
+        assert_eq!(link.title.as_deref(), Some("link title"));
+        assert_eq!(snapshot.serialize().unwrap(), source);
+        document
+            .apply(EditCommand::SetImageAttributes {
+                image_id: id,
+                source: "updated.png".into(),
+                alt: "Updated description".into(),
+            })
+            .unwrap();
+        let edited = document.snapshot().serialize().unwrap();
+        let reopened = Document::from_markdown(edited).unwrap();
+        let reopened = reopened.snapshot();
+        let BlockNode::Image(image) = reopened.blocks().get(0).unwrap().as_ref() else {
+            panic!("edited figure reopens")
+        };
+        assert_eq!(image.source, "updated.png");
+        assert_eq!(image.alt.as_string(), "Updated description");
+        assert_eq!(
+            image.link.as_ref().unwrap().target.0,
+            "https://example.test/full"
+        );
+        assert_eq!(
+            image.link.as_ref().unwrap().title.as_deref(),
+            Some("link title")
+        );
+        document.undo().unwrap();
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+        document
+            .apply(EditCommand::SetSelection(crate::Selection::Text(
+                crate::TextSelection {
+                    anchor: DocumentPosition::new(id, 0, Affinity::Downstream),
+                    head: DocumentPosition::new(id, "Résumé".len(), Affinity::Upstream),
+                },
+            )))
+            .unwrap();
+        document
+            .apply(EditCommand::SetLinkSelection {
+                target: Some("updated-target.png".into()),
+            })
+            .unwrap();
+        let snapshot = document.snapshot();
+        let BlockNode::Image(image) = snapshot.node(id).unwrap() else {
+            unreachable!()
+        };
+        assert_eq!(image.link.as_ref().unwrap().target.0, "updated-target.png");
+        assert_eq!(
+            image.link.as_ref().unwrap().title.as_deref(),
+            Some("link title")
+        );
+        document.undo().unwrap();
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+        document
+            .apply(EditCommand::SetLinkSelection { target: None })
+            .unwrap();
+        let snapshot = document.snapshot();
+        let BlockNode::Image(image) = snapshot.node(id).unwrap() else {
+            unreachable!()
+        };
+        assert!(image.link.is_none());
+        document.undo().unwrap();
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+        let mixed = Document::from_markdown("[![A](a.png) and text](target.md)\n").unwrap();
+        assert!(matches!(
+            mixed.snapshot().blocks().get(0).unwrap().as_ref(),
+            BlockNode::Paragraph(_)
+        ));
+    }
 
     #[test]
     fn unchanged_source_is_byte_identical() {
         let source = "---\r\ntitle: X\r\n---\r\n\r\n# Héllo\r\n\r\n<!-- keep -->\r\n\r\nText [ref][x].\r\n\r\n[x]: /url\r\n";
         let document = Document::from_markdown(Arc::<str>::from(source)).expect("valid Markdown");
         assert_eq!(document.snapshot().serialize().expect("serialize"), source);
+    }
+
+    #[test]
+    fn soft_breaks_reflow_while_hard_breaks_and_original_source_survive() {
+        let source = "One source-wrapped\nparagraph.  \nAn intentional break.\n";
+        let document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        assert_eq!(
+            snapshot
+                .blocks()
+                .get(0)
+                .unwrap()
+                .text()
+                .unwrap()
+                .as_string(),
+            "One source-wrapped paragraph.  \nAn intentional break."
+        );
+        assert_eq!(snapshot.serialize().unwrap(), source);
     }
 
     #[test]
@@ -1684,6 +1973,84 @@ mod tests {
     }
 
     #[test]
+    fn styled_leading_and_trailing_whitespace_round_trips() {
+        let value = " leading and trailing ";
+        let rich = RichText::from_runs(
+            value,
+            vec![InlineRun {
+                range: 0..value.len(),
+                styles: smallvec::smallvec![InlineStyle::Bold],
+            }],
+        );
+
+        let serialized = serialize_inline(&rich);
+        let reparsed = Document::from_markdown(serialized).expect("reparse styled whitespace");
+        let snapshot = reparsed.snapshot();
+        let text = snapshot
+            .blocks()
+            .get(0)
+            .and_then(|block| block.text())
+            .expect("paragraph");
+
+        assert_eq!(text.as_string(), value);
+        assert_eq!(text.runs().len(), 1);
+        assert!(text.runs()[0].styles.contains(&InlineStyle::Bold));
+    }
+
+    #[test]
+    fn crossing_link_and_emphasis_boundaries_round_trip() {
+        let target_value = "https://example.test/crossing";
+        let target = LinkTarget(target_value.into());
+        let rich = RichText::from_runs(
+            "abc",
+            vec![
+                InlineRun {
+                    range: 0..1,
+                    styles: smallvec::smallvec![InlineStyle::Bold],
+                },
+                InlineRun {
+                    range: 1..2,
+                    styles: smallvec::smallvec![
+                        InlineStyle::Bold,
+                        InlineStyle::Link(target.clone())
+                    ],
+                },
+                InlineRun {
+                    range: 2..3,
+                    styles: smallvec::smallvec![InlineStyle::Link(target)],
+                },
+            ],
+        );
+
+        let serialized = serialize_inline(&rich);
+        let reparsed = Document::from_markdown(serialized).expect("reparse crossing styles");
+        let snapshot = reparsed.snapshot();
+        let text = snapshot
+            .blocks()
+            .get(0)
+            .and_then(|block| block.text())
+            .expect("paragraph");
+
+        assert_eq!(text.as_string(), "abc");
+        for (offset, bold, linked) in [(0, true, false), (1, true, true), (2, false, true)] {
+            let styles = &text
+                .runs()
+                .iter()
+                .find(|run| run.range.contains(&offset))
+                .expect("styled byte")
+                .styles;
+            assert_eq!(styles.contains(&InlineStyle::Bold), bold, "offset {offset}");
+            assert_eq!(
+                styles.iter().any(
+                    |style| matches!(style, InlineStyle::Link(LinkTarget(value)) if value == target_value)
+                ),
+                linked,
+                "offset {offset}"
+            );
+        }
+    }
+
+    #[test]
     fn editing_code_block_preserves_intentional_trailing_blank_lines() {
         let source = "```rust\nline\n\n\n```\n\nKeep  *exact*.\n";
         let mut document = Document::from_markdown(source).expect("document");
@@ -1778,6 +2145,70 @@ mod tests {
                 .plain_text(),
             "ne"
         );
+    }
+
+    #[test]
+    fn deleted_block_gaps_do_not_accumulate_and_surviving_spacing_stays_exact() {
+        for newline in ["\n", "\r\n"] {
+            for trailing in [false, true] {
+                let source = if trailing {
+                    "Before\n\nRemove one\n\nRemove two\n"
+                } else {
+                    "Before\n\nRemove one\n\nRemove two\n\n\nAfter  *exact*\n"
+                }
+                .replace('\n', newline);
+                let mut document = Document::from_markdown(source.as_str()).unwrap();
+                let ids = document
+                    .snapshot()
+                    .blocks()
+                    .iter()
+                    .skip(1)
+                    .take(2)
+                    .map(|block| block.id())
+                    .collect::<Vec<_>>();
+                for node_id in ids {
+                    document
+                        .apply(EditCommand::DeleteBlock { node_id })
+                        .unwrap();
+                }
+                let expected = if trailing {
+                    "Before\n"
+                } else {
+                    "Before\n\n\nAfter  *exact*\n"
+                }
+                .replace('\n', newline);
+                assert_eq!(document.snapshot().serialize().unwrap(), expected);
+                document.undo().unwrap();
+                document.undo().unwrap();
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        }
+    }
+
+    #[test]
+    fn generated_block_uses_existing_separator_without_losing_definitions() {
+        for newline in ["\n", "\r\n"] {
+            for source in [
+                "one\n\n\nAfter  *exact*\n",
+                "one\n\n[ref]: /destination \"Title\"\n\nAfter [link][ref]\n",
+            ] {
+                let source = source.replace('\n', newline);
+                let mut document = Document::from_markdown(source.as_str()).unwrap();
+                let first = document.snapshot().blocks().get(0).unwrap().id();
+                document
+                    .apply(EditCommand::SetSelection(Selection::Text(
+                        TextSelection::caret(DocumentPosition::new(first, 1, Affinity::Downstream)),
+                    )))
+                    .unwrap();
+                document.apply(EditCommand::SplitSelection).unwrap();
+                let expected = source.replacen("one", &format!("o{newline}{newline}ne"), 1);
+                assert_eq!(document.snapshot().serialize().unwrap(), expected);
+                let reparsed = Document::from_markdown(expected).unwrap();
+                assert_eq!(reparsed.snapshot().blocks().len(), 3);
+                document.undo().unwrap();
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        }
     }
 
     #[test]
@@ -2039,6 +2470,150 @@ mod tests {
                 .preserved_metadata
                 .iter()
                 .any(|value| value.contains("future"))
+        );
+    }
+
+    #[test]
+    fn display_math_import_edit_and_reopen_preserve_literal_source() {
+        for source in [
+            "Before\n\n$$\n\\frac{1}{2}\n$$\n\nAfter\n",
+            "$$x^2$$\n",
+            "> $$x+1$$\n",
+        ] {
+            let mut document = Document::from_markdown(source).unwrap();
+            let snapshot = document.snapshot();
+            assert_eq!(snapshot.serialize().unwrap(), source);
+            let projection_block = snapshot
+                .blocks()
+                .iter()
+                .find_map(|block| match block.as_ref() {
+                    BlockNode::CodeBlock(code) => Some(code.clone()),
+                    BlockNode::BlockQuote { blocks, .. } => blocks.iter().find_map(|child| {
+                        if let BlockNode::CodeBlock(code) = child.as_ref() {
+                            Some(code.clone())
+                        } else {
+                            None
+                        }
+                    }),
+                    _ => None,
+                })
+                .expect("standalone display math is an editable literal block");
+            assert_eq!(projection_block.syntax, crate::CodeBlockSyntax::DisplayMath);
+            let original = projection_block.content.as_string();
+            document
+                .apply(crate::EditCommand::ReplaceText {
+                    node_id: projection_block.id,
+                    range: 0..0,
+                    text: "y+".into(),
+                    selection_after: None,
+                    typing: false,
+                })
+                .unwrap();
+            let saved = document.snapshot().serialize().unwrap();
+            assert!(
+                saved.contains("$$y+"),
+                "display delimiter retained: {saved}"
+            );
+            let reopened = Document::from_markdown(saved.as_str()).unwrap();
+            // IDs are import-local; compare content recursively rather than
+            // assigning identity by matching text or original source offset.
+            fn contents(block: &BlockNode) -> Option<String> {
+                match block {
+                    BlockNode::CodeBlock(code) => Some(code.content.as_string()),
+                    BlockNode::BlockQuote { blocks, .. } => blocks.iter().find_map(|b| contents(b)),
+                    _ => None,
+                }
+            }
+            assert_eq!(
+                reopened
+                    .snapshot()
+                    .blocks()
+                    .iter()
+                    .find_map(|b| contents(b))
+                    .unwrap(),
+                format!("y+{original}")
+            );
+            assert_eq!(document.undo().unwrap().serialize().unwrap(), source);
+        }
+    }
+
+    #[test]
+    fn display_math_falls_back_to_a_lossless_fence_when_an_edit_inserts_delimiters() {
+        let mut document = Document::from_markdown("$$x$$\n").unwrap();
+        let id = document.snapshot().blocks().get(0).unwrap().id();
+        document
+            .apply(crate::EditCommand::ReplaceText {
+                node_id: id,
+                range: 0..1,
+                text: "x $$ y".into(),
+                selection_after: None,
+                typing: false,
+            })
+            .unwrap();
+        let saved = document.snapshot().serialize().unwrap();
+        assert!(saved.starts_with("```math"));
+        let reopened = Document::from_markdown(saved.as_str()).unwrap();
+        assert_eq!(
+            reopened
+                .snapshot()
+                .blocks()
+                .get(0)
+                .unwrap()
+                .text()
+                .unwrap()
+                .as_string(),
+            "x $$ y\n"
+        );
+        assert_eq!(document.undo().unwrap().serialize().unwrap(), "$$x$$\n");
+    }
+
+    #[test]
+    fn inline_math_survives_an_unrelated_edit_and_reparse() {
+        let source = "Value $x^2 + \\alpha$ and $$y+1$$ remain literal.\n";
+        let mut document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let block = snapshot.blocks().get(0).unwrap();
+        let text = block.text().unwrap();
+        assert!(
+            text.runs()
+                .iter()
+                .any(|run| run.styles.contains(&InlineStyle::Math { display: false }))
+        );
+        assert!(
+            text.runs()
+                .iter()
+                .any(|run| run.styles.contains(&InlineStyle::Math { display: true }))
+        );
+        document
+            .apply(crate::EditCommand::ReplaceText {
+                node_id: block.id(),
+                range: 0..0,
+                text: "A ".into(),
+                selection_after: None,
+                typing: false,
+            })
+            .unwrap();
+        let saved = document.snapshot().serialize().unwrap();
+        assert!(saved.contains("$x^2 + \\alpha$"));
+        assert!(saved.contains("$$y+1$$"));
+        let reopened = Document::from_markdown(saved.as_str()).unwrap();
+        assert_eq!(
+            reopened
+                .snapshot()
+                .blocks()
+                .get(0)
+                .unwrap()
+                .text()
+                .unwrap()
+                .as_string(),
+            document
+                .snapshot()
+                .blocks()
+                .get(0)
+                .unwrap()
+                .text()
+                .unwrap()
+                .as_string()
         );
     }
 

@@ -15,6 +15,11 @@ pub enum InlineStyle {
     Italic,
     Strikethrough,
     Code,
+    /// TeX source, without its dollar delimiters. Display spans can also occur
+    /// inside a paragraph; standalone display spans become literal blocks.
+    Math {
+        display: bool,
+    },
     Link(crate::LinkTarget),
     Image {
         source: String,
@@ -540,6 +545,7 @@ fn style_order(left: &InlineStyle, right: &InlineStyle) -> std::cmp::Ordering {
             InlineStyle::Image { .. } => 5,
             InlineStyle::FootnoteReference(_) => 6,
             InlineStyle::PreservedHtml(_) => 7,
+            InlineStyle::Math { .. } => 8,
         }
     }
     rank(left).cmp(&rank(right))

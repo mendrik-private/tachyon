@@ -73,6 +73,29 @@ impl SharedDocumentSession {
         self.0.document.borrow_mut().begin_composition(range)
     }
 
+    pub fn begin_html_composition(
+        &self,
+        node_id: document_core::NodeId,
+        source: &str,
+        anchor: document_core::HtmlTextPosition,
+        head: document_core::HtmlTextPosition,
+    ) -> Result<(), DocumentError> {
+        self.0
+            .document
+            .borrow_mut()
+            .begin_html_composition(node_id, source, anchor, head)
+    }
+
+    pub fn begin_preview_composition(
+        &self,
+        selection: &document_core::PreviewSelection,
+    ) -> Result<(), DocumentError> {
+        self.0
+            .document
+            .borrow_mut()
+            .begin_preview_composition(selection)
+    }
+
     pub fn update_composition(&self, text: String) -> Result<DocumentSnapshot, DocumentError> {
         let snapshot = self.0.document.borrow_mut().update_composition(text)?;
         self.bump_generation();
@@ -81,6 +104,12 @@ impl SharedDocumentSession {
 
     pub fn commit_composition(&self) -> Result<DocumentSnapshot, DocumentError> {
         self.0.document.borrow_mut().commit_composition()
+    }
+
+    pub fn cancel_composition(&self) -> Result<DocumentSnapshot, DocumentError> {
+        let snapshot = self.0.document.borrow_mut().cancel_composition()?;
+        self.bump_generation();
+        Ok(snapshot)
     }
 
     #[must_use]
@@ -132,5 +161,31 @@ mod tests {
         );
         second_view.undo().expect("shared undo");
         assert_eq!(session.snapshot().serialize().expect("serialize"), "one");
+    }
+
+    #[test]
+    fn cancelling_composition_restores_content_and_notifies_shared_views() {
+        let session = SharedDocumentSession::new(
+            Document::from_markdown("base").expect("composition document"),
+        );
+        let node_id = session.snapshot().blocks().get(0).expect("paragraph").id();
+        let generation = session.generation();
+        session
+            .begin_composition(TextSelection {
+                anchor: DocumentPosition::new(node_id, 4, Affinity::Downstream),
+                head: DocumentPosition::new(node_id, 4, Affinity::Upstream),
+            })
+            .expect("begin composition");
+        session
+            .update_composition("仮".into())
+            .expect("provisional update");
+        assert_eq!(session.snapshot().serialize().expect("serialize"), "base仮");
+
+        session.cancel_composition().expect("cancel composition");
+
+        assert_eq!(session.snapshot().serialize().expect("serialize"), "base");
+        assert!(!session.composition_active());
+        assert!(session.generation() >= generation.wrapping_add(2));
+        assert!(matches!(session.undo(), Err(DocumentError::NothingToUndo)));
     }
 }

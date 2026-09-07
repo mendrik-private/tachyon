@@ -1,0 +1,307 @@
+{
+  "passes": true,
+  "fault": "panic",
+  "before": [
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Alpha",
+      "path": "/org/a11y/atspi/accessible/0/228886947195808413608311144519160561664",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 237,
+        "width": 320,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Beta",
+      "path": "/org/a11y/atspi/accessible/0/6377443062087900203658932847233728512",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 596,
+        "y": 237,
+        "width": 319,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Gamma",
+      "path": "/org/a11y/atspi/accessible/0/124358524674671114811068601093545000960",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 932,
+        "y": 237,
+        "width": 320,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Delta",
+      "path": "/org/a11y/atspi/accessible/0/123765680499635085641091511821822590976",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 313,
+        "width": 320,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Epsilon",
+      "path": "/org/a11y/atspi/accessible/0/207622321153661277964104730089590095872",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 596,
+        "y": 313,
+        "width": 319,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Zeta",
+      "path": "/org/a11y/atspi/accessible/0/236938112630311311544417938016173031424",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 932,
+        "y": 313,
+        "width": 320,
+        "height": 28
+      }
+    }
+  ],
+  "fallback": [
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Alpha",
+      "path": "/org/a11y/atspi/accessible/0/228886947195808413608311144519160561664",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 221,
+        "width": 960,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Beta",
+      "path": "/org/a11y/atspi/accessible/0/6377443062087900203658932847233728512",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 265,
+        "width": 960,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Gamma",
+      "path": "/org/a11y/atspi/accessible/0/124358524674671114811068601093545000960",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 310,
+        "width": 960,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Delta",
+      "path": "/org/a11y/atspi/accessible/0/123765680499635085641091511821822590976",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 355,
+        "width": 960,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Epsilon",
+      "path": "/org/a11y/atspi/accessible/0/207622321153661277964104730089590095872",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 400,
+        "width": 960,
+        "height": 28
+      }
+    },
+    {
+      "parent": 64,
+      "role": "list item",
+      "name": "Zeta",
+      "path": "/org/a11y/atspi/accessible/0/236938112630311311544417938016173031424",
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ],
+      "attributes": {},
+      "states": [
+        "enabled",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "actions": [],
+      "bounds": {
+        "x": 260,
+        "y": 444,
+        "width": 960,
+        "height": 28
+      }
+    }
+  ],
+  "source_unchanged": true,
+  "native_copy_order": true,
+  "exact_edit_and_undo": true,
+  "fallback_before_worker_completion": false,
+  "events": [
+    "armed-panic"
+  ],
+  "screenshots_require_visual_review": true,
+  "binary_sha256": "6c9d39fd9c696244fde337c475e52b54919ba1377273c2b49fc750066c6ba177",
+  "width": 1280,
+  "height": 1100
+}

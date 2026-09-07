@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "label": "isolated-wayland-momentum",
+  "scenario": "bidirectional continuous scrolling",
+  "input_source": "private Wayland seat on isolated Weston 14 headless GL output",
+  "configured_duration_seconds": 10.0,
+  "actual_duration_seconds": 10.017872583,
+  "configured_refresh_hz": 120.0,
+  "refresh_period_ms": 8.333333,
+  "viewport_logical_px": {
+    "width": 1728.0,
+    "height": 1080.0
+  },
+  "scale_factor": 1.6666666,
+  "draw": {
+    "samples": 1087,
+    "p50_ms": 5.509119,
+    "p95_ms": 6.631423,
+    "p99_ms": 7.135231,
+    "max_ms": 8.445951,
+    "threshold_ms": 6.0,
+    "over_threshold": 226,
+    "over_threshold_percent": 20.79116835326587
+  },
+  "application_stalls_at_least_25_ms": 0,
+  "input": {
+    "latency": {
+      "samples": 825,
+      "p50_ms": 8.945663,
+      "p95_ms": 9.748479,
+      "p99_ms": 10.903551,
+      "max_ms": 11.878399,
+      "threshold_ms": 16.7,
+      "over_threshold": 0,
+      "over_threshold_percent": 0.0
+    },
+    "events_per_frame": {
+      "samples": 825,
+      "p50": 1,
+      "p95": 1,
+      "p99": 1,
+      "max": 3
+    },
+    "mid_draw_events_dropped": 0
+  },
+  "presentation": {
+    "interval": {
+      "samples": 1087,
+      "p50_ms": 9.158655,
+      "p95_ms": 10.035199,
+      "p99_ms": 11.173887,
+      "max_ms": 35.586047,
+      "threshold_ms": null,
+      "over_threshold": null,
+      "over_threshold_percent": null
+    },
+    "missed_deadlines": 4,
+    "deadline_opportunities": 1091,
+    "missed_deadline_percent": 0.36663611365719523,
+    "intervals_at_least_25_ms": 1,
+    "deadline_method": "round(interval / configured refresh period); missed = max(periods - 1, 0)"
+  },
+  "binary_sha256": "610aac0255e6934f1e8b36347b34bf229e689d0e726b5cb3c2cfbedb0d56e95e",
+  "average_presented_fps": 108.50607162289158,
+  "driver_events": 1018,
+  "native_input_kind": "continuous",
+  "accessibility_active": false,
+  "accessible_nodes": 0,
+  "fixture": "generated-scroll.md",
+  "fixture_sha256": "16834e22b862cffa330391dc2564890634d9e719a8d368446c6ff1161ba437d9",
+  "output_width_px": 1728,
+  "output_height_px": 1080,
+  "display_scale_120": 200,
+  "zoom_steps": 0,
+  "startup_wait_seconds": 12.0,
+  "configured_warmup_ms": 14000,
+  "passes": true
+}

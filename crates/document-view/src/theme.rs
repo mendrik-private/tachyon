@@ -218,8 +218,8 @@ impl DocumentStyle {
             1 => (52., 58.),
             2 => (30., 34.5),
             3 => (24., 28.8),
-            4 => (18., 23.4),
-            _ => (17., 22.1),
+            4 => (22., 28.6),
+            _ => (Self::BODY_SIZE, Self::BODY_SIZE * 1.3),
         }
     }
 }
@@ -277,6 +277,22 @@ mod tests {
             ),
         ] {
             assert_eq!(leading, size * 1.5);
+        }
+    }
+
+    #[test]
+    fn every_heading_is_at_least_as_large_as_body_text() {
+        let mut previous_size = f32::INFINITY;
+        for level in 1..=6 {
+            let (size, leading) = DocumentStyle::heading(level);
+            assert!(
+                size >= DocumentStyle::BODY_SIZE,
+                "heading level {level} is {size}px, below the {}px body size",
+                DocumentStyle::BODY_SIZE
+            );
+            assert!(size <= previous_size, "heading hierarchy must not grow");
+            assert!(leading >= size, "heading leading must contain its type");
+            previous_size = size;
         }
     }
 }

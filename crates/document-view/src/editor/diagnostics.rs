@@ -9,7 +9,11 @@ use std::{
 };
 
 use super::AdaptivePlan;
-use crate::adaptive::rows::{RowCandidate, RowKind, RowRejection};
+use crate::adaptive::{
+    ListLayout,
+    candidates::{ItemMeasurement, ListCandidate, ListDecision, Penalties, Rejection},
+    rows::{RowCandidate, RowKind, RowRejection},
+};
 use serde::Serialize;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -104,10 +108,33 @@ struct RowDetail {
     decision_provisional: bool,
     edit_locked: bool,
     rejected: Option<&'static str>,
+    reason_codes: Vec<&'static str>,
     weighted_cost: f32,
     // Explicit labels accompany the normalized values in the report schema.
     normalized_penalties: [f32; 7],
     rendered_bounds_after_text_zoom_px: Option<[f32; 4]>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ListCandidateDetail {
+    columns: usize,
+    row_columns: Vec<usize>,
+    width: f32,
+    items: Vec<ItemMeasurement>,
+    rows: Vec<Penalties>,
+    rejected: Option<&'static str>,
+    reason_codes: Vec<&'static str>,
+    weighted_cost: f32,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ListDetail {
+    group_id: u64,
+    layout: ListLayout,
+    row_columns: Vec<usize>,
+    retained_previous: bool,
+    reason_codes: Vec<&'static str>,
+    candidates: Vec<ListCandidateDetail>,
 }
 
 fn rejection(reason: RowRejection) -> &'static str {
@@ -116,7 +143,129 @@ fn rejection(reason: RowRejection) -> &'static str {
         RowRejection::Unmeasured => "unmeasured",
         RowRejection::Overflow => "overflow",
         RowRejection::TooTall => "peer_too_tall",
+        RowRejection::UnevenHeights => "uneven_peer_heights",
         RowRejection::EditLock => "edit_lock",
+    }
+}
+
+fn row_reason_codes(row: &RowCandidate) -> Vec<&'static str> {
+    let mut reasons = vec![match row.kind {
+        RowKind::Opening => "AUTHORED_OPENING_OVERVIEW",
+        RowKind::Stack => "SOURCE_ORDER_STACK",
+        RowKind::Peer => "COMPACT_SIBLING_SECTIONS",
+        RowKind::Technical => "COMPACT_TECHNICAL_SECTIONS",
+        RowKind::IntroList => "ADJACENT_INDEPENDENT_LIST",
+        RowKind::Explanation => "ADJACENT_EXPLANATION",
+        RowKind::FigureExplanation => "FIGURE_LED_EXPLANATION",
+        RowKind::ContentExplanation => "CONTENT_LED_EXPLANATION",
+        RowKind::Aside => "ADJACENT_OPTIONAL_GUIDANCE",
+        RowKind::Guidance => "ADJACENT_OPTIONAL_CALLOUTS",
+        RowKind::Tables => "ADJACENT_TABLES",
+        RowKind::Gallery => "CONSECUTIVE_IMAGES",
+    }];
+    if row.rejected.is_none() && row.widths.len() > 1 {
+        reasons.push(match row.widths.len() {
+            2 => "MEASURED_TWO_COLUMN_FIT",
+            _ => "MEASURED_THREE_COLUMN_FIT",
+        });
+        if row
+            .widths
+            .windows(2)
+            .any(|widths| (widths[0] - widths[1]).abs() >= 0.5)
+        {
+            reasons.push("MEASURED_UNEQUAL_TRACKS");
+        }
+    }
+    if row.height_estimated {
+        reasons.push("FALLBACK_UNMEASURED");
+    }
+    if row.decision_provisional {
+        reasons.push("PENDING_RESOURCE");
+    }
+    if row.previous {
+        reasons.push("RETAINED_PREVIOUS_LAYOUT");
+    }
+    if row.edit_locked {
+        reasons.push("EDIT_LOCK");
+    }
+    if let Some(reason) = row.rejected {
+        reasons.push(match reason {
+            RowRejection::TooNarrow => "COLUMN_TOO_NARROW",
+            RowRejection::Unmeasured => "MEASUREMENT_UNAVAILABLE",
+            RowRejection::Overflow => "INTERNAL_OVERFLOW",
+            RowRejection::TooTall => "PEER_TOO_TALL",
+            RowRejection::UnevenHeights => "UNEVEN_PEER_HEIGHTS",
+            RowRejection::EditLock => "EDIT_LOCK_REJECTED",
+        });
+    }
+    reasons
+}
+
+fn list_rejection(reason: Rejection) -> &'static str {
+    match reason {
+        Rejection::ColumnTooNarrow => "column_too_narrow",
+        Rejection::MeasurementUnavailable => "measurement_unavailable",
+        Rejection::TooManyLines => "too_many_lines",
+        Rejection::UnevenHeights => "uneven_heights",
+        Rejection::Overflow => "overflow",
+    }
+}
+
+fn list_candidate_reason_codes(candidate: &ListCandidate) -> Vec<&'static str> {
+    let mut reasons = vec![if candidate.columns == 1 {
+        "SOURCE_ORDER_STACK"
+    } else {
+        "SHORT_FLAT_LIST"
+    }];
+    if candidate.rejected.is_none() && candidate.columns > 1 {
+        reasons.push(match candidate.columns {
+            2 => "MEASURED_TWO_COLUMN_FIT",
+            4 => "MEASURED_FOUR_COLUMN_FIT",
+            _ => "MEASURED_THREE_COLUMN_FIT",
+        });
+    }
+    if let Some(reason) = candidate.rejected {
+        reasons.push(match reason {
+            Rejection::ColumnTooNarrow => "COLUMN_TOO_NARROW",
+            Rejection::MeasurementUnavailable => "MEASUREMENT_UNAVAILABLE",
+            Rejection::TooManyLines => "TOO_MANY_ITEM_LINES",
+            Rejection::UnevenHeights => "UNEVEN_ITEM_HEIGHTS",
+            Rejection::Overflow => "INTERNAL_OVERFLOW",
+        });
+    }
+    reasons
+}
+
+fn list_detail(group_id: u64, decision: &ListDecision) -> ListDetail {
+    let mut reason_codes = vec![match decision.layout {
+        ListLayout::Grid(2) => "MEASURED_TWO_COLUMN_FIT",
+        ListLayout::Grid(4) => "MEASURED_FOUR_COLUMN_FIT",
+        ListLayout::Grid(_) => "MEASURED_THREE_COLUMN_FIT",
+        _ => "SOURCE_ORDER_STACK",
+    }];
+    if decision.retained_previous {
+        reason_codes.push("RETAINED_PREVIOUS_LAYOUT");
+    }
+    ListDetail {
+        group_id,
+        layout: decision.layout,
+        row_columns: decision.row_columns.clone(),
+        retained_previous: decision.retained_previous,
+        reason_codes,
+        candidates: decision
+            .candidates
+            .iter()
+            .map(|candidate| ListCandidateDetail {
+                columns: candidate.columns,
+                row_columns: candidate.row_columns.clone(),
+                width: candidate.width,
+                items: candidate.items.clone(),
+                rows: candidate.rows.clone(),
+                rejected: candidate.rejected.map(list_rejection),
+                reason_codes: list_candidate_reason_codes(candidate),
+                weighted_cost: candidate.cost(),
+            })
+            .collect(),
     }
 }
 
@@ -127,9 +276,16 @@ impl From<&RowCandidate> for RowDetail {
             root_interval: [row.roots.start, row.roots.end],
             group_ids: row.ids.iter().map(|id| id.get()).collect(),
             kind: match row.kind {
+                RowKind::Opening => "opening",
                 RowKind::Stack => "stack",
                 RowKind::Peer => "peer_row",
+                RowKind::Technical => "technical_row",
+                RowKind::IntroList => "intro_list",
                 RowKind::Explanation => "explanation_content",
+                RowKind::FigureExplanation => "figure_explanation",
+                RowKind::ContentExplanation => "content_explanation",
+                RowKind::Aside => "prose_aside",
+                RowKind::Guidance => "guidance_row",
                 RowKind::Tables => "tables",
                 RowKind::Gallery => "gallery",
             },
@@ -140,6 +296,7 @@ impl From<&RowCandidate> for RowDetail {
             decision_provisional: row.decision_provisional,
             edit_locked: row.edit_locked,
             rejected: row.rejected.map(rejection),
+            reason_codes: row_reason_codes(row),
             weighted_cost: row.cost(),
             normalized_penalties: [
                 p.discomfort,
@@ -204,7 +361,8 @@ pub struct LayoutDiagnosticsReport {
     details_truncated: bool,
     chosen: Vec<RowDetail>,
     candidates: Vec<RowDetail>,
-    lists: Vec<(u64, crate::adaptive::candidates::ListDecision)>,
+    lists: Vec<ListDetail>,
+    inline_enumerations: Vec<ListDetail>,
 }
 
 pub(super) struct WorkerTrace {
@@ -267,12 +425,32 @@ impl WorkerTrace {
             .filter_map(|id| {
                 plan.measured_lists
                     .get(&id)
-                    .cloned()
-                    .map(|decision| (id.get(), decision))
+                    .map(|decision| list_detail(id.get(), decision))
+            })
+            .collect();
+        let mut inline_ids = if details {
+            plan.measured_inline_lists
+                .keys()
+                .copied()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        inline_ids.sort();
+        let inline_enumerations = inline_ids
+            .into_iter()
+            .take(12)
+            .map(|id| {
+                let mut detail = list_detail(id.get(), &plan.measured_inline_lists[&id]);
+                detail
+                    .reason_codes
+                    .push("EXPLICIT_INTRODUCTORY_ENUMERATION");
+                detail
             })
             .collect();
         let mut report = LayoutDiagnosticsReport {
-            schema_version: 1,
+            inline_enumerations,
+            schema_version: 2,
             scope: "whole_document",
             execution: "background_reflow",
             original_source_bytes: 0,
@@ -355,7 +533,8 @@ impl WorkerTrace {
             details_truncated: details
                 && (rows.chosen.len() > 32
                     || rows.candidates.len() > 96
-                    || plan.measured_lists.len() > 12),
+                    || plan.measured_lists.len() > 12
+                    || plan.measured_inline_lists.len() > 12),
             lists,
             chosen: if details {
                 rows.chosen.iter().take(32).map(RowDetail::from).collect()
@@ -426,11 +605,18 @@ fn changed_rows(previous: &AdaptivePlan, next: &AdaptivePlan) -> usize {
         for row in &plan.measured_rows.chosen {
             for (ordinal, id) in row.ids.iter().enumerate() {
                 let kind = match row.kind {
+                    RowKind::Opening => 10,
+                    RowKind::Guidance => 11,
                     RowKind::Stack => 0,
                     RowKind::Peer => 1,
-                    RowKind::Explanation => 2,
-                    RowKind::Tables => 3,
-                    RowKind::Gallery => 4,
+                    RowKind::Technical => 6,
+                    RowKind::IntroList => 2,
+                    RowKind::Explanation => 3,
+                    RowKind::FigureExplanation => 8,
+                    RowKind::ContentExplanation => 9,
+                    RowKind::Aside => 7,
+                    RowKind::Tables => 4,
+                    RowKind::Gallery => 5,
                 };
                 let mut signature = vec![kind, row.template as u64, ordinal as u64];
                 signature.extend(row.ids.iter().map(|id| id.get()));
@@ -451,6 +637,76 @@ fn changed_rows(previous: &AdaptivePlan, next: &AdaptivePlan) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn automatic_layout_diagnostics_explain_nominations_fit_and_rejections() {
+        let canvas = 1280.;
+        let widths = crate::adaptive::rows::TEMPLATES[2]
+            .iter()
+            .map(|span| crate::adaptive::candidates::span_width(canvas, *span).unwrap())
+            .collect::<Vec<_>>();
+        let mut row = RowCandidate {
+            canvas,
+            roots: 0..2,
+            groups: 0..2,
+            ids: vec![
+                document_core::NodeId::new_unchecked(1),
+                document_core::NodeId::new_unchecked(2),
+            ],
+            parts: vec![0..1, 1..2],
+            kind: RowKind::Tables,
+            template: 2,
+            widths,
+            heights: vec![120., 180.],
+            penalties: Penalties::default(),
+            rejected: None,
+            previous: false,
+            flow_rows: 1,
+            edit_locked: false,
+            height_estimated: false,
+            decision_provisional: false,
+        };
+        assert_eq!(
+            row_reason_codes(&row),
+            [
+                "ADJACENT_TABLES",
+                "MEASURED_TWO_COLUMN_FIT",
+                "MEASURED_UNEQUAL_TRACKS"
+            ]
+        );
+        row.rejected = Some(RowRejection::TooTall);
+        assert_eq!(row_reason_codes(&row), ["ADJACENT_TABLES", "PEER_TOO_TALL"]);
+
+        let decision = crate::adaptive::candidates::choose_list(
+            6,
+            canvas,
+            crate::adaptive::PROSE_WIDTH,
+            None,
+            false,
+            false,
+            |_, _, _| {
+                Some(ItemMeasurement {
+                    lines: 1,
+                    height: 28.,
+                    preferred_width: 120.,
+                    overflow: false,
+                })
+            },
+        );
+        let detail = list_detail(7, &decision);
+        assert_eq!(detail.group_id, 7);
+        assert!(
+            detail.candidates[2]
+                .reason_codes
+                .contains(&"MEASURED_THREE_COLUMN_FIT")
+        );
+        assert!(
+            detail
+                .candidates
+                .iter()
+                .any(|candidate| candidate.reason_codes.contains(&"SHORT_FLAT_LIST"))
+        );
+    }
 
     #[gpui::test]
     fn tracing_does_not_change_geometry_source_or_plan_and_bounds_detail_output(
@@ -480,7 +736,8 @@ mod tests {
                         width: 1100.,
                         height: 800.,
                         zoom: 1.,
-                        math_edit_node: None,
+                        preview_edit_node: None,
+                        expanded_code_tail: None,
                         editing_node: None,
                         table_layout_lock: None,
                         html_disclosures: std::sync::Arc::default(),
@@ -503,19 +760,31 @@ mod tests {
                 plain
                     .visual_lines
                     .iter()
-                    .map(|line| (&line.range, line.y, line.inset, line.width_fraction))
+                    .map(|line| (
+                        line.projected_range(),
+                        line.y,
+                        line.inset,
+                        line.width_fraction
+                    ))
                     .collect::<Vec<_>>(),
                 traced
                     .visual_lines
                     .iter()
-                    .map(|line| (&line.range, line.y, line.inset, line.width_fraction))
+                    .map(|line| (
+                        line.projected_range(),
+                        line.y,
+                        line.inset,
+                        line.width_fraction
+                    ))
                     .collect::<Vec<_>>()
             );
             assert_eq!(snapshot.serialize().unwrap(), source);
             assert_eq!(changed_rows(&plain.adaptive, &traced.adaptive), 0);
             assert_eq!(report.root_count, 240);
+            assert_eq!(report.schema_version, 2);
             assert!(report.details_truncated);
             assert!(report.chosen.len() <= 32 && report.candidates.len() <= 96);
+            assert!(report.chosen.iter().all(|row| !row.reason_codes.is_empty()));
             assert_eq!(report.stages.len(), 5);
             assert!(report.stages.iter().all(|stage| stage.elapsed_ms >= 0.));
             assert!(!format!("{report:?}").contains("private-token"));

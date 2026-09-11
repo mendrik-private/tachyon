@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="400" viewBox="0 0 1000 400">
+  <title>Fictional workshop site diagram</title>
+  <desc>Entrance west, courtyard centre and reading room east, connected by a pedestrian path. Not to scale.</desc>
+  <rect x="1" y="1" width="998" height="398" rx="8" fill="#f2f1ec" stroke="#daddd5" stroke-width="2"/>
+  <g fill="#e8eee2" stroke="#3f6247" stroke-width="2">
+    <rect x="52" y="98" width="226" height="190" rx="4"/>
+    <rect x="388" y="78" width="224" height="232" rx="4"/>
+    <rect x="722" y="98" width="226" height="190" rx="4"/>
+  </g>
+  <path d="M 165 218 H 835" fill="none" stroke="#875500" stroke-width="6" stroke-dasharray="10 6"/>
+  <g font-family="sans-serif" text-anchor="middle" fill="#152421">
+    <text x="500" y="45" font-size="24">Workshop site — fictional schematic</text>
+    <text x="165" y="168" font-size="27">Entrance</text>
+    <text x="500" y="168" font-size="27">Courtyard</text>
+    <text x="835" y="168" font-size="27">Reading room</text>
+    <text x="500" y="266" font-size="21">Pedestrian connection</text>
+    <text x="500" y="363" font-size="21">West → East · Not to scale</text>
+  </g>
+</svg>

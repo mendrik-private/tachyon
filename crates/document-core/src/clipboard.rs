@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    BlockNode, BlockSequence, DocumentError, DocumentSnapshot, Paragraph, RectangularSelection,
-    Selection, Table, TextSelection,
+    BlockNode, BlockSequence, DocumentError, DocumentSnapshot, RectangularSelection, Selection,
+    Table, TextSelection,
 };
 
 pub const RICH_CLIPBOARD_MIME: &str = "application/x-mineral-markdown-fragment+json;version=1";
@@ -120,45 +120,8 @@ fn text_payload(
         return Ok(Some(payload_from_markdown(fragment.as_string(), markdown)));
     }
 
-    let anchor = snapshot
-        .blocks()
-        .iter()
-        .position(|block| block.id() == selection.anchor.node_id);
-    let head = snapshot
-        .blocks()
-        .iter()
-        .position(|block| block.id() == selection.head.node_id);
-    let (Some(anchor), Some(head)) = (anchor, head) else {
-        return Err(DocumentError::Clipboard(
-            "cross-block copy requires top-level editable blocks".into(),
-        ));
-    };
-    let (start_index, start, end_index, end) = if anchor < head {
-        (anchor, selection.anchor, head, selection.head)
-    } else {
-        (head, selection.head, anchor, selection.anchor)
-    };
-    let mut blocks = snapshot.blocks().to_vec()[start_index..=end_index].to_vec();
-    let start_source = blocks[0].as_ref();
-    let start_text = start_source.text().ok_or_else(|| {
-        DocumentError::Clipboard("clipboard boundary is not editable text".into())
-    })?;
-    start_text.validate_range(start.node_id, &(start.text_offset..start.text_offset))?;
-    blocks[0] = Arc::new(block_with_text(
-        start_source,
-        start_text.slice(start.text_offset..start_text.len()),
-    )?);
-    let last_index = blocks.len() - 1;
-    let end_source = blocks[last_index].as_ref();
-    let end_text = end_source.text().ok_or_else(|| {
-        DocumentError::Clipboard("clipboard boundary is not editable text".into())
-    })?;
-    end_text.validate_range(end.node_id, &(end.text_offset..end.text_offset))?;
-    blocks[last_index] = Arc::new(block_with_text(
-        end_source,
-        end_text.slice(0..end.text_offset),
-    )?);
-    let blocks = BlockSequence::new(blocks);
+    let range = crate::tree_selection::TreeRange::resolve(snapshot.blocks(), selection)?;
+    let blocks = range.extract(snapshot.blocks())?;
     let plain_text = blocks
         .iter()
         .map(|block| block.plain_text())
@@ -237,46 +200,82 @@ fn payload_from_markdown(plain_text: String, markdown: String) -> ClipboardPaylo
     }
 }
 
-fn block_with_text(
-    source: &BlockNode,
-    content: crate::RichText,
-) -> Result<BlockNode, DocumentError> {
-    match source {
-        BlockNode::Paragraph(paragraph) => Ok(BlockNode::Paragraph(Paragraph {
-            id: paragraph.id,
-            content,
-        })),
-        BlockNode::Heading(heading) => Ok(BlockNode::Heading(crate::Heading {
-            id: heading.id,
-            level: heading.level,
-            content,
-        })),
-        BlockNode::CodeBlock(code) => Ok(BlockNode::CodeBlock(crate::CodeBlock {
-            id: code.id,
-            language: code.language.clone(),
-            syntax: code.syntax,
-            content,
-        })),
-        BlockNode::Image(image) => {
-            if content.as_string() == image.alt.as_string() {
-                Ok(source.clone())
-            } else {
-                Ok(BlockNode::Paragraph(Paragraph {
-                    id: image.id,
-                    content,
-                }))
-            }
-        }
-        _ => Err(DocumentError::Clipboard(
-            "clipboard boundary must be a paragraph, heading, or code block".into(),
-        )),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{Affinity, Document, DocumentPosition, EditCommand, TextSelection};
+
+    #[test]
+    fn html_copy_keeps_the_canonical_root_and_only_selected_markdown() {
+        let source = "<div><ul><li>One <strong>bold</strong> <a href='https://example.test'>link</a><ul><li>Nested</li></ul></li><li>Other</li></ul></div>\n";
+        for reverse in [false, true] {
+            let mut document = Document::from_markdown(source).unwrap();
+            let before = document.snapshot();
+            let node = before.blocks().get(0).unwrap();
+            let BlockNode::PreservedSource { source: root, .. } = node.as_ref() else {
+                panic!("root HTML")
+            };
+            let position = |text_node, byte_offset| crate::PreviewPosition::Html {
+                node_id: node.id(),
+                expected_source: root.clone(),
+                position: crate::HtmlTextPosition {
+                    text_node,
+                    byte_offset,
+                },
+            };
+            let leaves = crate::editable_html_text_nodes(root).unwrap();
+            assert_eq!(
+                leaves,
+                ["One bold link", "Nested", "Other"],
+                "nested list structure must survive first-edit conversion"
+            );
+            let (nested_leaf, nested_text) = leaves
+                .iter()
+                .enumerate()
+                .find(|(_, text)| text.contains("Nested"))
+                .unwrap();
+            let nested_start = nested_text.find("Nested").unwrap();
+            for (anchor, head, expected) in [
+                (position(0, 5), position(0, 7), "**ol**"),
+                (
+                    position(0, 9),
+                    position(0, 13),
+                    "[link](https://example.test)",
+                ),
+                (
+                    position(nested_leaf, nested_start + 1),
+                    position(nested_leaf, nested_start + 4),
+                    "est",
+                ),
+            ] {
+                let selection = crate::PreviewSelection {
+                    revision: before.revision(),
+                    anchor: if reverse {
+                        head.clone()
+                    } else {
+                        anchor.clone()
+                    },
+                    head: if reverse { anchor } else { head },
+                };
+                let payload = before
+                    .preview_clipboard_payload(&selection)
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(payload.plain_text.as_deref(), Some(expected));
+                assert_eq!(
+                    payload.html.as_deref(),
+                    Some(crate::html::clipboard_html_fragment(root).unwrap().as_str())
+                );
+                let rich = RichClipboard::from_json(payload.rich_json.as_deref().unwrap()).unwrap();
+                assert_eq!(rich.markdown, expected);
+                assert_eq!(rich.html, payload.html);
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+                assert_eq!(document.snapshot().revision(), before.revision());
+                assert_eq!(document.snapshot().selection(), before.selection());
+                assert!(matches!(document.undo(), Err(DocumentError::NothingToUndo)));
+            }
+        }
+    }
 
     #[test]
     fn gallery_copy_preserves_boundary_figures_and_enclosing_links() {

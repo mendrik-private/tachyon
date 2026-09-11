@@ -29,10 +29,14 @@ struct Key {
     width: u32,
     text_width: u32,
     table_columns: Option<usize>,
+    table_records: bool,
+    record_header: Option<LeafIdentity>,
     table_insets: (u32, u32),
     image_height: Option<u32>,
     font_override: Option<u32>,
     math_edit: bool,
+    expanded_code_tail: bool,
+    command_strip_lock: Option<Option<u32>>,
     html_disclosures: crate::html::DisclosureOverrides,
     html_images: crate::html::images::ImageKey,
     starts_document: bool,
@@ -48,20 +52,48 @@ impl std::hash::Hash for Key {
         self.node_range.hash(state);
         self.container_edges.hash(state);
         self.table_columns.hash(state);
+        self.table_records.hash(state);
+        self.record_header
+            .as_ref()
+            .map(|h| h.0.as_ptr())
+            .hash(state);
         self.image_height.hash(state);
         self.font_override.hash(state);
         self.math_edit.hash(state);
+        self.expanded_code_tail.hash(state);
+        self.command_strip_lock.hash(state);
         self.html_disclosures.hash(state);
         self.html_images.hash(state);
         self.starts_document.hash(state);
         self.breaks.hash(state);
         let c = &self.context;
+        c.narrative.hash(state);
+        c.metric.hash(state);
+        c.color_role.hash(state);
+        c.color_rgba.hash(state);
+        c.badge.hash(state);
+        c.bibliography.hash(state);
+        c.figure_text.hash(state);
+        c.resource_title_end.hash(state);
+        c.metadata.hash(state);
         c.list_depth.hash(state);
         c.ordered_list_depth.hash(state);
+        c.list_ancestors.hash(state);
+        c.outline_metrics.hash(state);
+        c.list_item_label.hash(state);
+        c.list_item_container.hash(state);
+        c.list_parent_label.hash(state);
+        c.list_branch_start.hash(state);
+        c.compact_outline.hash(state);
         c.list_marker.hash(state);
         c.task_checked.hash(state);
+        c.task_list_depth.hash(state);
         c.quote_depth.hash(state);
         c.quote.hash(state);
+        c.quote_ancestors.hash(state);
+        c.quote_pull.hash(state);
+        c.quote_attribution.hash(state);
+        c.quote_before_attribution.hash(state);
         c.quote_first.hash(state);
         c.quote_last.hash(state);
         c.alert
@@ -75,6 +107,7 @@ impl std::hash::Hash for Key {
         c.alert_last.hash(state);
         c.table_cell.hash(state);
         c.table_header.hash(state);
+        c.table_property_key.hash(state);
         c.table_border
             .map(|border| std::mem::discriminant(&border))
             .hash(state);
@@ -104,13 +137,13 @@ impl Key {
                 Some((_, document_core::AlertKind::Other(label))) => label.len(),
                 _ => 0,
             };
-        if context_bytes > 4096 || breaks.len() > 64 || segment.projection_range.len() > 16 * 1024 {
+        if context_bytes > 4096 || breaks.len() > 64 || segment.projection_len() > 16 * 1024 {
             return None;
         }
         let block = projection.block_handle(segment.node_id)?;
         Some(Self {
             leaf: LeafIdentity(Arc::downgrade(block)),
-            context: context.clone(),
+            context: context.as_ref().clone(),
             container_edges: projection.container_edges(segment.node_id).cloned(),
             node_range: segment.node_range.clone(),
             width: width.to_bits(),
@@ -125,10 +158,19 @@ impl Key {
                     _ => None,
                 }
             }),
+            table_records: table_records::is_cell(projection, segment, width),
+            record_header: table_records::field(projection, segment, width)
+                .and_then(|(id, _, _)| projection.block_handle(id))
+                .map(|block| LeafIdentity(Arc::downgrade(block))),
             image_height: image_reserved_height(projection, block, segment, images, width)
                 .map(f32::to_bits),
             font_override: font.map(f32::to_bits),
-            math_edit: projection.math_edit_node == Some(segment.node_id),
+            math_edit: projection.preview_edit_node == Some(segment.node_id),
+            expanded_code_tail: projection.expanded_code_tail == Some(segment.node_id),
+            command_strip_lock: projection
+                .command_strip_lock
+                .filter(|(id, _)| *id == segment.node_id)
+                .map(|(_, width)| width),
             html_disclosures: projection
                 .html_disclosure_overrides(segment.node_id)
                 .cloned()
@@ -137,11 +179,11 @@ impl Key {
                 .html_images(segment.node_id)
                 .map(|images| images.key.clone())
                 .unwrap_or_default(),
-            starts_document: segment.projection_range.start == 0,
+            starts_document: segment.projection_start() == 0,
             breaks: breaks
                 .iter()
-                .filter(|offset| segment.projection_range.contains(offset))
-                .map(|offset| offset - segment.projection_range.start)
+                .filter(|offset| segment.projection_range().contains(offset))
+                .map(|offset| offset - segment.projection_start())
                 .collect(),
         })
     }
@@ -172,12 +214,25 @@ impl Key {
         // several lines share a raster also retained by the visible document.
         let pixels = |width: f32, height: f32| (width.ceil() * height.ceil() * 4.) as usize;
         for line in lines {
+            if let Some(label) = &line.record_label {
+                bytes = bytes
+                    .saturating_add(std::mem::size_of::<table_records::Label>())
+                    .saturating_add(std::mem::size_of_val(label.ranges.as_slice()));
+            }
             if let Some(math) = &line.display_math {
                 for formula in [&math.light, &math.dark] {
                     bytes = bytes
                         .saturating_add(std::mem::size_of::<crate::math::Formula>())
                         .saturating_add(formula.image.bytes.len())
                         .saturating_add(pixels(formula.width, formula.height));
+                }
+            }
+            if let Some(diagram) = &line.diagram {
+                for figure in [&diagram.light, &diagram.dark] {
+                    bytes = bytes
+                        .saturating_add(figure.image.bytes.len())
+                        .saturating_add(figure.description.len())
+                        .saturating_add(pixels(figure.width, figure.height));
                 }
             }
             if let Some(html) = &line.html_preview {
@@ -215,9 +270,13 @@ impl Key {
                         math.attachments.len() * std::mem::size_of::<inline_math::Attachment>(),
                     );
                 for attachment in &math.attachments {
-                    bytes = bytes
-                        .saturating_add(pixels(attachment.light.width, attachment.light.height))
-                        .saturating_add(pixels(attachment.dark.width, attachment.dark.height));
+                    bytes = bytes.saturating_add(match &attachment.content {
+                        inline_math::Content::Formula { light, dark } => {
+                            pixels(light.width, light.height)
+                                .saturating_add(pixels(dark.width, dark.height))
+                        }
+                        inline_math::Content::Reference { label, .. } => label.len(),
+                    });
                 }
             }
         }
@@ -271,19 +330,21 @@ impl<'a> ExtensionReuse<'a> {
             );
         let key = Key::new(projection, segment, images, width, breaks, font)
             .map(|key| (key, measured_source));
-        let origin = isize::try_from(segment.projection_range.start).ok();
-        if let Some((key, origin)) = key.as_ref().zip(origin)
+        if let Some(key) = key.as_ref()
             && let Some(cached) = self.previous.and_then(|p| p.entries.get(key))
         {
-            let restored = cached
+            let segment = projection
+                .segment_for_node(segment.node_id)
+                .unwrap_or(segment);
+            let lines = cached
                 .iter()
                 .map(|line| {
                     let mut line = line.clone();
-                    shift_retained_line(&mut line, origin, 0.)?;
+                    line.rebind_from_cache(segment)?;
                     Some(line)
                 })
                 .collect::<Option<Vec<_>>>();
-            if let Some(lines) = restored {
+            if let Some(lines) = lines {
                 self.next.entries.insert(key.clone(), cached.clone());
                 diagnostics::count(|counts| counts.retained_extension_hits += 1);
                 return lines;
@@ -301,21 +362,20 @@ impl<'a> ExtensionReuse<'a> {
         // Unsupported extensions use the normal text cache. Display math
         // retains its exact source lines alongside the formula for editing.
         if lines.len() <= MAX_SEGMENT_LINES
-            && lines
-                .first()
-                .is_some_and(|line| line.html_preview.is_some() || line.display_math.is_some())
-            && let Some((key, origin)) = key.zip(origin)
+            && lines.first().is_some_and(|line| {
+                line.html_preview.is_some() || line.display_math.is_some() || line.diagram.is_some()
+            })
+            && let Some(key) = key
         {
-            let local = lines
-                .iter()
-                .map(|line| {
-                    let mut line = line.clone();
-                    shift_retained_line(&mut line, -origin, 0.)?;
-                    Some(line)
-                })
-                .collect::<Option<Vec<_>>>();
-            if let Some(local) = local {
-                self.next.entries.insert(key, local.into());
+            let coordinate_segment = projection
+                .segment_for_node(segment.node_id)
+                .unwrap_or(segment);
+            let mut cached = lines.clone();
+            if cached.iter_mut().all(|line| {
+                line.normalize_for_cache(coordinate_segment.projection_local_start())
+                    .is_some()
+            }) {
+                self.next.entries.insert(key, cached.into());
             }
         }
         lines
@@ -337,8 +397,14 @@ impl GeometryCache {
         }
     }
 
-    fn insert(&mut self, key: Key, lines: Vec<VisualLineSpec>) {
+    fn insert(&mut self, key: Key, mut lines: Vec<VisualLineSpec>, projection_local_start: usize) {
         if lines.is_empty() || lines.len() > MAX_SEGMENT_LINES || self.entries.contains_key(&key) {
+            return;
+        }
+        if !lines
+            .iter_mut()
+            .all(|line| line.normalize_for_cache(projection_local_start).is_some())
+        {
             return;
         }
         let bytes = key.accounted_bytes(&lines);
@@ -375,23 +441,25 @@ impl FontMeasurement {
     ) -> Vec<VisualLineSpec> {
         diagnostics::count(|counts| counts.geometry_requests += 1);
         let key = Key::new(projection, segment, images, width, breaks, font);
-        let origin = isize::try_from(segment.projection_range.start).ok();
         let cached = key.as_ref().and_then(|key| {
             self.geometry
                 .lock()
                 .ok()
                 .and_then(|cache| cache.entries.get(key).cloned())
         });
-        if let Some((cached, origin)) = cached.zip(origin) {
-            let restored = cached
+        if let Some(cached) = cached {
+            let segment = projection
+                .segment_for_node(segment.node_id)
+                .unwrap_or(segment);
+            let lines = cached
                 .iter()
                 .map(|line| {
                     let mut line = line.clone();
-                    shift_retained_line(&mut line, origin, 0.)?;
+                    line.rebind_from_cache(segment)?;
                     Some(line)
                 })
                 .collect::<Option<Vec<_>>>();
-            if let Some(lines) = restored {
+            if let Some(lines) = lines {
                 diagnostics::count(|counts| counts.geometry_cache_hits += 1);
                 return lines;
             }
@@ -407,21 +475,17 @@ impl FontMeasurement {
             font,
         );
         if lines.len() <= MAX_SEGMENT_LINES
-            && let Some((key, origin)) = key.zip(origin)
+            && let Some(key) = key
+            && let Ok(mut cache) = self.geometry.lock()
         {
-            let local = lines
-                .iter()
-                .map(|line| {
-                    let mut line = line.clone();
-                    shift_retained_line(&mut line, -origin, 0.)?;
-                    Some(line)
-                })
-                .collect::<Option<Vec<_>>>();
-            if let Some(local) = local
-                && let Ok(mut cache) = self.geometry.lock()
-            {
-                cache.insert(key, local);
-            }
+            let coordinate_segment = projection
+                .segment_for_node(segment.node_id)
+                .unwrap_or(segment);
+            cache.insert(
+                key,
+                lines.clone(),
+                coordinate_segment.projection_local_start(),
+            );
         }
         lines
     }
@@ -476,11 +540,12 @@ mod tests {
                 Some(&measurement),
                 None,
             );
+            let projection_local_start = segment.projection_local_start();
             let mut cache = GeometryCache::new();
             for index in 0..MAX_ENTRIES + 10 {
                 let mut key = key.clone();
                 key.width = (index as f32).to_bits();
-                cache.insert(key, lines.clone());
+                cache.insert(key, lines.clone(), projection_local_start);
                 assert!(cache.entries.len() <= MAX_ENTRIES);
                 assert!(cache.accounted_bytes <= MAX_ACCOUNTED_BYTES);
                 assert_eq!(cache.entries.len(), cache.order.len());
@@ -498,7 +563,7 @@ mod tests {
             for index in 0..2000 {
                 let mut key = key.clone();
                 key.width = ((index + MAX_ENTRIES + 20) as f32).to_bits();
-                cache.insert(key, large.clone());
+                cache.insert(key, large.clone(), projection_local_start);
                 assert!(cache.accounted_bytes <= MAX_ACCOUNTED_BYTES);
                 assert_eq!(cache.entries.len(), cache.order.len());
             }
@@ -531,17 +596,97 @@ mod tests {
                 );
                 assert!(lines.len() > MAX_SEGMENT_LINES);
                 assert_eq!(
-                    lines.first().unwrap().range.start,
-                    segment.projection_range.start
+                    lines.first().unwrap().projected_start(),
+                    segment.projection_start()
                 );
                 assert_eq!(
-                    lines.last().unwrap().range.end,
-                    segment.projection_range.end
+                    lines.last().unwrap().projected_end() + 1,
+                    segment.projection_end()
+                );
+                // The source newline is retained, without an idle caret-only row.
+                assert_eq!(lines.len(), MAX_SEGMENT_LINES + 30);
+                assert_eq!(
+                    &projection.text()
+                        [lines.last().unwrap().projected_end()..segment.projection_end()],
+                    "\n"
                 );
             }
             assert_eq!(counts.take_stage().geometry_cache_hits, 0);
             assert!(measurement.geometry.lock().unwrap().entries.is_empty());
             assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
+    fn geometry_cache_rebinds_segment_local_ranges_after_an_earlier_edit(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let mut document = Document::from_markdown("prefix\n\ntarget words").unwrap();
+            let snapshot = document.snapshot();
+            let prefix = snapshot.blocks().get(0).unwrap().id();
+            let target = snapshot.blocks().get(1).unwrap().id();
+            let projection = TextProjection::from_snapshot(&snapshot);
+            let segment = projection.segment_for_node(target).unwrap();
+            assert!(segment.projection_local_start() > 0);
+            let original_local = segment.projection_local_start();
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let counts = diagnostics::MeasurementScope::new();
+            let before = measurement.segment_geometry(
+                &projection,
+                segment,
+                &HashMap::new(),
+                760.,
+                &[],
+                None,
+            );
+            assert_eq!(counts.take_stage().geometry_cache_hits, 0);
+
+            let transaction = document
+                .apply(EditCommand::ReplaceText {
+                    node_id: prefix,
+                    range: 6..6,
+                    text: " expanded".into(),
+                    selection_after: None,
+                    typing: true,
+                })
+                .unwrap();
+            let projection = TextProjection::from_snapshot(&transaction.snapshot);
+            let segment = projection.segment_for_node(target).unwrap();
+            assert_eq!(
+                segment.projection_local_start(),
+                original_local + " expanded".len()
+            );
+            let after = measurement.segment_geometry(
+                &projection,
+                segment,
+                &HashMap::new(),
+                760.,
+                &[],
+                None,
+            );
+            assert_eq!(counts.take_stage().geometry_cache_hits, 1);
+            assert_eq!(before.len(), after.len());
+            for (before, after) in before.iter().zip(&after) {
+                assert_eq!(
+                    after.projected_range(),
+                    before.projected_start() + " expanded".len()
+                        ..before.projected_end() + " expanded".len()
+                );
+                assert_eq!(
+                    &projection.text()[after.projected_range()],
+                    &transaction
+                        .snapshot
+                        .node(target)
+                        .unwrap()
+                        .text()
+                        .unwrap()
+                        .as_string()[after.projected_start()
+                        - segment.projection_start()
+                        ..after.projected_end() - segment.projection_start()]
+                );
+            }
         });
     }
 }

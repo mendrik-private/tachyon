@@ -6,13 +6,16 @@ import time
 
 
 def validate_controls(nodes):
+    obsolete = {'HTML', 'Edit text', 'Copy fragment text', 'Copy original HTML'}
+    if any(n['role'] == 'button' and n['name'] in obsolete for n in nodes):
+        raise RuntimeError('Rendered HTML must use ordinary selection and typing, without an action toolbar')
     for name in ('Previous result', 'Next result', 'Close find'):
         controls = [n for n in nodes if n['role'] == 'button' and n['name'] == name]
         if len(controls) != 1 or 'click' not in controls[0].get('actions', []):
             raise RuntimeError(f'Find command needs one named, actionable native button: {name}')
 
 
-def check(env, input_event, source_path, pid, output, probe_path, work):
+def check(env, input_event, source_path, pid, output, probe_path, work, viewport):
     if env.get('DBUS_SESSION_BUS_ADDRESS') != env.get('MINERAL_PRIVATE_ATSPI_BUS') or not env.get('MINERAL_PRIVATE_ATSPI_BUS'):
         raise RuntimeError('Find checks require the private accessibility bus')
     original = source_path.read_bytes()
@@ -29,14 +32,35 @@ def check(env, input_event, source_path, pid, output, probe_path, work):
         subprocess.run(['wl-copy', '--seat', 'mineral-test', '--type', 'text/plain'],
                        input=text, env=env, text=True, check=True, timeout=5)
 
+    def probe_nodes():
+        probe = subprocess.run(['/usr/bin/python3', str(probe_path), str(pid)],
+                               env=env, capture_output=True, text=True, timeout=20)
+        if probe.returncode:
+            raise RuntimeError(f'Find accessibility probe failed ({probe.returncode}): {probe.stderr}')
+        return json.loads(probe.stdout)['nodes']
+
+    def pointer_button(name, nodes):
+        matches = [n for n in nodes if n['role'] == 'button' and n['name'] == name]
+        if len(matches) != 1 or 'click' not in matches[0].get('actions', []):
+            raise RuntimeError(f'Expected one actionable button: {name}')
+        bounds = matches[0]['screen_bounds']
+        if bounds['width'] < 20 or bounds['height'] < 20:
+            raise RuntimeError(f'Button target too small: {name}: {bounds}')
+        # The adapter's frame node has unknown (-1) extents. The private kiosk
+        # window occupies the known compositor output at origin (0, 0).
+        if not (bounds['x'] >= 0 and bounds['y'] >= 0
+                and bounds['x'] + bounds['width'] <= viewport[0]
+                and bounds['y'] + bounds['height'] <= viewport[1]):
+            raise RuntimeError(f'Button lies outside native output: {name}: {bounds}')
+        input_event('move', bounds['x'] + bounds['width'] // 2,
+                    bounds['y'] + bounds['height'] // 2)
+        input_event('button', 272, 1)
+        input_event('button', 272, 0)
+
     def status(expected):
         deadline = time.monotonic() + 8
         while True:
-            probe = subprocess.run(['/usr/bin/python3', str(probe_path), str(pid)],
-                                   env=env, capture_output=True, text=True, timeout=20)
-            if probe.returncode:
-                raise RuntimeError(f'Find accessibility probe failed ({probe.returncode}): {probe.stderr}')
-            nodes = json.loads(probe.stdout)['nodes']
+            nodes = probe_nodes()
             if any(n['name'] == expected and n['role'] in ('statusbar', 'status bar', 'status') for n in nodes):
                 if source_path.read_bytes() != original:
                     raise RuntimeError('Finding text changed document bytes')
@@ -101,12 +125,39 @@ def check(env, input_event, source_path, pid, output, probe_path, work):
                     source_unchanged=True, captured_targets=[label for label, _ in targets],
                     visibility_requires_visual_review=True)
 
+    # Open through the title bar, without Ctrl+F: pasting must reach its input.
+    pointer_button('Search document', probe_nodes())
+    clipboard('needle')
+    key(47, control=True)
+    controls = status('1 / 7')
+    pointer_button('Next result', controls)
+    controls = status('2 / 7')
+    pointer_button('Previous result', controls)
+    controls = status('1 / 7')
+    capture_match('title-search')
+    input_event('move', 5, 5)
+    key(15)  # Tab from query to Previous result.
+    deadline = time.monotonic() + 3
+    while True:
+        focused = [n for n in probe_nodes() if 'focused' in n.get('states', [])]
+        if any(n['role'] == 'button' and n['name'] == 'Previous result' for n in focused):
+            break
+        if time.monotonic() > deadline:
+            raise RuntimeError(f'Tab did not focus Previous result: {focused}')
+        time.sleep(0.05)
+    capture_match('keyboard-focus')
+    pointer_button('Close find', controls)
+    copied('Needle')
     query('needle')
     controls = status('1 / 7')
     validate_controls(controls)
     key(28)  # Enter
     status('2 / 7')
     key(28, shift=True)
+    status('1 / 7')
+    key(28, shift=True)
+    status('7 / 7')
+    key(28)
     status('1 / 7')
     key(28, shift=True)
     status('7 / 7')
@@ -143,6 +194,8 @@ def check(env, input_event, source_path, pid, output, probe_path, work):
     key(1)
     query('needle')
     status('1 / 7')
-    return dict(passes=True, source_order_navigation=True, backward_wrap=True,
+    return dict(passes=True, title_bar_pointer_search=True, pointer_match_navigation=True,
+                pointer_close_restores_document_focus=True, keyboard_match_focus=True,
+                source_order_navigation=True, backward_wrap=True, forward_wrap=True,
                 exact_native_copy=True, nested_disclosure_reveal=True,
                 html_first_edit_and_exact_undo=True, no_results=True, source_unchanged=True)

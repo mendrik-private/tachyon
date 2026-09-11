@@ -13,8 +13,9 @@ use std::{
 
 use document_core::{Document, Revision, SourceIdentity};
 use document_view::{
-    EditorEvent, EditorScrollAnchor, EditorViewState, MineralPalette, OutlineEntry,
-    PreparedDocumentView, RichDocumentEditor, SharedDocumentSession, init_editor, project_outline,
+    ButtonAccessibilityExt as _, DocumentSessionId, EditorEvent, EditorScrollAnchor,
+    EditorViewState, MineralPalette, OutlineEntry, PreparedDocumentView, ResponsiveLayout,
+    RichDocumentEditor, SharedDocumentSession, init_editor, project_outline,
 };
 use futures::{
     StreamExt as _,
@@ -24,23 +25,27 @@ use futures::{
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Entity, EntityId, Focusable as _, FontFallbacks,
     InteractiveElement as _, KeyBinding, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, ParentElement as _, PathPromptOptions, PromptLevel, QuitMode, Render, Resource,
-    Role, StatefulInteractiveElement as _, Styled as _, WeakEntity, WindowBounds,
-    WindowDecorations, WindowOptions, div, font, image_cache as image_cache_element, point,
+    MouseUpEvent, ParentElement as _, PathPromptOptions, QuitMode, Render, Resource, Role,
+    StatefulInteractiveElement as _, Styled as _, WeakEntity, WindowBounds, WindowDecorations,
+    WindowOptions, div, font, image_cache as image_cache_element, point,
     prelude::FluentBuilder as _, px, relative, rgb, size, uniform_list,
 };
 use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Root, Sizable as _, Theme, ThemeMode, TitleBar,
+    ActiveTheme as _, Icon, IconName, Root, Sizable as _, Theme, WindowExt as _,
     button::{Button, ButtonVariants as _},
-    menu::{DropdownMenu as _, PopupMenuItem},
+    menu::PopupMenuItem,
     scroll::{Scrollbar, ScrollbarMode},
 };
 use notify::Watcher as _;
 use persistence::{
     ExternalState, PersistenceError, RecoverableSaveError, RecoveryEntry, RecoveryJournal,
-    WorkspaceState, WorkspaceStateStore, atomic_save, atomic_write_new, detect_external_state,
-    read_source_with_identity, save_with_recovery, source_identity,
+    WorkspaceState, WorkspaceStateStore, atomic_save, atomic_save_with_outcome, atomic_write_new,
+    atomic_write_new_with_outcome, detect_external_state, read_source_with_identity,
+    save_with_recovery, source_identity,
 };
+
+mod title_bar;
+use title_bar::TitleBar;
 
 mod assets;
 mod file_dialog;
@@ -64,6 +69,7 @@ gpui::actions!(
         SaveDocumentAction,
         SaveAsAction,
         SaveCopyAction,
+        ExportPagedHtmlAction,
         UndoDocumentAction,
         RedoDocumentAction,
         ToggleNavigationAction,
@@ -74,6 +80,23 @@ gpui::actions!(
         ZoomOutAction,
         ResetZoomAction,
         CloseDocumentWindowAction,
+    ]
+);
+
+#[cfg(feature = "layout-validation")]
+gpui::actions!(
+    mineral_window_validation,
+    [
+        UseAlternateBodyFontForValidation,
+        RestoreBodyFontForValidation,
+        ReportEditorStateForValidation,
+        ResizeNarrowForValidation,
+        ResizeWideForValidation,
+        ResizeExtraWideForValidation,
+        ResizeShortForValidation,
+        ResizeTallForValidation,
+        ResizeSlightlyNarrowerForValidation,
+        ResizeSlightlyWiderForValidation
     ]
 );
 
@@ -182,6 +205,11 @@ fn main() {
             KeyBinding::new("ctrl-s", SaveDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-shift-s", SaveAsAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-alt-shift-s", SaveCopyAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new(
+                "ctrl-shift-e",
+                ExportPagedHtmlAction,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
             KeyBinding::new("ctrl-z", UndoDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-f", FindDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("f3", FindNextAction, Some(WINDOW_KEY_CONTEXT)),
@@ -200,6 +228,43 @@ fn main() {
             KeyBinding::new("ctrl-=", ZoomInAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl--", ZoomOutAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-0", ResetZoomAction, Some(WINDOW_KEY_CONTEXT)),
+        ]);
+        #[cfg(feature = "layout-validation")]
+        cx.bind_keys([
+            KeyBinding::new(
+                "f6",
+                UseAlternateBodyFontForValidation,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
+            KeyBinding::new("f7", RestoreBodyFontForValidation, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new(
+                "f8",
+                ReportEditorStateForValidation,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
+            KeyBinding::new("f9", ResizeNarrowForValidation, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("f10", ResizeWideForValidation, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("f5", ResizeExtraWideForValidation, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new(
+                "shift-f9",
+                ResizeShortForValidation,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
+            KeyBinding::new(
+                "shift-f10",
+                ResizeTallForValidation,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
+            KeyBinding::new(
+                "f11",
+                ResizeSlightlyNarrowerForValidation,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
+            KeyBinding::new(
+                "f12",
+                ResizeSlightlyWiderForValidation,
+                Some(WINDOW_KEY_CONTEXT),
+            ),
         ]);
 
         let initial_items = if initial_paths.is_empty() {
@@ -284,7 +349,7 @@ fn start_document_preload(
 
 fn window_options() -> WindowOptions {
     WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(Bounds::new(
+        window_bounds: Some(WindowBounds::Maximized(Bounds::new(
             point(px(80.0), px(80.0)),
             size(px(1100.0), px(720.0)),
         ))),
@@ -397,7 +462,7 @@ fn startup_trace(started_at: Instant, label: &str) {
 
 type SharedSessionRegistry = Rc<RefCell<SessionRegistry>>;
 
-type InitialPreload = Receiver<Result<LoadedDocument, String>>;
+type InitialPreload = Receiver<Result<LoadedDocument, LoadJobError>>;
 
 struct LoadedDocument {
     canonical: PathBuf,
@@ -409,15 +474,37 @@ struct LoadedDocument {
     source_bytes: usize,
 }
 
+#[derive(Debug, thiserror::Error)]
+enum LoadJobError {
+    #[error(transparent)]
+    Document(#[from] document_core::DocumentError),
+    #[error(transparent)]
+    Persistence(#[from] PersistenceError),
+    #[error("{0}")]
+    WorkerStopped(&'static str),
+}
+
 #[derive(Clone, Debug)]
 struct DocumentCompletionTicket {
     request: u64,
+    session: DocumentSessionId,
     epoch: u64,
     revision: Revision,
     source_path: Option<PathBuf>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct OutlineCompletionTicket {
+    request: u64,
+    session: DocumentSessionId,
+    epoch: u64,
+    revision: Revision,
+}
+
 struct ReloadCandidate {
+    session: DocumentSessionId,
+    epoch: u64,
+    source_path: PathBuf,
     document: Document,
     prepared: PreparedDocumentView,
     identity: SourceIdentity,
@@ -487,12 +574,14 @@ fn load_document(
     path: PathBuf,
     recovery: RecoveryJournal,
     trace_started_at: Instant,
-) -> Result<LoadedDocument, String> {
-    let canonical = std::fs::canonicalize(&path).map_err(|error| error.to_string())?;
-    let (source, identity) =
-        read_source_with_identity(&canonical).map_err(|error| error.to_string())?;
+) -> Result<LoadedDocument, LoadJobError> {
+    let canonical = std::fs::canonicalize(&path).map_err(|source| PersistenceError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    let (source, identity) = read_source_with_identity(&canonical)?;
     let source_bytes = source.len();
-    let document = Document::from_markdown(source).map_err(|error| error.to_string())?;
+    let document = Document::from_markdown(source)?;
     let prepared = PreparedDocumentView::prepare(&document);
     let (recovery_entry, recovery_warning) = match recovery.load(&canonical) {
         Ok(entry) => (entry, None),
@@ -513,6 +602,33 @@ fn load_document(
         recovery_warning,
         source_bytes,
     })
+}
+
+fn paged_html_target(mut path: PathBuf) -> PathBuf {
+    if path.extension().is_none_or(|extension| extension != "html") {
+        path.set_extension("html");
+    }
+    path
+}
+
+fn write_static_export(
+    path: &std::path::Path,
+    revision: Revision,
+    bytes: &[u8],
+) -> Result<SourceIdentity, PersistenceError> {
+    match source_identity(path) {
+        Ok(identity) => atomic_save(document_core::SaveSnapshot {
+            revision,
+            bytes: bytes.into(),
+            expected_identity: Some(identity),
+        }),
+        Err(PersistenceError::Io { source, .. })
+            if source.kind() == std::io::ErrorKind::NotFound =>
+        {
+            atomic_write_new(path, bytes)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 #[derive(Default)]
@@ -677,25 +793,54 @@ impl SessionRegistry {
         }
     }
 
-    fn mark_saved(&mut self, path: &std::path::Path, revision: Revision, identity: SourceIdentity) {
-        if let Some(session) = self.sessions.get_mut(path) {
+    fn mark_saved(
+        &mut self,
+        path: &std::path::Path,
+        document: &SharedDocumentSession,
+        revision: Revision,
+        identity: SourceIdentity,
+    ) -> bool {
+        if let Some(session) = self
+            .sessions
+            .get_mut(path)
+            .filter(|session| session.document.ptr_eq(document))
+        {
             session.saved_revision = revision;
             session.source_identity = identity;
             session.dirty = session.document.snapshot().revision() != revision;
             session.save_in_flight = false;
+            true
+        } else {
+            false
         }
     }
 
-    fn mark_reloaded(&mut self, path: &std::path::Path, identity: SourceIdentity) {
-        if let Some(session) = self.sessions.get_mut(path) {
+    fn mark_reloaded(
+        &mut self,
+        path: &std::path::Path,
+        document: &SharedDocumentSession,
+        identity: SourceIdentity,
+    ) -> bool {
+        if let Some(session) = self
+            .sessions
+            .get_mut(path)
+            .filter(|session| session.document.ptr_eq(document))
+        {
             session.source_identity = identity;
             session.saved_revision = session.document.snapshot().revision();
             session.dirty = false;
+            true
+        } else {
+            false
         }
     }
 
-    fn claim_save(&mut self, path: &std::path::Path) -> bool {
-        let Some(session) = self.sessions.get_mut(path) else {
+    fn claim_save(&mut self, path: &std::path::Path, document: &SharedDocumentSession) -> bool {
+        let Some(session) = self
+            .sessions
+            .get_mut(path)
+            .filter(|session| session.document.ptr_eq(document))
+        else {
             return false;
         };
         if session.save_in_flight {
@@ -705,9 +850,16 @@ impl SessionRegistry {
         true
     }
 
-    fn release_save(&mut self, path: &std::path::Path) {
-        if let Some(session) = self.sessions.get_mut(path) {
+    fn release_save(&mut self, path: &std::path::Path, document: &SharedDocumentSession) -> bool {
+        if let Some(session) = self
+            .sessions
+            .get_mut(path)
+            .filter(|session| session.document.ptr_eq(document))
+        {
             session.save_in_flight = false;
+            true
+        } else {
+            false
         }
     }
 
@@ -747,8 +899,8 @@ fn reduced_motion_from_values(explicit: Option<&str>, gtk_animations: Option<&st
 }
 
 fn sync_mineral_component_theme(window: Option<&mut gpui::Window>, cx: &mut App) {
-    Theme::change(ThemeMode::Light, window, cx);
-    let palette = MineralPalette::LIGHT;
+    Theme::sync_system_appearance(window, cx);
+    let palette = MineralPalette::for_dark(Theme::global(cx).is_dark());
     {
         let theme = Theme::global_mut(cx);
         let colors = &mut theme.colors;
@@ -800,6 +952,7 @@ fn sync_mineral_component_theme(window: Option<&mut gpui::Window>, cx: &mut App)
 struct MarkdownWindow {
     editor: Entity<RichDocumentEditor>,
     image_cache: Entity<image_cache::BoundedImageCache>,
+    pending_image_prefetch: Vec<Resource>,
     session_registry: SharedSessionRegistry,
     filename: String,
     source_path: Option<PathBuf>,
@@ -814,16 +967,19 @@ struct MarkdownWindow {
     file_chooser_open: bool,
     workspace_state_dirty: bool,
     workspace_state_in_flight: bool,
-    workspace_state_generation: u64,
+    workspace_state_debounce: WorkspaceStateDebounce,
+    workspace_state_wake: Option<gpui::Task<()>>,
     pending_view_state: Option<EditorViewState>,
     unsaved: bool,
     saved_revision: Revision,
     autosave_generation: u64,
     save_in_flight: bool,
+    export_in_flight: bool,
     reload_in_flight: bool,
     document_epoch: u64,
     open_request: u64,
     reload_request: u64,
+    save_request: u64,
     pending_reload: Option<ReloadCandidate>,
     close_prompt_in_flight: bool,
     close_after_save: bool,
@@ -838,6 +994,7 @@ struct MarkdownWindow {
     expanded_folders: HashSet<PathBuf>,
     navigation_request: u64,
     outline: Arc<Vec<OutlineEntry>>,
+    active_heading: Option<document_core::NodeId>,
     navigation_overlay: bool,
     navigation_collapsed: bool,
     navigation_width: f32,
@@ -856,6 +1013,39 @@ struct MarkdownWindow {
     window_handle: AnyWindowHandle,
     startup_source_bytes: usize,
     startup_ready: Option<StartupReady>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WorkspaceStateWake {
+    Flush,
+    Rearm(u64),
+}
+
+#[derive(Default)]
+struct WorkspaceStateDebounce {
+    generation: u64,
+    armed: bool,
+}
+
+impl WorkspaceStateDebounce {
+    fn changed(&mut self) -> Option<u64> {
+        self.generation = self.generation.wrapping_add(1);
+        if self.armed {
+            None
+        } else {
+            self.armed = true;
+            Some(self.generation)
+        }
+    }
+
+    fn wake(&mut self, scheduled_generation: u64) -> WorkspaceStateWake {
+        if self.generation == scheduled_generation {
+            self.armed = false;
+            WorkspaceStateWake::Flush
+        } else {
+            WorkspaceStateWake::Rearm(self.generation)
+        }
+    }
 }
 
 struct StartupReady {
@@ -987,9 +1177,15 @@ impl MarkdownWindow {
                     this.schedule_recovery(cx);
                     this.schedule_workspace_state(cx);
                     this.refresh_outline(cx);
+                    this.pending_image_prefetch = this.editor.read(cx).document_image_resources();
                 }
                 EditorEvent::ViewChanged => {
                     this.schedule_workspace_state(cx);
+                    let active_heading = this.editor.read(cx).active_heading_node();
+                    if this.active_heading == active_heading {
+                        return;
+                    }
+                    this.active_heading = active_heading;
                 }
                 EditorEvent::SaveRequested => this.queue_save(true, cx),
                 EditorEvent::OpenLocalDocument { path, fragment } => {
@@ -1019,6 +1215,7 @@ impl MarkdownWindow {
         let mut this = Self {
             editor,
             image_cache,
+            pending_image_prefetch: Vec::new(),
             session_registry,
             filename,
             source_path: None,
@@ -1033,16 +1230,19 @@ impl MarkdownWindow {
             last_open_directory: None,
             file_chooser_open: false,
             workspace_state_in_flight: false,
-            workspace_state_generation: 0,
+            workspace_state_debounce: WorkspaceStateDebounce::default(),
+            workspace_state_wake: None,
             pending_view_state: None,
             unsaved: false,
             saved_revision: Revision::default(),
             autosave_generation: 0,
             save_in_flight: false,
+            export_in_flight: false,
             reload_in_flight: false,
             document_epoch: 0,
             open_request: 0,
             reload_request: 0,
+            save_request: 0,
             pending_reload: None,
             close_prompt_in_flight: false,
             close_after_save: false,
@@ -1057,11 +1257,12 @@ impl MarkdownWindow {
             navigation_root,
             navigation_root_explicit,
             outline,
+            active_heading: None,
             navigation_overlay: false,
             navigation_collapsed: false,
             navigation_width: 224.,
             navigation_dragging: false,
-            navigation_split: 0.6,
+            navigation_split: 1.,
             navigation_split_dragging: false,
             outline_in_flight: false,
             outline_requested: None,
@@ -1110,7 +1311,9 @@ impl MarkdownWindow {
         match preload.try_recv() {
             Ok(result) => self.finish_document_load(result, ticket, None, cx),
             Err(TryRecvError::Disconnected) => self.finish_document_load(
-                Err("initial document loader stopped unexpectedly".into()),
+                Err(LoadJobError::WorkerStopped(
+                    "initial document loader stopped unexpectedly",
+                )),
                 ticket,
                 None,
                 cx,
@@ -1121,7 +1324,9 @@ impl MarkdownWindow {
                     .background_executor()
                     .spawn_dedicated(move |_| async move {
                         preload.recv().unwrap_or_else(|_| {
-                            Err("initial document loader stopped unexpectedly".into())
+                            Err(LoadJobError::WorkerStopped(
+                                "initial document loader stopped unexpectedly",
+                            ))
                         })
                     });
                 cx.spawn(async move |this, cx| {
@@ -1139,6 +1344,7 @@ impl MarkdownWindow {
         self.open_request = self.open_request.wrapping_add(1);
         DocumentCompletionTicket {
             request: self.open_request,
+            session: self.editor.read(cx).shared_session().id(),
             epoch: self.document_epoch,
             revision: self.editor.read(cx).document().snapshot().revision(),
             source_path: self.source_path.clone(),
@@ -1150,14 +1356,21 @@ impl MarkdownWindow {
         ticket: &DocumentCompletionTicket,
         cx: &gpui::Context<Self>,
     ) -> bool {
-        self.document_epoch == ticket.epoch
-            && self.source_path == ticket.source_path
-            && self.editor.read(cx).document().snapshot().revision() == ticket.revision
+        let session = self.editor.read(cx).shared_session();
+        document_completion_is_current(
+            self.open_request,
+            session.id(),
+            self.document_epoch,
+            session.snapshot().revision(),
+            self.source_path.as_deref(),
+            ticket,
+        )
     }
 
     fn current_document_ticket(&self, cx: &gpui::Context<Self>) -> DocumentCompletionTicket {
         DocumentCompletionTicket {
             request: self.open_request,
+            session: self.editor.read(cx).shared_session().id(),
             epoch: self.document_epoch,
             revision: self.editor.read(cx).document().snapshot().revision(),
             source_path: self.source_path.clone(),
@@ -1191,36 +1404,62 @@ impl MarkdownWindow {
             return;
         }
         self.close_prompt_in_flight = true;
-        let answer = window.prompt(
-            PromptLevel::Warning,
-            "Save changes before closing?",
-            Some("Unsaved changes will be lost if this window is closed."),
-            &["Save", "Discard", "Cancel"],
-            cx,
-        );
-        cx.spawn_in(window, async move |this, window| {
-            let answer = answer.await.ok();
-            let _ = this.update_in(window, |this, window, cx| {
-                this.close_prompt_in_flight = false;
-                match answer {
-                    Some(0) => {
-                        this.close_after_save = true;
-                        this.queue_save(true, cx);
+        let owner = cx.entity().downgrade();
+        window.open_dialog(cx, move |dialog, window, _cx| {
+            let cancel_owner = owner.clone();
+            let footer = div().flex().flex_wrap().justify_end().gap(px(8.)).children(
+                [
+                    ("Cancel", None),
+                    ("Discard", Some(false)),
+                    ("Save", Some(true)),
+                ]
+                .into_iter()
+                .map(|(label, save)| {
+                    let owner = owner.clone();
+                    Button::new(label)
+                        .label(label)
+                        .when(save == Some(true), |button| button.primary())
+                        .on_click(move |_, window, cx| {
+                            window.close_dialog(cx);
+                            if let Some(owner) = owner.upgrade() {
+                                owner.update(cx, |this, cx| {
+                                    this.close_prompt_in_flight = false;
+                                    this.close_after_save = false;
+                                    match save {
+                                        Some(true) => {
+                                            this.close_after_save = true;
+                                            this.queue_save(true, cx);
+                                        }
+                                        Some(false) => {
+                                            this.force_close = true;
+                                            this.detach_active_session(cx);
+                                            window.remove_window();
+                                        }
+                                        None => {}
+                                    }
+                                    cx.notify();
+                                });
+                            }
+                        })
+                }),
+            );
+            dialog
+                .title("Save changes before closing?")
+                .width((window.viewport_size().width - px(32.)).min(px(440.)))
+                .child("Unsaved changes will be lost if this window is closed.")
+                .footer(footer)
+                .overlay_closable(false)
+                .on_ok(|_, _, _| false)
+                .on_close(move |_, _, cx| {
+                    if let Some(owner) = cancel_owner.upgrade() {
+                        owner.update(cx, |this, cx| {
+                            this.close_prompt_in_flight = false;
+                            this.close_after_save = false;
+                            cx.notify();
+                        });
                     }
-                    Some(1) => {
-                        this.close_after_save = false;
-                        this.force_close = true;
-                        this.detach_active_session(cx);
-                        window.remove_window();
-                    }
-                    _ => {
-                        this.close_after_save = false;
-                    }
-                }
-                cx.notify();
-            });
-        })
-        .detach();
+                })
+        });
     }
 
     fn finish_pending_close(&mut self, cx: &mut gpui::Context<Self>) {
@@ -1263,6 +1502,7 @@ impl MarkdownWindow {
             editor.set_document_directory(None, cx);
             editor.replace_document(Document::empty(), cx);
         });
+        self.pending_image_prefetch.clear();
         self.filename = "Untitled.md".into();
         self.source_path = None;
         self.source_identity = None;
@@ -1311,16 +1551,19 @@ impl MarkdownWindow {
             let result = file_dialog::open_file(directory.as_deref()).await;
             let _ = this.update(cx, |this, cx| {
                 this.file_chooser_open = false;
-                match result {
-                Ok(Some(path)) => {
-                    if !this.document_matches_ticket(&ticket, cx) {
+                if !this.document_matches_ticket(&ticket, cx) {
+                    if matches!(&result, Ok(Some(_))) {
                         this.startup_error = Some(
                             "The document changed while the file chooser was open; no file was opened."
                                 .into(),
                         );
-                    } else {
-                        this.open_file(path, cx);
+                        cx.notify();
                     }
+                    return;
+                }
+                match result {
+                Ok(Some(path)) => {
+                    this.open_file(path, cx);
                     cx.notify();
                 }
                 Ok(None) => {}
@@ -1390,18 +1633,21 @@ impl MarkdownWindow {
         let receiver = cx.prompt_for_new_path(&directory, Some(&suggested_name));
         cx.spawn(async move |this, cx| {
             let result = receiver.await;
-            let _ = this.update(cx, |this, cx| match result {
-                Ok(Ok(Some(path))) => {
-                    if !this.document_matches_ticket(&ticket, cx) {
+            let _ = this.update(cx, |this, cx| {
+                if !this.document_matches_ticket(&ticket, cx) {
+                    if matches!(&result, Ok(Ok(Some(_)))) {
                         this.close_after_save = false;
                         this.startup_error = Some(
                             "The document changed while the save chooser was open; nothing was written."
                                 .into(),
                         );
                         cx.notify();
-                    } else {
-                        this.save_to_target(path, mode, cx);
                     }
+                    return;
+                }
+                match result {
+                Ok(Ok(Some(path))) => {
+                    this.save_to_target(path, mode, cx);
                 }
                 Ok(Ok(None)) => {
                     this.close_after_save = false;
@@ -1414,6 +1660,121 @@ impl MarkdownWindow {
                 Err(_) => {
                     this.close_after_save = false;
                 }
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn prompt_paged_html_export(&mut self, cx: &mut gpui::Context<Self>) {
+        if self.export_in_flight {
+            return;
+        }
+        self.export_in_flight = true;
+        let ticket = self.current_document_ticket(cx);
+        let directory = self
+            .source_path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(PathBuf::from)
+            .or_else(|| self.navigation_root.clone())
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_default();
+        let stem = self
+            .source_path
+            .as_deref()
+            .and_then(std::path::Path::file_stem)
+            .and_then(|stem| stem.to_str())
+            .or_else(|| std::path::Path::new(&self.filename).file_stem()?.to_str())
+            .unwrap_or("document");
+        let suggested_name = format!("{stem}.html");
+        let receiver = cx.prompt_for_new_path(&directory, Some(&suggested_name));
+        cx.spawn(async move |this, cx| {
+            let result = receiver.await;
+            let _ = this.update(cx, |this, cx| {
+                if !this.document_matches_ticket(&ticket, cx) {
+                    this.export_in_flight = false;
+                    if matches!(&result, Ok(Ok(Some(_)))) {
+                        this.startup_error = Some(
+                            "The document changed while the export chooser was open; nothing was written."
+                                .into(),
+                        );
+                        cx.notify();
+                    }
+                    return;
+                }
+                match result {
+                    Ok(Ok(Some(path))) => this.export_paged_html_to_target(path, cx),
+                    Ok(Ok(None)) | Err(_) => this.export_in_flight = false,
+                    Ok(Err(error)) => {
+                        this.export_in_flight = false;
+                        this.startup_error =
+                            Some(format!("Could not open the export chooser: {error}"));
+                        cx.notify();
+                    }
+                }
+            });
+        })
+        .detach();
+    }
+
+    fn export_paged_html_to_target(&mut self, target: PathBuf, cx: &mut gpui::Context<Self>) {
+        let target = paged_html_target(target);
+        if self.source_path.as_ref() == Some(&target) {
+            self.export_in_flight = false;
+            self.startup_error = Some(
+                "Choose a different path for the export so the Markdown source is preserved."
+                    .into(),
+            );
+            cx.notify();
+            return;
+        }
+        let document = self.editor.read(cx).shared_session();
+        let session_id = document.id();
+        let snapshot = document.snapshot();
+        let revision = snapshot.revision();
+        let epoch = self.document_epoch;
+        let title = self
+            .source_path
+            .as_deref()
+            .and_then(std::path::Path::file_stem)
+            .and_then(|stem| stem.to_str())
+            .or_else(|| std::path::Path::new(&self.filename).file_stem()?.to_str())
+            .unwrap_or("Document")
+            .to_owned();
+        let export = cx
+            .background_executor()
+            .spawn_dedicated(move |_| async move {
+                let html = snapshot.export_static_html(&document_core::StaticHtmlOptions {
+                    title,
+                    ..document_core::StaticHtmlOptions::default()
+                })?;
+                write_static_export(&target, revision, html.as_bytes())
+                    .map(|identity| identity.path)
+                    .map_err(SaveTargetError::from)
+            });
+        cx.spawn(async move |this, cx| {
+            let result = export.await;
+            let _ = this.update(cx, |this, cx| {
+                this.export_in_flight = false;
+                if this.editor.read(cx).shared_session().id() != session_id
+                    || this.document_epoch != epoch
+                {
+                    return;
+                }
+                this.startup_error = Some(match result {
+                    Ok(path)
+                        if this.editor.read(cx).document().snapshot().revision() == revision =>
+                    {
+                        format!("Exported paged HTML to {}", path.display())
+                    }
+                    Ok(path) => format!(
+                        "Exported an earlier document revision to {}; newer edits remain in Mineral.",
+                        path.display()
+                    ),
+                    Err(error) => format!("Paged HTML export failed: {error}"),
+                });
+                cx.notify();
             });
         })
         .detach();
@@ -1460,66 +1821,108 @@ impl MarkdownWindow {
         }
         let snapshot = document.snapshot();
         let revision = snapshot.revision();
+        let session_id = document.id();
         let epoch = self.document_epoch;
         let source_path = self.source_path.clone();
         let recovery_key = self.recovery_key.clone();
         let recovery = self.recovery.clone();
         let base_identity = self.source_identity.clone();
+        self.save_request = self.save_request.wrapping_add(1);
+        let request = self.save_request;
         self.save_in_flight = true;
         let save = cx
             .background_executor()
             .spawn_dedicated(move |_| async move {
-                let markdown = snapshot.serialize()?;
+                let prepared = snapshot.prepare_source_rebase()?;
+                let markdown = std::str::from_utf8(prepared.bytes())
+                    .expect("serialized Markdown is UTF-8")
+                    .to_owned();
+                let recovery_entry_key = if mode == SaveTargetMode::Adopt {
+                    target.clone()
+                } else {
+                    recovery_key.clone()
+                };
+                let target_identity = match source_identity(&target) {
+                    Ok(identity) => Some(identity),
+                    Err(PersistenceError::Io { source, .. })
+                        if source.kind() == std::io::ErrorKind::NotFound =>
+                    {
+                        None
+                    }
+                    Err(error) => return Err(SaveTargetError::from(error)),
+                };
                 let entry = RecoveryEntry::new(
-                    recovery_key.clone(),
+                    recovery_entry_key.clone(),
                     revision,
                     markdown.clone(),
-                    base_identity,
+                    if mode == SaveTargetMode::Adopt {
+                        target_identity.clone()
+                    } else {
+                        base_identity
+                    },
                 );
                 let mut recovery_warning = recovery.write(&entry).err();
-                let saved = match source_identity(&target) {
-                    Ok(identity) => {
+                let saved = match target_identity {
+                    Some(identity) => {
                         let save_snapshot = document_core::SaveSnapshot {
                             revision,
                             bytes: markdown.as_bytes().into(),
                             expected_identity: Some(identity),
                         };
-                        atomic_save(save_snapshot).map(|identity| (identity.path.clone(), identity))
+                        atomic_save_with_outcome(save_snapshot)
                     }
-                    Err(PersistenceError::Io { source, .. })
-                        if source.kind() == std::io::ErrorKind::NotFound =>
-                    {
-                        atomic_write_new(&target, markdown.as_bytes())
-                            .map(|identity| (identity.path.clone(), identity))
-                    }
-                    Err(error) => Err(error),
+                    None => atomic_write_new_with_outcome(&target, markdown.as_bytes()),
                 }
                 .map_err(SaveTargetError::from)?;
+                let durability_warning = saved.durability_warning;
+                if let Some(warning) = durability_warning {
+                    recovery_warning = Some(warning);
+                }
                 if mode == SaveTargetMode::Adopt
+                    && recovery_warning.is_none()
+                    && let Err(error) = recovery.clear_revision(&recovery_entry_key, revision)
+                {
+                    recovery_warning = Some(error);
+                }
+                if mode == SaveTargetMode::Adopt
+                    && recovery_warning.is_none()
+                    && recovery_entry_key != recovery_key
                     && let Err(error) = recovery.clear_revision(&recovery_key, revision)
                 {
                     recovery_warning = Some(error);
                 }
-                Ok::<_, SaveTargetError>((saved.0, saved.1, recovery_warning))
+                let identity = saved.identity;
+                Ok::<_, SaveTargetError>((
+                    identity.path.clone(),
+                    identity,
+                    recovery_warning,
+                    prepared,
+                ))
             });
         cx.spawn(async move |this, cx| {
             let result = save.await;
             let _ = this.update(cx, |this, cx| {
-                if this.document_epoch != epoch || this.source_path != source_path {
+                if this.save_request != request {
                     return;
                 }
                 this.save_in_flight = false;
+                if this.editor.read(cx).shared_session().id() != session_id
+                    || this.document_epoch != epoch
+                    || this.source_path != source_path
+                {
+                    return;
+                }
                 match result {
-                    Ok((path, _identity, recovery_warning)) if mode == SaveTargetMode::Copy => {
+                    Ok((path, _identity, recovery_warning, _prepared)) if mode == SaveTargetMode::Copy => {
                         this.startup_error = Some(match recovery_warning {
                             Some(error) => format!(
-                                "Saved a copy to {}, but recovery storage failed: {error}",
+                                "Saved a copy to {}, but durability or recovery cleanup needs attention: {error}",
                                 path.display()
                             ),
                             None => format!("Saved a copy to {}", path.display()),
                         });
                     }
-                    Ok((path, identity, recovery_warning)) => {
+                    Ok((path, identity, recovery_warning, prepared)) => {
                         let document = this.editor.read(cx).shared_session();
                         let previous_path = this.source_path.clone();
                         {
@@ -1551,6 +1954,7 @@ impl MarkdownWindow {
                                 },
                             );
                         }
+                        document.rebase_source(prepared);
                         this.document_epoch = this.document_epoch.wrapping_add(1);
                         this.source_path = Some(path.clone());
                         this.recovery_key = path.clone();
@@ -1566,12 +1970,14 @@ impl MarkdownWindow {
                         this.editor.update(cx, |editor, cx| {
                             editor.set_document_directory(path.parent().map(PathBuf::from), cx);
                         });
+                        this.pending_image_prefetch =
+                            this.editor.read(cx).document_image_resources();
                         this.unsaved = this.editor.read(cx).document().snapshot().revision()
                             != revision;
                         this.conflict = false;
                         this.recovery_entry = None;
                         this.startup_error = recovery_warning.map(|error| {
-                            format!("Saved, but stale recovery data could not be cleared: {error}")
+                            format!("Saved, but durability or recovery cleanup needs attention: {error}")
                         });
                         if !this.navigation_root_explicit
                             && let Some(parent) = path.parent().map(PathBuf::from)
@@ -1868,33 +2274,47 @@ impl MarkdownWindow {
 
     fn schedule_workspace_state(&mut self, cx: &mut gpui::Context<Self>) {
         self.workspace_state_dirty = true;
-        self.workspace_state_generation = self.workspace_state_generation.wrapping_add(1);
-        let generation = self.workspace_state_generation;
-        cx.spawn(async move |this, cx| {
+        let Some(generation) = self.workspace_state_debounce.changed() else {
+            return;
+        };
+        self.spawn_workspace_state_wake(generation, cx);
+    }
+
+    fn spawn_workspace_state_wake(&mut self, generation: u64, cx: &mut gpui::Context<Self>) {
+        self.workspace_state_wake = Some(cx.spawn(async move |this, cx| {
             cx.background_executor()
                 .timer(Duration::from_millis(500))
                 .await;
             let _ = this.update(cx, |this, cx| {
-                if this.workspace_state_generation == generation
-                    && this.workspace_state_dirty
-                    && !this.workspace_state_in_flight
-                {
-                    this.queue_workspace_state(cx);
+                this.workspace_state_wake.take();
+                match this.workspace_state_debounce.wake(generation) {
+                    WorkspaceStateWake::Flush => {
+                        if this.workspace_state_dirty && !this.workspace_state_in_flight {
+                            this.queue_workspace_state(cx);
+                        }
+                    }
+                    WorkspaceStateWake::Rearm(generation) => {
+                        this.spawn_workspace_state_wake(generation, cx);
+                    }
                 }
             });
-        })
-        .detach();
+        }));
     }
 
     fn schedule_autosave(&mut self, cx: &mut gpui::Context<Self>) {
         self.autosave_generation = self.autosave_generation.wrapping_add(1);
         let generation = self.autosave_generation;
+        let session = self.editor.read(cx).shared_session().id();
         cx.spawn(async move |this, cx| {
             cx.background_executor()
                 .timer(Duration::from_millis(750))
                 .await;
             let _ = this.update(cx, |this, cx| {
-                if this.autosave_generation == generation && this.unsaved && !this.conflict {
+                if this.autosave_generation == generation
+                    && this.editor.read(cx).shared_session().id() == session
+                    && this.unsaved
+                    && !this.conflict
+                {
                     this.queue_save(false, cx);
                 }
             });
@@ -1906,12 +2326,14 @@ impl MarkdownWindow {
         self.recovery_dirty = true;
         self.recovery_generation = self.recovery_generation.wrapping_add(1);
         let generation = self.recovery_generation;
+        let session = self.editor.read(cx).shared_session().id();
         cx.spawn(async move |this, cx| {
             cx.background_executor()
                 .timer(Duration::from_millis(250))
                 .await;
             let _ = this.update(cx, |this, cx| {
                 if this.recovery_generation == generation
+                    && this.editor.read(cx).shared_session().id() == session
                     && this.recovery_dirty
                     && !this.recovery_in_flight
                 {
@@ -1930,7 +2352,9 @@ impl MarkdownWindow {
             self.schedule_recovery(cx);
             return;
         }
-        let snapshot = self.editor.read(cx).document().snapshot();
+        let session = self.editor.read(cx).shared_session();
+        let snapshot = session.snapshot();
+        let session_id = session.id();
         let revision = snapshot.revision();
         let epoch = self.document_epoch;
         let key = self.recovery_key.clone();
@@ -1950,7 +2374,10 @@ impl MarkdownWindow {
             let result = write.await;
             let _ = this.update(cx, |this, cx| {
                 this.recovery_in_flight = false;
-                if this.document_epoch == epoch {
+                if this.editor.read(cx).shared_session().id() == session_id
+                    && this.document_epoch == epoch
+                    && this.recovery_key == completion_key
+                {
                     if let Err(error) = result {
                         this.startup_error = Some(format!(
                             "Changes are still in memory, but recovery storage failed: {error}"
@@ -1998,6 +2425,8 @@ impl MarkdownWindow {
         let Some(parent) = path.parent().map(PathBuf::from) else {
             return;
         };
+        let session = self.editor.read(cx).shared_session().id();
+        let document_epoch = self.document_epoch;
         let (event_sender, event_receiver) = oneshot::channel();
         let mut event_sender = Some(event_sender);
         let watched_path = path.clone();
@@ -2027,7 +2456,10 @@ impl MarkdownWindow {
             match select(event_receiver, cancel_receiver).await {
                 Either::Left((event, _)) => {
                     let _ = this.update(cx, |this, cx| {
-                        if this.source_path.as_ref() != Some(&path) {
+                        if this.source_path.as_ref() != Some(&path)
+                            || this.editor.read(cx).shared_session().id() != session
+                            || this.document_epoch != document_epoch
+                        {
                             return;
                         }
                         match event {
@@ -2058,6 +2490,10 @@ impl MarkdownWindow {
         };
         let path_for_check = path.clone();
         let expected_for_check = expected.clone();
+        let session = self.editor.read(cx).shared_session();
+        let session_id = session.id();
+        let revision = session.snapshot().revision();
+        let document_epoch = self.document_epoch;
         let check = cx
             .background_executor()
             .spawn_dedicated(move |_| async move {
@@ -2068,6 +2504,9 @@ impl MarkdownWindow {
             let _ = this.update(cx, |this, cx| {
                 if this.source_path.as_ref() != Some(&path)
                     || this.source_identity.as_ref() != Some(&expected)
+                    || this.editor.read(cx).shared_session().id() != session_id
+                    || this.editor.read(cx).document().snapshot().revision() != revision
+                    || this.document_epoch != document_epoch
                 {
                     this.arm_external_watch(cx);
                     return;
@@ -2121,7 +2560,9 @@ impl MarkdownWindow {
             return;
         };
         let view_state = self.editor.read(cx).view_state();
-        let revision = self.editor.read(cx).document().snapshot().revision();
+        let session = self.editor.read(cx).shared_session();
+        let revision = session.snapshot().revision();
+        let session_id = session.id();
         let epoch = self.document_epoch;
         self.reload_request = self.reload_request.wrapping_add(1);
         let request = self.reload_request;
@@ -2131,11 +2572,10 @@ impl MarkdownWindow {
             .background_executor()
             .spawn_dedicated(move |_| async move {
                 let (source, identity) =
-                    read_source_with_identity(&load_path).map_err(|error| error.to_string())?;
-                let document =
-                    Document::from_markdown(source).map_err(|error| error.to_string())?;
+                    read_source_with_identity(&load_path).map_err(LoadJobError::Persistence)?;
+                let document = Document::from_markdown(source).map_err(LoadJobError::Document)?;
                 let prepared = PreparedDocumentView::prepare(&document);
-                Ok::<_, String>((document, prepared, identity))
+                Ok::<_, LoadJobError>((document, prepared, identity))
             });
         cx.spawn(async move |this, cx| {
             let result = load.await;
@@ -2144,11 +2584,17 @@ impl MarkdownWindow {
                     return;
                 }
                 this.reload_in_flight = false;
+                if this.source_path.as_ref() != Some(&path)
+                    || this.editor.read(cx).shared_session().id() != session_id
+                    || this.document_epoch != epoch
+                {
+                    this.reconcile_external_watch(cx);
+                    cx.notify();
+                    return;
+                }
                 match result {
                     Ok((document, prepared, identity))
-                        if this.source_path.as_ref() == Some(&path)
-                            && this.document_epoch == epoch
-                            && this.editor.read(cx).document().snapshot().revision() == revision
+                        if this.editor.read(cx).document().snapshot().revision() == revision
                             && (force || !this.unsaved) =>
                     {
                         this.editor.update(cx, |editor, cx| {
@@ -2157,9 +2603,12 @@ impl MarkdownWindow {
                         });
                         this.document_epoch = this.document_epoch.wrapping_add(1);
                         this.pending_reload = None;
-                        this.session_registry
-                            .borrow_mut()
-                            .mark_reloaded(&path, identity.clone());
+                        let document = this.editor.read(cx).shared_session();
+                        this.session_registry.borrow_mut().mark_reloaded(
+                            &path,
+                            &document,
+                            identity.clone(),
+                        );
                         this.source_identity = Some(identity);
                         this.saved_revision = this.editor.read(cx).document().snapshot().revision();
                         this.refresh_outline(cx);
@@ -2170,10 +2619,13 @@ impl MarkdownWindow {
                         this.broadcast_session_state(path.clone(), true, cx);
                     }
                     Ok((document, prepared, identity))
-                        if this.source_path.as_ref() == Some(&path)
-                            && this.document_epoch == epoch =>
+                        if this.editor.read(cx).document().snapshot().revision() != revision
+                            || (!force && this.unsaved) =>
                     {
                         this.pending_reload = Some(ReloadCandidate {
+                            session: session_id,
+                            epoch,
+                            source_path: path.clone(),
                             document,
                             prepared,
                             identity,
@@ -2185,7 +2637,7 @@ impl MarkdownWindow {
                         );
                     }
                     Ok(_) => {}
-                    Err(error) => this.startup_error = Some(error),
+                    Err(error) => this.startup_error = Some(error.to_string()),
                 }
                 this.reconcile_external_watch(cx);
                 cx.notify();
@@ -2202,15 +2654,29 @@ impl MarkdownWindow {
         let Some(path) = self.source_path.clone() else {
             return;
         };
+        if self.editor.read(cx).shared_session().id() != candidate.session
+            || self.document_epoch != candidate.epoch
+            || path != candidate.source_path
+        {
+            self.startup_error = Some(
+                "The document changed after reload was prepared; the prepared disk version was discarded."
+                    .into(),
+            );
+            cx.notify();
+            return;
+        }
         let view_state = self.editor.read(cx).view_state();
         self.editor.update(cx, |editor, cx| {
             editor.replace_document_prepared(candidate.document, candidate.prepared, cx);
             editor.restore_view_state(&view_state, cx);
         });
         self.document_epoch = self.document_epoch.wrapping_add(1);
-        self.session_registry
-            .borrow_mut()
-            .mark_reloaded(&path, candidate.identity.clone());
+        let document = self.editor.read(cx).shared_session();
+        self.session_registry.borrow_mut().mark_reloaded(
+            &path,
+            &document,
+            candidate.identity.clone(),
+        );
         self.source_identity = Some(candidate.identity);
         self.saved_revision = self.editor.read(cx).document().snapshot().revision();
         self.unsaved = false;
@@ -2232,7 +2698,9 @@ impl MarkdownWindow {
             return;
         }
         let epoch = self.document_epoch;
-        let revision = self.editor.read(cx).document().snapshot().revision();
+        let session = self.editor.read(cx).shared_session();
+        let revision = session.snapshot().revision();
+        let session_id = session.id();
         self.reload_request = self.reload_request.wrapping_add(1);
         let request = self.reload_request;
         self.reload_in_flight = true;
@@ -2247,6 +2715,7 @@ impl MarkdownWindow {
             let result = parse.await;
             let _ = this.update(cx, |this, cx| {
                 if this.reload_request != request
+                    || this.editor.read(cx).shared_session().id() != session_id
                     || this.document_epoch != epoch
                     || this.editor.read(cx).document().snapshot().revision() != revision
                 {
@@ -2293,13 +2762,17 @@ impl MarkdownWindow {
     fn load_untitled_recovery(&mut self, key: PathBuf, cx: &mut gpui::Context<Self>) {
         let recovery = self.recovery.clone();
         let expected_key = key.clone();
+        let ticket = self.current_document_ticket(cx);
         let load = cx
             .background_executor()
             .spawn_dedicated(move |_| async move { recovery.load(&key) });
         cx.spawn(async move |this, cx| {
             let result = load.await;
             let _ = this.update(cx, |this, cx| {
-                if this.source_path.is_some() || this.recovery_key != expected_key {
+                if this.source_path.is_some()
+                    || this.recovery_key != expected_key
+                    || !this.document_matches_ticket(&ticket, cx)
+                {
                     return;
                 }
                 match result {
@@ -2389,17 +2862,12 @@ impl MarkdownWindow {
 
     fn finish_document_load(
         &mut self,
-        result: Result<LoadedDocument, String>,
+        result: Result<LoadedDocument, LoadJobError>,
         ticket: DocumentCompletionTicket,
         fragment: Option<String>,
         cx: &mut gpui::Context<Self>,
     ) {
-        let current_revision = self.editor.read(cx).document().snapshot().revision();
-        if self.open_request != ticket.request
-            || self.document_epoch != ticket.epoch
-            || self.source_path != ticket.source_path
-            || current_revision != ticket.revision
-        {
+        if !self.document_matches_ticket(&ticket, cx) {
             if self.open_request == ticket.request {
                 self.reload_in_flight = false;
                 self.startup_error = Some(
@@ -2456,6 +2924,7 @@ impl MarkdownWindow {
                         editor.restore_view_state(view_state, cx);
                     }
                 });
+                self.pending_image_prefetch = self.editor.read(cx).document_image_resources();
                 self.filename = loaded
                     .canonical
                     .file_name()
@@ -2498,7 +2967,7 @@ impl MarkdownWindow {
             }
             Err(error) => {
                 self.pending_view_state = None;
-                self.startup_error = Some(error.clone());
+                self.startup_error = Some(error.to_string());
                 if self.startup_config.take().is_some()
                     && let Some(completion) = self.startup_completion.take()
                 {
@@ -2609,14 +3078,31 @@ impl MarkdownWindow {
         let Some(path) = self.source_path.clone() else {
             return;
         };
+        let session = self.editor.read(cx).shared_session();
+        let session_id = session.id();
+        let revision = session.snapshot().revision();
+        let epoch = self.document_epoch;
+        self.reload_request = self.reload_request.wrapping_add(1);
+        let request = self.reload_request;
         self.reload_in_flight = true;
+        let inspect_path = path.clone();
         let inspect = cx
             .background_executor()
-            .spawn_dedicated(move |_| async move { source_identity(&path) });
+            .spawn_dedicated(move |_| async move { source_identity(&inspect_path) });
         cx.spawn(async move |this, cx| {
             let result = inspect.await;
             let _ = this.update(cx, |this, cx| {
+                if this.reload_request != request {
+                    return;
+                }
                 this.reload_in_flight = false;
+                if this.source_path.as_ref() != Some(&path)
+                    || this.editor.read(cx).shared_session().id() != session_id
+                    || this.editor.read(cx).document().snapshot().revision() != revision
+                    || this.document_epoch != epoch
+                {
+                    return;
+                }
                 match result {
                     Ok(identity) => {
                         this.source_identity = Some(identity);
@@ -2634,10 +3120,16 @@ impl MarkdownWindow {
     fn refresh_outline(&mut self, cx: &mut gpui::Context<Self>) {
         let snapshot = self.editor.read(cx).document().snapshot();
         let revision = snapshot.revision();
+        let session = self.editor.read(cx).shared_session().id();
         self.outline_requested = Some(revision);
         self.outline_request = self.outline_request.wrapping_add(1);
-        let request = self.outline_request;
         let document_epoch = self.document_epoch;
+        let ticket = OutlineCompletionTicket {
+            request: self.outline_request,
+            session,
+            epoch: document_epoch,
+            revision,
+        };
         let epoch = self.outline_cancel_epoch.fetch_add(1, Ordering::AcqRel) + 1;
         if self.outline_in_flight {
             return;
@@ -2661,11 +3153,11 @@ impl MarkdownWindow {
                     let current_revision = this.editor.read(cx).document().snapshot().revision();
                     if outline_completion_is_current(
                         this.outline_request,
-                        request,
+                        this.editor.read(cx).shared_session().id(),
                         this.document_epoch,
-                        document_epoch,
                         current_revision,
                         completed_revision,
+                        &ticket,
                     ) {
                         this.outline = outline;
                         this.outline_requested = None;
@@ -2756,8 +3248,16 @@ impl MarkdownWindow {
         }
     }
 
-    fn adjust_navigation_split(&mut self, delta: f32, cx: &mut gpui::Context<Self>) {
-        self.navigation_split = clamp_navigation_split(self.navigation_split + delta);
+    fn adjust_navigation_split(
+        &mut self,
+        delta: f32,
+        window: &gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) {
+        let available = (f32::from(window.viewport_size().height) - 64.).max(1.);
+        let current =
+            navigation_outline_height(available, self.outline.len(), self.navigation_split);
+        self.navigation_split = clamp_navigation_split(current / available + delta);
         self.queue_workspace_state(cx);
         cx.notify();
     }
@@ -2787,44 +3287,77 @@ impl MarkdownWindow {
             }
             return;
         };
-        if !self.session_registry.borrow_mut().claim_save(&path) {
+        let saving_document = self.editor.read(cx).shared_session();
+        if !self
+            .session_registry
+            .borrow_mut()
+            .claim_save(&path, &saving_document)
+        {
             if explicit {
                 self.startup_error = Some("This shared document is already being saved".into());
                 cx.notify();
             }
             return;
         }
-        let snapshot = self.editor.read(cx).document().snapshot();
+        let snapshot = saving_document.snapshot();
         let revision = snapshot.revision();
+        let session_id = saving_document.id();
         let epoch = self.document_epoch;
+        self.save_request = self.save_request.wrapping_add(1);
+        let request = self.save_request;
         let recovery = self.recovery.clone();
         let session_registry = self.session_registry.clone();
         self.save_in_flight = true;
         let save = cx
             .background_executor()
             .spawn_dedicated(move |_| async move {
-                let save_snapshot = snapshot
-                    .save_snapshot(Some(identity))
+                let prepared = snapshot
+                    .prepare_source_rebase()
                     .map_err(SaveJobError::Document)?;
+                let save_snapshot = document_core::SaveSnapshot {
+                    revision,
+                    bytes: prepared.bytes().clone(),
+                    expected_identity: Some(identity),
+                };
                 save_with_recovery(save_snapshot, &recovery)
-                    .map(|outcome| (revision, outcome.identity, outcome.cleanup_warning))
+                    .map(|outcome| {
+                        (
+                            revision,
+                            outcome.identity,
+                            outcome.cleanup_warning,
+                            prepared,
+                        )
+                    })
                     .map_err(SaveJobError::Persistence)
             });
         cx.spawn(async move |this, cx| {
-            let result = save.await;
-            match &result {
-                Ok((revision, identity, _)) => {
-                    session_registry
-                        .borrow_mut()
-                        .mark_saved(&path, *revision, identity.clone())
-                }
-                Err(_) => session_registry.borrow_mut().release_save(&path),
-            }
+            let result = save.await.map(|(revision, identity, warning, prepared)| {
+                saving_document.rebase_source(prepared);
+                (revision, identity, warning)
+            });
+            let session_completion_current = match &result {
+                Ok((revision, identity, _)) => session_registry.borrow_mut().mark_saved(
+                    &path,
+                    &saving_document,
+                    *revision,
+                    identity.clone(),
+                ),
+                Err(_) => session_registry
+                    .borrow_mut()
+                    .release_save(&path, &saving_document),
+            };
             let _ = this.update(cx, |this, cx| {
-                if this.source_path.as_ref() != Some(&path) || this.document_epoch != epoch {
+                if this.save_request != request {
                     return;
                 }
                 this.save_in_flight = false;
+                if this.editor.read(cx).shared_session().id() != session_id
+                    || this.source_path.as_ref() != Some(&path)
+                    || this.document_epoch != epoch
+                    || !session_completion_current
+                {
+                    return;
+                }
                 match result {
                     Ok((revision, identity, cleanup_warning)) => {
                         this.source_identity = Some(identity);
@@ -2837,7 +3370,7 @@ impl MarkdownWindow {
                         this.recovery_entry = None;
                         this.startup_error = cleanup_warning.map(|warning| {
                             format!(
-                                "Saved, but stale recovery data could not be cleared: {warning}"
+                                "Saved, but durability or recovery cleanup needs attention: {warning}"
                             )
                         });
                         if this.unsaved {
@@ -2990,21 +3523,54 @@ fn clamp_navigation_width(width: f32) -> f32 {
     width.clamp(180., 320.)
 }
 
+const NAVIGATION_ROW_HEIGHT: f32 = 28.;
+const NAVIGATION_SECTION_HEADER: f32 = 28.;
+const NAVIGATION_FILES_MIN_HEIGHT: f32 = NAVIGATION_SECTION_HEADER + 5. * NAVIGATION_ROW_HEIGHT;
+
 fn clamp_navigation_split(split: f32) -> f32 {
-    split.clamp(0.25, 0.75)
+    if split.is_finite() {
+        split.clamp(0., 1.)
+    } else {
+        1.
+    }
+}
+
+fn navigation_outline_height(available: f32, count: usize, limit: f32) -> f32 {
+    let minimum = NAVIGATION_SECTION_HEADER + NAVIGATION_ROW_HEIGHT;
+    let maximum = (available - 12. - NAVIGATION_FILES_MIN_HEIGHT).max(minimum);
+    (NAVIGATION_SECTION_HEADER + count.max(1) as f32 * NAVIGATION_ROW_HEIGHT)
+        .min(available * clamp_navigation_split(limit))
+        .clamp(minimum, maximum)
 }
 
 fn outline_completion_is_current(
     current_request: u64,
-    request: u64,
+    current_session: DocumentSessionId,
     current_document_epoch: u64,
-    document_epoch: u64,
     current_revision: Revision,
     completed_revision: Revision,
+    ticket: &OutlineCompletionTicket,
 ) -> bool {
-    current_request == request
-        && current_document_epoch == document_epoch
+    current_request == ticket.request
+        && current_session == ticket.session
+        && current_document_epoch == ticket.epoch
         && current_revision == completed_revision
+        && completed_revision == ticket.revision
+}
+
+fn document_completion_is_current(
+    current_request: u64,
+    current_session: DocumentSessionId,
+    current_document_epoch: u64,
+    current_revision: Revision,
+    current_source_path: Option<&std::path::Path>,
+    ticket: &DocumentCompletionTicket,
+) -> bool {
+    current_request == ticket.request
+        && current_session == ticket.session
+        && current_document_epoch == ticket.epoch
+        && current_revision == ticket.revision
+        && current_source_path == ticket.source_path.as_deref()
 }
 
 fn navigation_is_visible(wide: bool, collapsed: bool, overlay: bool) -> bool {
@@ -3027,6 +3593,11 @@ impl Render for MarkdownWindow {
         cx: &mut gpui::Context<Self>,
     ) -> impl gpui::IntoElement {
         startup_trace(self.startup_trace_started_at, "root-render-start");
+        if !self.pending_image_prefetch.is_empty() {
+            self.image_cache.update(cx, |cache, cx| {
+                cache.prefetch(&mut self.pending_image_prefetch, window, cx);
+            });
+        }
         if self.source_path.is_some()
             && !self.reload_in_flight
             && let Some(config) = self.startup_config.take()
@@ -3053,10 +3624,17 @@ impl Render for MarkdownWindow {
             self.navigation_collapsed,
             self.navigation_overlay,
         );
+        let document_pane_width = width
+            - if wide_navigation && navigation_visible {
+                self.navigation_width + 8.
+            } else {
+                0.
+            };
+        let document_padding = ResponsiveLayout::document_padding(document_pane_width);
         let runtime_error = self.editor.read(cx).last_error().map(ToOwned::to_owned);
         let status = runtime_error.or_else(|| self.startup_error.clone());
         let active_path = self.source_path.clone();
-        let active_heading = self.editor.read(cx).active_heading_node();
+        let active_heading = self.active_heading;
         let files_empty = self.navigation_nodes.is_empty();
         let file_rows = navigation_rows(&self.navigation_nodes)
             .into_iter()
@@ -3147,6 +3725,16 @@ impl Render for MarkdownWindow {
                             .aria_label(entry.title.clone())
                             .aria_level(entry.level as usize)
                             .aria_selected(active_heading == Some(node_id))
+                            .border_l_2()
+                            .border_color(if active_heading == Some(node_id) {
+                                rgb(palette.accent).into()
+                            } else {
+                                gpui::transparent_black()
+                            })
+                            .when(active_heading == Some(node_id), |row| {
+                                row.bg(rgb(palette.accent_muted))
+                                    .text_color(rgb(palette.text))
+                            })
                             .tab_stop(true)
                             .flex()
                             .items_center()
@@ -3218,6 +3806,9 @@ impl Render for MarkdownWindow {
             .and_then(|name| name.to_str())
             .unwrap_or("Files")
             .to_owned();
+        let navigation_height = (f32::from(window.viewport_size().height) - 64.).max(1.);
+        let outline_height =
+            navigation_outline_height(navigation_height, outline_count, self.navigation_split);
         let navigation = div()
             .id("document-navigation")
             .role(Role::Navigation)
@@ -3246,8 +3837,49 @@ impl Render for MarkdownWindow {
                 div()
                     .flex()
                     .flex_col()
-                    .h(relative(self.navigation_split))
-                    .min_h_0()
+                    .h(px(outline_height))
+                    .min_h(px(NAVIGATION_SECTION_HEADER + NAVIGATION_ROW_HEIGHT))
+                    .gap(px(6.))
+                    .child(
+                        div()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(rgb(palette.text))
+                            .child("Outline"),
+                    )
+                    .child(outline_rows),
+            )
+            .child(
+                div()
+                    .id("navigation-section-split")
+                    .role(Role::Slider)
+                    .aria_label("Resize files and outline sections")
+                    .aria_min_numeric_value(0.)
+                    .aria_max_numeric_value(100.)
+                    .aria_numeric_value(f64::from(outline_height / navigation_height * 100.))
+                    .aria_numeric_value_step(5.)
+                    .tab_stop(true)
+                    .flex_shrink_0()
+                    .h(px(12.))
+                    .w_full()
+                    .cursor(gpui::CursorStyle::ResizeUpDown)
+                    .on_mouse_down(MouseButton::Left, cx.listener(Self::navigation_split_start))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::navigation_split_end))
+                    .on_mouse_up_out(MouseButton::Left, cx.listener(Self::navigation_split_end))
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        match event.keystroke.key.as_str() {
+                            "up" | "left" => this.adjust_navigation_split(-0.05, window, cx),
+                            "down" | "right" => this.adjust_navigation_split(0.05, window, cx),
+                            _ => return,
+                        }
+                        cx.stop_propagation();
+                    })),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h(px(NAVIGATION_FILES_MIN_HEIGHT))
                     .gap(px(6.))
                     .child(
                         div()
@@ -3262,6 +3894,7 @@ impl Render for MarkdownWindow {
                             .aria_label("Markdown folders and files")
                             .flex()
                             .flex_col()
+                            .flex_1()
                             .min_h_0()
                             .overflow_y_scroll()
                             .children(file_rows)
@@ -3274,47 +3907,6 @@ impl Render for MarkdownWindow {
                                 )
                             }),
                     ),
-            )
-            .child(
-                div()
-                    .id("navigation-section-split")
-                    .role(Role::Slider)
-                    .aria_label("Resize files and outline sections")
-                    .aria_min_numeric_value(25.)
-                    .aria_max_numeric_value(75.)
-                    .aria_numeric_value(f64::from(self.navigation_split * 100.))
-                    .aria_numeric_value_step(5.)
-                    .tab_stop(true)
-                    .flex_shrink_0()
-                    .h(px(12.))
-                    .w_full()
-                    .cursor(gpui::CursorStyle::ResizeUpDown)
-                    .on_mouse_down(MouseButton::Left, cx.listener(Self::navigation_split_start))
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::navigation_split_end))
-                    .on_mouse_up_out(MouseButton::Left, cx.listener(Self::navigation_split_end))
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
-                        match event.keystroke.key.as_str() {
-                            "up" | "left" => this.adjust_navigation_split(-0.05, cx),
-                            "down" | "right" => this.adjust_navigation_split(0.05, cx),
-                            _ => return,
-                        }
-                        cx.stop_propagation();
-                    })),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .gap(px(6.))
-                    .child(
-                        div()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(rgb(palette.text))
-                            .child("Outline"),
-                    )
-                    .child(outline_rows),
             );
         let mut body_font = font("Spline Sans Mineral");
         body_font.fallbacks = Some(FontFallbacks::from_fonts(vec![
@@ -3327,47 +3919,129 @@ impl Render for MarkdownWindow {
         let reset_zoom_editor = self.editor.clone();
         let zoom_in_editor = self.editor.clone();
         let application_menu_focus = self.editor.focus_handle(cx);
+        let show_status = status.is_some() || self.recovery_entry.is_some() || self.conflict;
+        let status_bar = div()
+            .id("document-status")
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .flex_shrink_0()
+            .gap(px(8.))
+            .px(px(12.))
+            .py(px(6.))
+            .bg(rgb(palette.panel))
+            .text_size(px(13.))
+            .when_some(status, |header, message| {
+                header.child(
+                    div()
+                        .max_w(px(420.))
+                        .text_color(rgb(palette.error))
+                        .overflow_hidden()
+                        .child(message),
+                )
+            })
+            .when(self.recovery_entry.is_some(), |header| {
+                header.child(
+                    Button::new("restore-recovery")
+                        .label("Restore")
+                        .small()
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.editor.focus_handle(cx).focus(window, cx);
+                            this.restore_recovery(cx);
+                        })),
+                )
+            })
+            .when(self.conflict, |header| {
+                header
+                    .child(
+                        Button::new("reload-external")
+                            .label("Reload")
+                            .small()
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.editor.focus_handle(cx).focus(window, cx);
+                                this.reload_external(cx);
+                            })),
+                    )
+                    .child(
+                        Button::new("save-conflict-copy")
+                            .label("Save copy")
+                            .small()
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.editor.focus_handle(cx).focus(window, cx);
+                                this.prompt_save_target(SaveTargetMode::Copy, cx);
+                            })),
+                    )
+                    .child(
+                        Button::new("overwrite-external")
+                            .label("Overwrite")
+                            .small()
+                            .primary()
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.editor.focus_handle(cx).focus(window, cx);
+                                this.overwrite_external(cx);
+                            })),
+                    )
+            });
         let zoom_controls = div()
+            .id("title-zoom-controls")
+            .on_click(|_, _, cx| cx.stop_propagation())
             .ml_auto()
             .flex()
             .items_center()
             .gap(px(2.))
             .child(
-                Button::new("zoom-out")
-                    .ghost()
-                    .xsmall()
+                title_bar::button("zoom-out", cx)
+                    .accessible_disabled(!self.editor.read(cx).can_zoom_out())
                     .icon(IconName::Minus)
+                    .accessible_name("Zoom out")
+                    .accessible_shortcut("Control+-")
                     .tooltip("Zoom out — Ctrl+−")
                     .on_click(move |_, _, cx| {
                         zoom_out_editor.update(cx, |editor, cx| editor.zoom_out(cx));
                     }),
             )
             .child(
-                Button::new("zoom-reset")
-                    .ghost()
-                    .xsmall()
-                    .label(format!("{zoom_percent}%"))
+                title_bar::button("zoom-reset", cx)
+                    .w(px(50.))
+                    .px(px(4.))
+                    .accessible_name("Reset zoom")
+                    .accessible_description(format!("Current document zoom: {zoom_percent}%"))
+                    .accessible_shortcut("Control+0")
+                    // Button::label replaces the accessible name with its
+                    // text; keep the percentage visible and the action named.
+                    .child(
+                        div()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .whitespace_nowrap()
+                            .truncate()
+                            .line_height(relative(1.))
+                            .child(format!("{zoom_percent}%")),
+                    )
                     .tooltip("Reset zoom — Ctrl+0")
                     .on_click(move |_, _, cx| {
                         reset_zoom_editor.update(cx, |editor, cx| editor.reset_zoom(cx));
                     }),
             )
             .child(
-                Button::new("zoom-in")
-                    .ghost()
-                    .xsmall()
+                title_bar::button("zoom-in", cx)
+                    .accessible_disabled(!self.editor.read(cx).can_zoom_in())
                     .icon(IconName::Plus)
+                    .accessible_name("Zoom in")
+                    .accessible_shortcut("Control+=")
                     .tooltip("Zoom in — Ctrl++")
                     .on_click(move |_, _, cx| {
                         zoom_in_editor.update(cx, |editor, cx| editor.zoom_in(cx));
                     }),
             );
-        let application_menu = Button::new("application-menu")
-            .ghost()
-            .xsmall()
-            .icon(IconName::Menu)
-            .tooltip("Application menu")
-            .dropdown_menu(move |menu, _window, _cx| {
+        let application_menu = title_bar::menu(
+            title_bar::button("application-menu", cx)
+                .icon(IconName::Menu)
+                .accessible_name("Application menu")
+                .tooltip("Application menu"),
+            window,
+            cx,
+            move |menu, _window, _cx| {
                 menu.action_context(application_menu_focus.clone())
                     .min_w(px(320.))
                     .max_w(px(320.))
@@ -3378,6 +4052,10 @@ impl Render for MarkdownWindow {
                     .item(PopupMenuItem::new("Save").action(Box::new(SaveDocumentAction)))
                     .item(PopupMenuItem::new("Save as…").action(Box::new(SaveAsAction)))
                     .item(PopupMenuItem::new("Save a copy…").action(Box::new(SaveCopyAction)))
+                    .item(
+                        PopupMenuItem::new("Export paged HTML…")
+                            .action(Box::new(ExportPagedHtmlAction)),
+                    )
                     .item(PopupMenuItem::separator())
                     .item(PopupMenuItem::new("Undo").action(Box::new(UndoDocumentAction)))
                     .item(PopupMenuItem::new("Redo").action(Box::new(RedoDocumentAction)))
@@ -3399,7 +4077,8 @@ impl Render for MarkdownWindow {
                         PopupMenuItem::new("Close window")
                             .action(Box::new(CloseDocumentWindowAction)),
                     )
-            });
+            },
+        );
 
         let scene = div()
             .flex()
@@ -3423,6 +4102,9 @@ impl Render for MarkdownWindow {
             }))
             .on_action(cx.listener(|this, _: &SaveCopyAction, _, cx| {
                 this.prompt_save_target(SaveTargetMode::Copy, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ExportPagedHtmlAction, _, cx| {
+                this.prompt_paged_html_export(cx);
             }))
             .on_action(cx.listener(|this, _: &UndoDocumentAction, window, cx| {
                 this.editor
@@ -3467,13 +4149,106 @@ impl Render for MarkdownWindow {
                     this.request_close(window, cx);
                 }),
             )
+            .map(|scene| {
+                #[cfg(feature = "layout-validation")]
+                let scene = scene
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &UseAlternateBodyFontForValidation, _, cx| {
+                            let loaded = fonts::register_delayed_alternate_for_validation(cx);
+                            Theme::global_mut(cx).font_family = "Noto Sans Mineral".into();
+                            Theme::sync_base(cx);
+                            cx.refresh_windows();
+                            eprintln!(
+                                "MINERAL_FONT_VALIDATION font=Noto Sans Mineral loaded={loaded}"
+                            );
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &RestoreBodyFontForValidation, _, cx| {
+                            Theme::global_mut(cx).font_family = "Spline Sans Mineral".into();
+                            Theme::sync_base(cx);
+                            cx.refresh_windows();
+                            eprintln!("MINERAL_FONT_VALIDATION font=Spline Sans Mineral");
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |this: &mut Self, _: &ReportEditorStateForValidation, window, cx| {
+                            let state = this.editor.read(cx).view_state();
+                            let caret_bounds = this.editor.read(cx).validation_caret_bounds();
+                            let viewport_bounds = this.editor.read(cx).validation_viewport_bounds();
+                            let rtl_line_bounds = this.editor.read(cx).validation_rtl_line_bounds();
+                            let focused = this.editor.focus_handle(cx).is_focused(window);
+                            eprintln!(
+                                "MINERAL_RESIZE_STATE {}",
+                                serde_json::json!({
+                                    "selection_start": state.selection.start,
+                                    "selection_end": state.selection.end,
+                                    "reversed": state.reversed,
+                                    "focused": focused,
+                                    "scroll_y": state.scroll_y,
+                                    "caret_bounds": caret_bounds,
+                                    "viewport_bounds": viewport_bounds,
+                                    "rtl_line_bounds": rtl_line_bounds,
+                                })
+                            );
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeNarrowForValidation, window, _| {
+                            let height = window.bounds().size.height;
+                            window.resize(size(px(720.), height));
+                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=narrow width=720");
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeWideForValidation, window, _| {
+                            let height = window.bounds().size.height;
+                            window.resize(size(px(1360.), height));
+                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=wide width=1360");
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeExtraWideForValidation, window, _| {
+                            let height = window.bounds().size.height;
+                            window.resize(size(px(1710.), height));
+                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=extra-wide width=1710");
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeShortForValidation, window, _| {
+                            window.resize(size(window.bounds().size.width, px(420.)));
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeTallForValidation, window, _| {
+                            window.resize(size(window.bounds().size.width, px(1000.)));
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeSlightlyNarrowerForValidation, window, _| {
+                            let bounds = window.bounds();
+                            let width = (f32::from(bounds.size.width) - 8.).max(420.);
+                            window.resize(size(px(width), bounds.size.height));
+                            eprintln!(
+                                "MINERAL_LAYOUT_VALIDATION resize=step-narrower width={width}"
+                            );
+                        },
+                    ))
+                    .on_action(cx.listener(
+                        |_: &mut Self, _: &ResizeSlightlyWiderForValidation, window, _| {
+                            let bounds = window.bounds();
+                            let width = f32::from(bounds.size.width) + 8.;
+                            window.resize(size(px(width), bounds.size.height));
+                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=step-wider width={width}");
+                        },
+                    ));
+                scene
+            })
             .bg(rgb(palette.page))
             .text_color(rgb(palette.text))
             .font(body_font)
             .child(
-                TitleBar::new()
-                    .bg(rgb(palette.panel))
-                    .border_color(rgb(palette.border))
+                TitleBar::new(cx.listener(|this, _, window, cx| this.request_close(window, cx)))
                     .child(
                         div()
                             .flex()
@@ -3484,7 +4259,12 @@ impl Render for MarkdownWindow {
                             .pr(px(8.))
                             .gap(px(8.))
                             .text_size(px(13.))
-                            .child(application_menu)
+                            .child(
+                                div()
+                                    .id("title-menu-container")
+                                    .on_click(|_, _, cx| cx.stop_propagation())
+                                    .child(application_menu),
+                            )
                             .child(
                                 div()
                                     .id("document-window-title")
@@ -3507,78 +4287,23 @@ impl Render for MarkdownWindow {
                                     .child(self.filename.clone()),
                             )
                             .when(self.unsaved, |header| {
-                                header.child(div().text_color(rgb(palette.accent)).child("●"))
+                                header.child(div().text_color(rgb(0xe5c582)).child("●"))
                             })
-                            .child(zoom_controls)
-                            .when_some(status, |header, message| {
-                                header.child(
-                                    div()
-                                        .max_w(px(420.))
-                                        .text_color(rgb(palette.error))
-                                        .overflow_hidden()
-                                        .child(message),
-                                )
-                            })
-                            .when(self.recovery_entry.is_some(), |header| {
-                                header.child(
-                                    div()
-                                        .id("restore-recovery")
-                                        .role(Role::Button)
-                                        .px(px(8.))
-                                        .py(px(4.))
-                                        .rounded(px(4.))
-                                        .bg(rgb(palette.surface))
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.restore_recovery(cx);
-                                        }))
-                                        .child("Restore"),
-                                )
-                            })
-                            .when(self.conflict, |header| {
-                                header
-                                    .child(
-                                        div()
-                                            .id("reload-external")
-                                            .role(Role::Button)
-                                            .px(px(8.))
-                                            .py(px(4.))
-                                            .rounded(px(4.))
-                                            .bg(rgb(palette.surface))
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.reload_external(cx);
-                                            }))
-                                            .child("Reload"),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("save-conflict-copy")
-                                            .role(Role::Button)
-                                            .px(px(8.))
-                                            .py(px(4.))
-                                            .rounded(px(4.))
-                                            .bg(rgb(palette.surface))
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.prompt_save_target(SaveTargetMode::Copy, cx);
-                                            }))
-                                            .child("Save copy"),
-                                    )
-                                    .child(
-                                        div()
-                                            .id("overwrite-external")
-                                            .role(Role::Button)
-                                            .px(px(8.))
-                                            .py(px(4.))
-                                            .rounded(px(4.))
-                                            .bg(rgb(palette.accent))
-                                            .text_color(rgb(palette.panel))
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.overwrite_external(cx);
-                                            }))
-                                            .child("Overwrite"),
-                                    )
-                            }),
+                            .child(
+                                title_bar::button("title-bar-search", cx)
+                                    .icon(IconName::Search)
+                                    .accessible_name("Search document")
+                                    .accessible_shortcut("Control+f")
+                                    .tooltip("Find in document — Ctrl+F")
+                                    .on_click(|_, window, cx| {
+                                        cx.stop_propagation();
+                                        window.dispatch_action(Box::new(FindDocumentAction), cx);
+                                    }),
+                            )
+                            .child(zoom_controls),
                     ),
             )
+            .when(show_status, |root| root.child(status_bar))
             .child(
                 div()
                     .flex()
@@ -3612,7 +4337,7 @@ impl Render for MarkdownWindow {
                             .min_w_0()
                             .justify_center()
                             .relative()
-                            .px(px(28.))
+                            .px(px(document_padding))
                             .capture_any_mouse_down(cx.listener(|this, _, _, cx| {
                                 this.editor.update(cx, |editor, cx| {
                                     editor.stop_momentum();
@@ -3630,7 +4355,6 @@ impl Render for MarkdownWindow {
                             .child(
                                 div()
                                     .w_full()
-                                    .max_w(px(1280.))
                                     .h_full()
                                     .py(px(20.))
                                     .text_size(px(18.))
@@ -3658,13 +4382,34 @@ impl Render for MarkdownWindow {
                     ),
             );
         startup_trace(self.startup_trace_started_at, "root-render-end");
-        scene
+        scene.children(Root::render_dialog_layer(window, cx))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_state_debounce_keeps_one_wake_armed_during_scroll_bursts() {
+        let mut debounce = WorkspaceStateDebounce::default();
+        let first = debounce.changed().expect("the first change arms a wake");
+        for _ in 0..10_000 {
+            assert_eq!(debounce.changed(), None);
+        }
+
+        let latest = match debounce.wake(first) {
+            WorkspaceStateWake::Rearm(generation) => generation,
+            WorkspaceStateWake::Flush => panic!("a stale wake must not flush"),
+        };
+        assert_eq!(debounce.changed(), None);
+        let latest = match debounce.wake(latest) {
+            WorkspaceStateWake::Rearm(generation) => generation,
+            WorkspaceStateWake::Flush => panic!("a newly arrived change must rearm"),
+        };
+        assert_eq!(debounce.wake(latest), WorkspaceStateWake::Flush);
+        assert!(debounce.changed().is_some());
+    }
 
     fn test_identity(path: PathBuf) -> SourceIdentity {
         SourceIdentity {
@@ -3677,6 +4422,55 @@ mod tests {
             #[cfg(unix)]
             inode: 2,
         }
+    }
+
+    #[test]
+    fn paged_html_targets_use_an_html_extension() {
+        assert_eq!(
+            paged_html_target(PathBuf::from("report.md")),
+            PathBuf::from("report.html")
+        );
+        assert_eq!(
+            paged_html_target(PathBuf::from("report")),
+            PathBuf::from("report.html")
+        );
+        assert_eq!(
+            paged_html_target(PathBuf::from("report.html")),
+            PathBuf::from("report.html")
+        );
+    }
+
+    #[test]
+    fn paged_html_export_creates_and_atomically_replaces_the_target() {
+        let root = std::env::temp_dir().join(format!(
+            "mineral-static-export-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let target = root.join("report.html");
+        let first = b"<!doctype html><title>First</title>";
+        let second = b"<!doctype html><title>Second</title>";
+
+        let first_identity =
+            write_static_export(&target, Revision(3), first).expect("create static export");
+        assert_eq!(first_identity.path, target);
+        assert_eq!(std::fs::read(&target).expect("read first export"), first);
+
+        let second_identity =
+            write_static_export(&target, Revision(4), second).expect("replace static export");
+        assert_eq!(second_identity.path, target);
+        assert_eq!(std::fs::read(&target).expect("read second export"), second);
+        assert_eq!(
+            std::fs::read_dir(&root)
+                .expect("list export directory")
+                .count(),
+            1
+        );
+
+        std::fs::remove_dir_all(root).expect("clean export fixture");
     }
 
     #[test]
@@ -3709,10 +4503,40 @@ mod tests {
             second.document.snapshot().serialize().expect("serialize"),
             "shared one"
         );
-        assert!(registry.claim_save(&path));
-        assert!(!registry.claim_save(&path));
-        registry.release_save(&path);
-        assert!(registry.claim_save(&path));
+        assert!(registry.claim_save(&path, &first.document));
+        assert!(!registry.claim_save(&path, &second.document));
+        assert!(registry.release_save(&path, &first.document));
+        assert!(registry.claim_save(&path, &second.document));
+    }
+
+    #[test]
+    fn stale_save_completion_cannot_update_a_replacement_session() {
+        let path = PathBuf::from("/tmp/mineral-replaced-save.md");
+        let mut registry = SessionRegistry::default();
+        let old = registry.attach(
+            path.clone(),
+            Document::from_markdown("old").expect("old document"),
+            test_identity(path.clone()),
+        );
+        assert!(registry.claim_save(&path, &old.document));
+
+        registry.sessions.remove(&path);
+        let replacement = registry.attach(
+            path.clone(),
+            Document::from_markdown("replacement").expect("replacement document"),
+            test_identity(path.clone()),
+        );
+        assert!(registry.claim_save(&path, &replacement.document));
+        let mut stale_identity = test_identity(path.clone());
+        stale_identity.length = 99;
+
+        assert!(!registry.mark_saved(&path, &old.document, Revision(17), stale_identity));
+        assert!(!registry.release_save(&path, &old.document));
+        assert!(!registry.claim_save(&path, &replacement.document));
+        let (identity, revision, dirty) = registry.status(&path).expect("replacement session");
+        assert_eq!(identity.length, 3);
+        assert_eq!(revision, Revision::default());
+        assert!(!dirty);
     }
 
     #[test]
@@ -3800,23 +4624,79 @@ mod tests {
     #[test]
     fn outline_completion_rejects_same_revision_from_a_new_document() {
         let revision = Revision(7);
+        let first = SharedDocumentSession::new(Document::from_markdown("one").unwrap());
+        let second = SharedDocumentSession::new(Document::from_markdown("two").unwrap());
+        let ticket = OutlineCompletionTicket {
+            request: 3,
+            session: first.id(),
+            epoch: 9,
+            revision,
+        };
+
         assert!(outline_completion_is_current(
-            3, 3, 9, 9, revision, revision
-        ));
-        assert!(!outline_completion_is_current(
-            3, 3, 10, 9, revision, revision
-        ));
-        assert!(!outline_completion_is_current(
-            4, 3, 9, 9, revision, revision
-        ));
-        assert!(!outline_completion_is_current(
             3,
-            3,
-            9,
+            first.id(),
             9,
             revision,
-            Revision(8)
+            revision,
+            &ticket
         ));
+        assert!(!outline_completion_is_current(
+            3,
+            second.id(),
+            9,
+            revision,
+            revision,
+            &ticket
+        ));
+        assert!(!outline_completion_is_current(
+            3,
+            first.id(),
+            10,
+            revision,
+            revision,
+            &ticket
+        ));
+        assert!(!outline_completion_is_current(
+            4,
+            first.id(),
+            9,
+            revision,
+            revision,
+            &ticket
+        ));
+        assert!(!outline_completion_is_current(
+            3,
+            first.id(),
+            9,
+            revision,
+            Revision(8),
+            &ticket
+        ));
+    }
+
+    #[test]
+    fn document_completion_ticket_rejects_every_stale_dimension() {
+        let first = SharedDocumentSession::new(Document::from_markdown("one").unwrap());
+        let second = SharedDocumentSession::new(Document::from_markdown("two").unwrap());
+        let path = PathBuf::from("/tmp/ticket.md");
+        let ticket = DocumentCompletionTicket {
+            request: 4,
+            session: first.id(),
+            epoch: 8,
+            revision: Revision(12),
+            source_path: Some(path.clone()),
+        };
+        let current = |request, session, epoch, revision, path: Option<&std::path::Path>| {
+            document_completion_is_current(request, session, epoch, revision, path, &ticket)
+        };
+
+        assert!(current(4, first.id(), 8, Revision(12), Some(&path)));
+        assert!(!current(5, first.id(), 8, Revision(12), Some(&path)));
+        assert!(!current(4, second.id(), 8, Revision(12), Some(&path)));
+        assert!(!current(4, first.id(), 9, Revision(12), Some(&path)));
+        assert!(!current(4, first.id(), 8, Revision(13), Some(&path)));
+        assert!(!current(4, first.id(), 8, Revision(12), None));
     }
 
     #[test]
@@ -3828,9 +4708,21 @@ mod tests {
 
     #[test]
     fn navigation_split_keeps_both_scroll_regions_usable() {
-        assert_eq!(clamp_navigation_split(0.1), 0.25);
+        assert_eq!(clamp_navigation_split(-0.1), 0.);
         assert_eq!(clamp_navigation_split(0.6), 0.6);
-        assert_eq!(clamp_navigation_split(0.95), 0.75);
+        assert_eq!(clamp_navigation_split(1.5), 1.);
+        assert_eq!(clamp_navigation_split(f32::NAN), 1.);
+        for available in [296., 600., 1200.] {
+            for count in [0, 1, 3, 30, 1000] {
+                let height = navigation_outline_height(available, count, 1.);
+                assert!(available - height - 12. >= NAVIGATION_FILES_MIN_HEIGHT);
+                let natural =
+                    NAVIGATION_SECTION_HEADER + count.max(1) as f32 * NAVIGATION_ROW_HEIGHT;
+                if natural + NAVIGATION_FILES_MIN_HEIGHT + 12. <= available {
+                    assert_eq!(height, natural);
+                }
+            }
+        }
     }
 
     #[test]

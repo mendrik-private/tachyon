@@ -24,10 +24,15 @@ document-core.workspace = true
 gpui.workspace = true
 gpui-component.workspace = true
 latex-rust.workspace = true
+mermaid-rs-renderer.workspace = true
+usvg.workspace = true
 rustc-hash.workspace = true
 serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 smallvec.workspace = true
 thiserror.workspace = true
+unicode-bidi.workspace = true
+unicode-linebreak.workspace = true
 unicode-segmentation.workspace = true
 
 [dev-dependencies]

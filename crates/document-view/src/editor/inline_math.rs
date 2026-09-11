@@ -1,13 +1,44 @@
-//! Source-indexed inline math. Geometry is prepared offscreen; paint only
-//! substitutes measured advances and uses retained, inert formula images.
+//! Source-indexed inline attachments: formulas and superscript note references.
+//! Both share wrapping and the original UTF-8 caret/selection map.
 use super::*;
 
 #[derive(Clone)]
 pub(super) struct Attachment {
     pub range: Range<usize>,
-    pub light: Arc<crate::math::Formula>,
-    pub dark: Arc<crate::math::Formula>,
+    pub content: Content,
     pub x: f32,
+}
+
+#[derive(Clone)]
+pub(super) enum Content {
+    Formula {
+        light: Arc<crate::math::Formula>,
+        dark: Arc<crate::math::Formula>,
+    },
+    Reference {
+        number: usize,
+        label: String,
+        advance_em: f32,
+    },
+}
+
+impl Attachment {
+    fn advance(&self, font_size: f32) -> f32 {
+        match &self.content {
+            Content::Formula { light, .. } => {
+                light.width * font_size / crate::math::EM + font_size * (2. / 9.)
+            }
+            Content::Reference { advance_em, .. } => advance_em * font_size,
+        }
+    }
+
+    #[cfg(test)]
+    fn formula(&self) -> &crate::math::Formula {
+        match &self.content {
+            Content::Formula { light, .. } => light,
+            _ => panic!("expected formula"),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -33,6 +64,22 @@ pub(super) fn has_math(projection: &TextProjection, node: NodeId) -> bool {
         })
 }
 
+pub(super) fn has_attachments(projection: &TextProjection, node: NodeId) -> bool {
+    projection
+        .block(node)
+        .and_then(BlockNode::text)
+        .is_some_and(|text| {
+            text.runs().iter().any(|run| {
+                run.styles.iter().any(|style| {
+                    matches!(
+                        style,
+                        InlineStyle::Math { .. } | InlineStyle::FootnoteReference(_)
+                    )
+                })
+            })
+        })
+}
+
 pub(super) fn layout(
     projection: &TextProjection,
     segment: &crate::ProjectionSegment,
@@ -41,50 +88,56 @@ pub(super) fn layout(
     font_size: f32,
     measurement: &FontMeasurement,
 ) -> Option<Vec<InlineLine>> {
-    if projection.math_edit_node == Some(segment.node_id)
-        || range.len() > 16 * 1024
-        || range.is_empty()
-    {
+    if range.len() > 16 * 1024 || range.is_empty() {
         return None;
     }
     let rich = projection.block(segment.node_id)?.text()?;
-    // The current glyph mapper is logical-LTR. Preserve the canonical native
-    // text fallback until mixed-direction inline-object ordering is supported.
-    if projection.text()[range.clone()].chars().any(|ch| matches!(ch, '\u{0590}'..='\u{08ff}' | '\u{fb1d}'..='\u{fdff}' | '\u{fe70}'..='\u{fefc}')) {
-        return None;
-    }
+    let has_rtl = projection.text()[range.clone()].chars().any(is_rtl_char);
     let mut attachments = Vec::new();
     let factor = font_size / crate::math::EM;
     for run in rich.runs() {
-        if !run
-            .styles
-            .iter()
-            .any(|style| matches!(style, InlineStyle::Math { .. }))
-        {
-            continue;
-        }
         if run.range.start < segment.node_range.start || run.range.end > segment.node_range.end {
             continue;
         }
-        let source_range = segment.projection_range.start + run.range.start
-            - segment.node_range.start
-            ..segment.projection_range.start + run.range.end - segment.node_range.start;
+        let source_range = segment.projection_start() + run.range.start - segment.node_range.start
+            ..segment.projection_start() + run.range.end - segment.node_range.start;
         if source_range.start < range.start || source_range.end > range.end {
             continue;
         }
-        let source = &projection.text()[source_range.clone()];
-        let Ok(light) = crate::math::inline_formula(source, MineralPalette::for_dark(false).text)
-        else {
+        let content = if let Some(note) = run.styles.iter().find_map(|style| match style {
+            InlineStyle::FootnoteReference(label) => projection.footnotes.label(label),
+            _ => None,
+        }) {
+            let number = note.number?;
+            Content::Reference {
+                number,
+                label: note.label.clone(),
+                advance_em: measurement.footnote_advance(number, font_size) / font_size,
+            }
+        } else if projection.preview_edit_node != Some(segment.node_id)
+            && run
+                .styles
+                .iter()
+                .any(|style| matches!(style, InlineStyle::Math { .. }))
+        {
+            let source = &projection.text()[source_range.clone()];
+            let Ok(light) =
+                crate::math::inline_formula(source, MineralPalette::for_dark(false).text)
+            else {
+                continue;
+            };
+            if light.width * factor + font_size * (2. / 9.) > width {
+                continue;
+            }
+            let dark =
+                crate::math::inline_formula(source, MineralPalette::for_dark(true).text).ok()?;
+            Content::Formula { light, dark }
+        } else {
             continue;
         };
-        if light.width * factor + font_size * (2. / 9.) > width {
-            continue;
-        }
-        let dark = crate::math::inline_formula(source, MineralPalette::for_dark(true).text).ok()?;
         attachments.push(Attachment {
             range: source_range,
-            light,
-            dark,
+            content,
             x: 0.,
         });
         if attachments.len() > 64 {
@@ -96,11 +149,63 @@ pub(super) fn layout(
     }
     let raw = measurement.shape_unwrapped(projection, range.clone(), font_size)?;
     let composed = compose(raw, &range, &attachments, font_size);
-    let text = &projection.text()[range.clone()];
-    let is_inside_formula = |offset: usize| {
-        attachments
+    if has_rtl {
+        // GPUI's public source-index mapper is logical-LTR even though the
+        // Linux shaper paints bidi runs in visual order. A formula is safe to
+        // substitute when it belongs to the leading LTR portion, every RTL
+        // character follows all attachments, the shaper confirms that source
+        // spans do not cross visually, and the paragraph needs no wrapping.
+        // Other bidi arrangements retain canonical source rendering.
+        let first_rtl = projection.text()[range.clone()]
+            .char_indices()
+            .find_map(|(offset, ch)| is_rtl_char(ch).then_some(range.start + offset))?;
+        let leading = &projection.text()[range.start..first_rtl];
+        if attachments
             .iter()
-            .any(|a| a.range.start < offset && offset < a.range.end)
+            .any(|attachment| attachment.range.end > first_rtl)
+            || !leading.chars().any(|ch| ch.is_ascii_alphabetic())
+            || !attachments_follow_visual_source_order(&composed, &range, &attachments)
+            || f32::from(composed.width()) > width + 0.01
+        {
+            return None;
+        }
+        let mut line_attachments = attachments;
+        for attachment in &mut line_attachments {
+            attachment.x = f32::from(composed.x_for_index(attachment.range.start - range.start));
+            attachment.range =
+                attachment.range.start - range.start..attachment.range.end - range.start;
+        }
+        return Some(vec![InlineLine {
+            range,
+            attachments: line_attachments,
+            font_size,
+            width: composed.width().into(),
+            ascent: composed.ascent.into(),
+            descent: composed.descent.into(),
+        }]);
+    }
+    let text = &projection.text()[range.clone()];
+    let protected = attachments
+        .iter()
+        .map(|attachment| {
+            let start = if matches!(attachment.content, Content::Reference { .. }) {
+                let preceding = &projection.text()[range.start..attachment.range.start];
+                range.start
+                    + preceding
+                        .char_indices()
+                        .rev()
+                        .find(|(_, ch)| ch.is_whitespace())
+                        .map_or(0, |(offset, ch)| offset + ch.len_utf8())
+            } else {
+                attachment.range.start
+            };
+            start..attachment.range.end
+        })
+        .collect::<Vec<_>>();
+    let is_inside_formula = |offset: usize| {
+        protected
+            .iter()
+            .any(|span| span.start < offset && offset < span.end)
     };
     let mut boundaries = text
         .grapheme_indices(true)
@@ -114,8 +219,14 @@ pub(super) fn layout(
         .filter(|i| !is_inside_formula(*i))
         .collect::<HashSet<_>>();
     for attachment in &attachments {
-        soft.insert(attachment.range.start);
-        soft.insert(attachment.range.end);
+        if matches!(attachment.content, Content::Formula { .. })
+            && !is_inside_formula(attachment.range.start)
+        {
+            soft.insert(attachment.range.start);
+        }
+        if !is_inside_formula(attachment.range.end) {
+            soft.insert(attachment.range.end);
+        }
     }
     let mut output = Vec::new();
     let mut first = 0;
@@ -168,6 +279,32 @@ pub(super) fn layout(
     Some(output)
 }
 
+fn is_rtl_char(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{0590}'..='\u{08ff}' | '\u{fb1d}'..='\u{fdff}' | '\u{fe70}'..='\u{fefc}'
+    )
+}
+
+fn attachments_follow_visual_source_order(
+    line: &ShapedLine,
+    range: &Range<usize>,
+    attachments: &[Attachment],
+) -> bool {
+    attachments.iter().all(|attachment| {
+        let start = attachment.range.start - range.start;
+        let end = attachment.range.end - range.start;
+        let start_x = f32::from(line.x_for_index(start));
+        let end_x = f32::from(line.x_for_index(end));
+        end_x > start_x
+            && line.runs.iter().flat_map(|run| &run.glyphs).all(|glyph| {
+                let x = f32::from(glyph.position.x);
+                (glyph.index >= start || x <= start_x + 0.5)
+                    && (glyph.index < end || x >= end_x - 0.5)
+            })
+    })
+}
+
 /// Keep every canonical glyph index, including indices inside TeX. Invisible
 /// source glyph advances occupy the formula's measured box, so native caret,
 /// selection and hit testing continue to speak original UTF-8 byte offsets.
@@ -188,12 +325,7 @@ pub(super) fn compose(
             let end = attachment.range.end - range.start;
             let x = f32::from(line.x_for_index(start));
             let old_width = f32::from(line.x_for_index(end)) - x;
-            (
-                start..end,
-                x,
-                old_width,
-                attachment.light.width * factor + font_size * (2. / 9.),
-            )
+            (start..end, x, old_width, attachment.advance(font_size))
         })
         .collect::<Vec<_>>();
     let mut runs = line.runs.clone();
@@ -221,11 +353,17 @@ pub(super) fn compose(
     }
     let ascent = attachments
         .iter()
-        .map(|a| a.light.baseline * factor)
+        .filter_map(|a| match &a.content {
+            Content::Formula { light, .. } => Some(light.baseline * factor),
+            _ => None,
+        })
         .fold(f32::from(line.ascent), f32::max);
     let descent = attachments
         .iter()
-        .map(|a| (a.light.height - a.light.baseline) * factor)
+        .filter_map(|a| match &a.content {
+            Content::Formula { light, .. } => Some((light.height - light.baseline) * factor),
+            _ => None,
+        })
         .fold(f32::from(line.descent), f32::max);
     let width = f32::from(line.width())
         + spans
@@ -301,7 +439,7 @@ mod tests {
                     .iter()
                     .find_map(|line| line.inline_math.clone())
                     .unwrap();
-                let old_image = old.attachments[0].light.image.id;
+                let old_image = old.attachments[0].formula().image.id;
                 editor.replace_range(0..0, "Prefix ", true, window, cx);
                 let line = editor
                     .visual_lines
@@ -309,21 +447,26 @@ mod tests {
                     .find(|line| line.inline_math.is_some())
                     .unwrap();
                 let retained = line.inline_math.as_ref().unwrap();
-                assert_eq!(old_image, retained.attachments[0].light.image.id);
+                assert_eq!(old_image, retained.attachments[0].formula().image.id);
                 let raw = editor
                     .measurement
-                    .shape_unwrapped(&editor.projection, line.range.clone(), line.style.font_size)
+                    .shape_unwrapped(
+                        &editor.projection,
+                        line.projected_range(),
+                        line.style.font_size,
+                    )
                     .unwrap();
                 let shaped = compose(
                     raw,
-                    &(0..line.range.len()),
+                    &(0..line.projected_range().len()),
                     &retained.attachments,
                     line.style.font_size,
                 );
-                assert_eq!(shaped.len(), line.range.len());
+                assert_eq!(shaped.len(), line.projected_range().len());
                 assert_eq!(
-                    &editor.projection.text()[line.range.start + retained.attachments[0].range.start
-                        ..line.range.start + retained.attachments[0].range.end],
+                    &editor.projection.text()[line.projected_start()
+                        + retained.attachments[0].range.start
+                        ..line.projected_start() + retained.attachments[0].range.end],
                     "x^2"
                 );
                 editor.undo(&Undo, window, cx);
@@ -373,7 +516,7 @@ mod tests {
                 let lines = layout(
                     &projection,
                     segment,
-                    segment.projection_range.clone(),
+                    segment.projection_range(),
                     width,
                     18.,
                     &measurement,
@@ -381,12 +524,9 @@ mod tests {
                 .unwrap();
                 assert_eq!(
                     lines.first().unwrap().range.start,
-                    segment.projection_range.start
+                    segment.projection_start()
                 );
-                assert_eq!(
-                    lines.last().unwrap().range.end,
-                    segment.projection_range.end
-                );
+                assert_eq!(lines.last().unwrap().range.end, segment.projection_end());
                 assert!(
                     lines
                         .windows(2)
@@ -404,7 +544,7 @@ mod tests {
                     for attachment in &line.attachments {
                         assert!(attachment.range.end <= line.range.len());
                         assert!(
-                            attachment.light.height * 18. / crate::math::EM
+                            attachment.formula().height * 18. / crate::math::EM
                                 <= line.ascent + line.descent
                         );
                     }
@@ -429,6 +569,119 @@ mod tests {
     }
 
     #[gpui::test]
+    fn leading_ltr_math_can_render_before_an_unwrapped_rtl_suffix(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let safe = "# Mixed\n\nEnergy $E=mc^2$ — شرح عربي ثم עברית.\n";
+            let document = Document::from_markdown(safe).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[1];
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let lines = layout(
+                &projection,
+                segment,
+                segment.projection_range(),
+                1200.,
+                18.,
+                &measurement,
+            )
+            .expect("a leading LTR formula with a trailing RTL run is visually ordered");
+            assert_eq!(lines.len(), 1);
+            assert_eq!(lines[0].attachments.len(), 1);
+            let formula = &lines[0].attachments[0];
+            assert_eq!(
+                &projection.text()[lines[0].range.start + formula.range.start
+                    ..lines[0].range.start + formula.range.end],
+                "E=mc^2"
+            );
+            assert_eq!(document.snapshot().serialize().unwrap(), safe);
+
+            assert!(
+                layout(
+                    &projection,
+                    segment,
+                    segment.projection_range(),
+                    120.,
+                    18.,
+                    &measurement,
+                )
+                .is_none(),
+                "mixed-direction paragraphs that require wrapping retain source rendering"
+            );
+
+            let unsafe_source = "# Mixed\n\nالنص قبل $x^2$ and after.\n";
+            let unsafe_document = Document::from_markdown(unsafe_source).unwrap();
+            let unsafe_projection = TextProjection::from_snapshot(&unsafe_document.snapshot());
+            let unsafe_segment = &unsafe_projection.segments()[1];
+            assert!(
+                layout(
+                    &unsafe_projection,
+                    unsafe_segment,
+                    unsafe_segment.projection_range(),
+                    1200.,
+                    18.,
+                    &measurement,
+                )
+                .is_none(),
+                "RTL-leading formulas retain source until caret mapping is bidirectional"
+            );
+            assert_eq!(
+                unsafe_document.snapshot().serialize().unwrap(),
+                unsafe_source
+            );
+        });
+    }
+
+    #[gpui::test]
+    fn mixed_direction_formula_reveals_source_for_edit_and_undo(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_editor);
+        let source = "# Mixed\n\nEnergy $E=mc^2$ — شرح عربي ثم עברית.\n\nAfter.\n";
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        let cx: &mut gpui::VisualTestContext = cx;
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.refresh_projection();
+                assert!(
+                    editor
+                        .visual_lines
+                        .iter()
+                        .any(|line| line.inline_math.is_some())
+                );
+                let offset = editor.projection.text().find("E=mc^2").unwrap() + 1;
+                editor.move_to(offset, window, cx);
+                assert!(
+                    !editor
+                        .visual_lines
+                        .iter()
+                        .any(|line| line.inline_math.is_some()),
+                    "editing reveals canonical formula source for the whole paragraph"
+                );
+                editor.replace_range(offset..offset, "0", true, window, cx);
+                assert!(
+                    editor
+                        .document
+                        .snapshot()
+                        .serialize()
+                        .unwrap()
+                        .contains("$E0=mc^2$")
+                );
+                editor.undo(&Undo, window, cx);
+                assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
+                editor.move_to(0, window, cx);
+                assert!(
+                    editor
+                        .visual_lines
+                        .iter()
+                        .any(|line| line.inline_math.is_some())
+                );
+                assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
+            });
+        });
+    }
+
+    #[gpui::test]
     fn editing_math_uses_canonical_source_and_leaves_other_paragraphs_rendered(
         cx: &mut gpui::TestAppContext,
     ) {
@@ -445,14 +698,14 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
                 FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
-            assert_eq!(projection.math_edit_node, Some(node));
+            assert_eq!(projection.preview_edit_node, Some(node));
             let first = &projection.segments()[1];
             let second = &projection.segments()[2];
             assert!(
                 layout(
                     &projection,
                     first,
-                    first.projection_range.clone(),
+                    first.projection_range(),
                     760.,
                     18.,
                     &measurement
@@ -463,7 +716,7 @@ mod tests {
                 layout(
                     &projection,
                     second,
-                    second.projection_range.clone(),
+                    second.projection_range(),
                     760.,
                     18.,
                     &measurement

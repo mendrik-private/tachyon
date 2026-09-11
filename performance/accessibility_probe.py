@@ -5,6 +5,8 @@ capture harness owns a separate D-Bus process group and passes its environment
 to both the app and this /usr/bin/python3 GI client.
 """
 from contextlib import contextmanager
+from collections import deque
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -101,7 +103,7 @@ def _private_bus(environment, config, enabled):
         bus.stdout.close()
 
 
-def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
+def atspi_target(pid):
     private_address = os.environ.get("MINERAL_PRIVATE_ATSPI_BUS")
     if not private_address or os.environ.get("DBUS_SESSION_BUS_ADDRESS") != private_address:
         raise RuntimeError("Accessibility probes require the harness-owned private session bus")
@@ -124,12 +126,121 @@ def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
             raise RuntimeError("Mineral did not publish an AT-SPI application tree")
         if target is None:
             time.sleep(0.05)
+    return Atspi, target
+
+
+def _sample_identity(node):
+    node.clear_cache()
+    name = node.get_name() or ""
+    return {
+        "path": node.path,
+        "role": node.get_role_name(),
+        "name_length": len(name),
+        "name_sha256": hashlib.sha256(name.encode()).hexdigest(),
+        "name_prefix": name[:80],
+        "name_suffix": name[-80:] if len(name) > 80 else "",
+        "child_count": node.get_child_count(),
+    }
+
+
+def _sample_branch(node, depth=2):
+    record = _sample_identity(node)
+    count = record["child_count"]
+    if depth and count:
+        indexes = sorted({0, count // 2, count - 1})
+        record["children"] = [
+            {"index": index, **_sample_branch(node.get_child_at_index(index), depth - 1)}
+            for index in indexes
+        ]
+    return record
+
+
+def activation_sample(pid, expected_document_children=None):
+    """Bound activation cost while sampling semantics across the full document."""
+    started = time.monotonic()
+    _, target = atspi_target(pid)
+    pending = deque([target])
+    inspected = 0
+    editor = None
+    while pending and inspected < 512:
+        node = pending.popleft()
+        inspected += 1
+        if node.get_role_name() == "entry" and node.get_name() == "Markdown document editor":
+            editor = node
+            break
+        for index in range(node.get_child_count()):
+            pending.append(node.get_child_at_index(index))
+    if editor is None:
+        raise RuntimeError("Bounded activation probe did not find the document editor")
+
+    documents = []
+    for index in range(editor.get_child_count()):
+        child = editor.get_child_at_index(index)
+        if child.get_role_name() == "document frame":
+            documents.append(child)
+    if len(documents) != 1:
+        raise RuntimeError(f"Expected one accessible document, found {len(documents)}")
+    document = documents[0]
+    child_count = document.get_child_count()
+    indexes = {0, 1, 2, child_count // 2, child_count - 1}
+    expected_roles = {}
+    sections = None
+    if expected_document_children is not None:
+        if expected_document_children < 37 or (expected_document_children - 4) % 33:
+            raise RuntimeError("Expected generated-document child count is invalid")
+        sections = (expected_document_children - 4) // 33
+        roles = {0: "heading", 3: "image", 12: "list", 14: "table",
+                 16: "static", 32: "paragraph"}
+        for section in sorted({0, sections // 2, sections - 1}):
+            base = 3 + section * 33
+            for offset, role in roles.items():
+                index = base + offset
+                indexes.add(index)
+                expected_roles[index] = role
+    indexes = sorted(index for index in indexes if 0 <= index < child_count)
+    samples = []
+    role_matches = True
+    paths = set()
+    for index in indexes:
+        sample = {"index": index, **_sample_branch(document.get_child_at_index(index))}
+        expected_role = expected_roles.get(index)
+        if expected_role is not None:
+            sample["expected_role"] = expected_role
+            sample["role_matches"] = sample["role"] == expected_role
+            role_matches = role_matches and sample["role_matches"]
+        paths.add(sample["path"])
+        samples.append(sample)
+    expected_matches = (
+        expected_document_children is None
+        or child_count == expected_document_children
+    )
+    return {
+        "mode": "bounded_activation_sample",
+        "passes": bool(child_count and len(paths) == len(samples)
+                       and expected_matches and role_matches),
+        "probe_seconds": time.monotonic() - started,
+        "shell_nodes_inspected": inspected,
+        "editor": _sample_identity(editor),
+        "document": _sample_identity(document),
+        "document_child_count": child_count,
+        "expected_document_child_count": expected_document_children,
+        "expected_generated_sections": sections,
+        "sampled_direct_children": len(samples),
+        "sampled_direct_indexes": indexes,
+        "representative_roles_match": role_matches,
+        "samples": samples,
+    }
+
+
+def snapshot(pid, exercise=False, toggle_html_name=None, exercise_gallery=False,
+             exercise_math_scroll=False, scroll_to_name=None):
+    Atspi, target = atspi_target(pid)
 
     nodes = []
     objects = {}
 
-    def extents(node):
-        rect = node.get_component_iface().get_extents(Atspi.CoordType.WINDOW)
+    def extents(node, coordinate_type=Atspi.CoordType.WINDOW):
+        rect = node.get_component_iface().get_extents(coordinate_type)
         return dict(x=rect.x, y=rect.y, width=rect.width, height=rect.height)
 
     def visit(node, parent, depth):
@@ -142,6 +253,7 @@ def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
         actions = node.get_action_iface()
         record = {
             "parent": parent, "role": node.get_role_name(), "name": node.get_name(),
+            "description": node.get_description(),
             "path": node.path,
             "interfaces": list(node.get_interfaces()),
             "attributes": dict(node.get_attributes() or {}),
@@ -150,6 +262,19 @@ def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
         }
         if node.get_component_iface():
             record["bounds"] = extents(node)
+            record["screen_bounds"] = extents(node, Atspi.CoordType.SCREEN)
+        text = node.get_text_iface()
+        if text:
+            try:
+                record["caret_offset"] = text.get_caret_offset()
+                record["character_count"] = text.get_character_count()
+                record["selection_count"] = text.get_n_selections()
+            except Exception as error:
+                raise RuntimeError(
+                    "AT-SPI Text read failed for "
+                    f"{record['role']} {record['name']!r} at {record['path']} "
+                    f"with interfaces {record['interfaces']}: {error}"
+                ) from error
         objects[node.path] = node
         nodes.append(record)
         for i in range(node.get_child_count()):
@@ -157,6 +282,65 @@ def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
 
     stable_traversal(visit, target, nodes, objects)
     result = {"nodes": nodes}
+    if scroll_to_name is not None:
+        matches = [record for record in nodes
+                   if record["role"] == "heading" and record["name"] == scroll_to_name]
+        if len(matches) != 1:
+            raise RuntimeError(
+                f"Expected one accessible node named {scroll_to_name!r}, found {len(matches)}"
+            )
+        record = matches[0]
+        component = objects[record["path"]].get_component_iface()
+        if component is None or not component.scroll_to(Atspi.ScrollType.TOP_EDGE):
+            raise RuntimeError(f"Accessible node {scroll_to_name!r} could not scroll to the top edge")
+        viewport = next(node["bounds"] for node in nodes
+                        if node["name"] == "Markdown document editor")
+        deadline = time.monotonic() + 5
+        while True:
+            after = extents(objects[record["path"]])
+            if (viewport["y"] <= after["y"]
+                    and after["y"] + after["height"] <= viewport["y"] + viewport["height"]):
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"Accessible node {scroll_to_name!r} did not become visible: "
+                    f"{after!r} versus {viewport!r}"
+                )
+            time.sleep(0.05)
+        result["scroll_to"] = dict(name=scroll_to_name, path=record["path"],
+                                   before=record["bounds"], after=after, viewport=viewport)
+    if exercise_math_scroll:
+        formula = next(
+            record for record in nodes
+            if record["role"] == "math"
+            and record["name"].startswith("a_{1}+a_{2}+a_{3}")
+        )
+        value = objects[formula["path"]].get_value_iface()
+        if value is None:
+            raise RuntimeError("Overflowing formula has no native value interface")
+        before = value.get_current_value()
+        maximum = value.get_maximum_value()
+        if before != 0 or maximum <= 0:
+            raise RuntimeError(
+                f"Invalid initial formula scroll range: current={before}, maximum={maximum}"
+            )
+        if not value.set_current_value(maximum):
+            raise RuntimeError("Native formula scroll value change was rejected")
+        deadline = time.monotonic() + 5
+        while True:
+            objects[formula["path"]].clear_cache()
+            after = value.get_current_value()
+            if abs(after - maximum) <= 1:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"Formula viewport did not reach its accessible maximum: {after} / {maximum}"
+                )
+            time.sleep(0.05)
+        result["math_scroll"] = dict(
+            path=formula["path"], before=before, after=after,
+            maximum=maximum, value_interface=True, passes=True,
+        )
     if exercise_gallery:
         images = [node for node in nodes if node["role"] == "image"]
         expected = ["Linked landscape description", "Unlinked landscape description"]
@@ -194,9 +378,9 @@ def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
                                  destination_before=heading["bounds"], destination_after=after,
                                  identities_retained=all(objects[node["path"]].get_name() == node["name"]
                                                          for node in images), passes=True)
-    if toggle_html:
+    if toggle_html_name is not None:
         summary = next(record for record in nodes
-                       if record["role"] == "button" and record["name"] == "Closed HTML disclosure")
+                       if record["role"] == "button" and record["name"] == toggle_html_name)
         action = objects[summary["path"]].get_action_iface()
         from gi.repository import GLib
         events = []
@@ -269,6 +453,23 @@ def snapshot(pid, exercise=False, toggle_html=False, exercise_gallery=False):
 
 
 if __name__ == "__main__":
-    print(json.dumps(snapshot(int(sys.argv[1]), exercise="--exercise" in sys.argv[2:],
-                              toggle_html="--toggle-html" in sys.argv[2:],
-                              exercise_gallery="--exercise-gallery" in sys.argv[2:])))
+    scroll_to_name = next((argument.split("=", 1)[1] for argument in sys.argv[2:]
+                           if argument.startswith("--scroll-to-name=")), None)
+    toggle_html_name = next((argument.split("=", 1)[1] for argument in sys.argv[2:]
+                             if argument.startswith("--toggle-html-name=")), None)
+    if "--toggle-html" in sys.argv[2:]:
+        toggle_html_name = "Closed HTML disclosure"
+    expected_children = next(
+        (int(argument.split("=", 1)[1]) for argument in sys.argv[2:]
+         if argument.startswith("--expected-document-children=")),
+        None,
+    )
+    if "--activation-sample" in sys.argv[2:]:
+        result = activation_sample(int(sys.argv[1]), expected_children)
+    else:
+        result = snapshot(int(sys.argv[1]), exercise="--exercise" in sys.argv[2:],
+                          toggle_html_name=toggle_html_name,
+                          exercise_gallery="--exercise-gallery" in sys.argv[2:],
+                          exercise_math_scroll="--exercise-math-scroll" in sys.argv[2:],
+                          scroll_to_name=scroll_to_name)
+    print(json.dumps(result))

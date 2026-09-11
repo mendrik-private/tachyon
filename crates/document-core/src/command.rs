@@ -106,6 +106,10 @@ pub enum EditCommand {
     DeleteBlock {
         node_id: NodeId,
     },
+    MoveBlock {
+        from: usize,
+        to: usize,
+    },
     ConvertHtmlToMarkdown {
         node_id: NodeId,
     },
@@ -138,6 +142,10 @@ pub enum EditCommand {
         table_id: NodeId,
         index: usize,
     },
+    DuplicateTableRow {
+        table_id: NodeId,
+        index: usize,
+    },
     MoveTableRow {
         table_id: NodeId,
         from: usize,
@@ -148,6 +156,10 @@ pub enum EditCommand {
         index: usize,
     },
     DeleteTableColumn {
+        table_id: NodeId,
+        index: usize,
+    },
+    DuplicateTableColumn {
         table_id: NodeId,
         index: usize,
     },
@@ -169,6 +181,11 @@ pub enum EditCommand {
     SetTableBorder {
         table_id: NodeId,
         border: TableBorder,
+    },
+    ClearTableCell {
+        table_id: NodeId,
+        row: usize,
+        column: usize,
     },
     PasteTsv {
         table_id: NodeId,
@@ -296,7 +313,7 @@ pub struct TransactionResult {
     pub selection: Selection,
     pub inverse_operations: Vec<InverseOperation>,
     pub dirty_node_ids: BTreeSet<NodeId>,
-    /// One paragraph, heading or code node changed without changing tree
+    /// One paragraph, heading, code, or image-alt node changed without changing tree
     /// structure. Ancestor IDs may also be dirty; consumers must not infer
     /// this property from the number of dirty IDs.
     pub text_changed_node: Option<NodeId>,

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    BlockNode, BlockSequence, ColumnAlignment, ColumnSpec, DocumentError, NodeId, Paragraph,
-    RichText, Table, TableCell, TableRow,
+    BlockNode, BlockSequence, CodeBlock, ColumnAlignment, ColumnSpec, DocumentError, Heading,
+    ImageNode, ListBlock, ListItem, NodeId, Paragraph, RichText, Table, TableCell, TableRow,
 };
 
 impl Table {
@@ -19,7 +19,7 @@ impl Table {
             columns,
             rows,
             header_rows: 1,
-            border: crate::TableBorder::Dotted,
+            border: crate::TableBorder::default(),
             preserved_metadata: Arc::from([]),
         }
     }
@@ -64,6 +64,24 @@ impl Table {
         }
         rows.remove(index);
         self.header_rows = self.header_rows.min(rows.len());
+        self.rows = rows.into();
+        Ok(())
+    }
+
+    pub(crate) fn duplicate_row(
+        &mut self,
+        index: usize,
+        mut allocate: impl FnMut() -> NodeId,
+    ) -> Result<(), DocumentError> {
+        let Some(source) = self.rows.get(index) else {
+            return Err(DocumentError::TableCoordinate {
+                row: index,
+                column: 0,
+            });
+        };
+        let duplicate = clone_row_with_ids(source, &mut allocate);
+        let mut rows = self.rows.to_vec();
+        rows.insert(index + 1, duplicate);
         self.rows = rows.into();
         Ok(())
     }
@@ -125,6 +143,51 @@ impl Table {
             row.cells = cells.into();
         }
         self.columns = columns.into();
+        self.rows = rows.into();
+        Ok(())
+    }
+
+    pub(crate) fn duplicate_column(
+        &mut self,
+        index: usize,
+        mut allocate: impl FnMut() -> NodeId,
+    ) -> Result<(), DocumentError> {
+        let Some(column) = self.columns.get(index).cloned() else {
+            return Err(DocumentError::TableCoordinate {
+                row: 0,
+                column: index,
+            });
+        };
+        let mut columns = self.columns.to_vec();
+        columns.insert(index + 1, column);
+        let mut rows = self.rows.to_vec();
+        for row in &mut rows {
+            let mut cells = row.cells.to_vec();
+            let duplicate = clone_cell_with_ids(&cells[index], &mut allocate);
+            cells.insert(index + 1, duplicate);
+            row.cells = cells.into();
+        }
+        self.columns = columns.into();
+        self.rows = rows.into();
+        Ok(())
+    }
+
+    pub(crate) fn clear_cell(
+        &mut self,
+        row: usize,
+        column: usize,
+        mut allocate: impl FnMut() -> NodeId,
+    ) -> Result<(), DocumentError> {
+        let mut rows = self.rows.to_vec();
+        let Some(target_row) = rows.get_mut(row) else {
+            return Err(DocumentError::TableCoordinate { row, column });
+        };
+        let mut cells = target_row.cells.to_vec();
+        let Some(cell) = cells.get_mut(column) else {
+            return Err(DocumentError::TableCoordinate { row, column });
+        };
+        cell.blocks = empty_cell_blocks(&mut allocate);
+        target_row.cells = cells.into();
         self.rows = rows.into();
         Ok(())
     }
@@ -228,17 +291,16 @@ impl Table {
 
     #[must_use]
     pub fn requires_html_serialization(&self) -> bool {
-        self.rows.iter().any(|row| {
-            row.cells.iter().any(|cell| {
-                cell.blocks.len() != 1
-                    || match cell.blocks.get(0).map(Arc::as_ref) {
-                        Some(BlockNode::Paragraph(paragraph)) => {
-                            paragraph.content.as_string().contains('\n')
-                        }
-                        _ => true,
-                    }
+        self.header_rows != 1
+            || self.rows.iter().any(|row| {
+                row.cells.iter().any(|cell| {
+                    cell.blocks.len() != 1
+                        || !matches!(
+                            cell.blocks.get(0).map(Arc::as_ref),
+                            Some(BlockNode::Paragraph(_))
+                        )
+                })
             })
-        })
     }
 }
 
@@ -253,13 +315,137 @@ fn empty_row(columns: usize, allocate: &mut impl FnMut() -> NodeId) -> TableRow 
 }
 
 fn empty_cell(allocate: &mut impl FnMut() -> NodeId) -> TableCell {
-    let cell_id = allocate();
-    let paragraph_id = allocate();
     TableCell {
-        id: cell_id,
-        blocks: BlockSequence::new(vec![Arc::new(BlockNode::Paragraph(Paragraph {
-            id: paragraph_id,
-            content: RichText::default(),
-        }))]),
+        id: allocate(),
+        blocks: empty_cell_blocks(allocate),
+    }
+}
+
+fn empty_cell_blocks(allocate: &mut impl FnMut() -> NodeId) -> BlockSequence {
+    BlockSequence::new(vec![Arc::new(BlockNode::Paragraph(Paragraph {
+        id: allocate(),
+        content: RichText::default(),
+    }))])
+}
+
+fn clone_row_with_ids(source: &TableRow, allocate: &mut impl FnMut() -> NodeId) -> TableRow {
+    TableRow {
+        id: allocate(),
+        cells: source
+            .cells
+            .iter()
+            .map(|cell| clone_cell_with_ids(cell, allocate))
+            .collect::<Vec<_>>()
+            .into(),
+    }
+}
+
+fn clone_cell_with_ids(source: &TableCell, allocate: &mut impl FnMut() -> NodeId) -> TableCell {
+    TableCell {
+        id: allocate(),
+        blocks: clone_blocks_with_ids(&source.blocks, allocate),
+    }
+}
+
+fn clone_blocks_with_ids(
+    source: &BlockSequence,
+    allocate: &mut impl FnMut() -> NodeId,
+) -> BlockSequence {
+    BlockSequence::new(
+        source
+            .iter()
+            .map(|block| Arc::new(clone_block_with_ids(block, allocate)))
+            .collect(),
+    )
+}
+
+fn clone_block_with_ids(block: &BlockNode, allocate: &mut impl FnMut() -> NodeId) -> BlockNode {
+    match block {
+        BlockNode::Paragraph(node) => BlockNode::Paragraph(Paragraph {
+            id: allocate(),
+            content: node.content.clone(),
+        }),
+        BlockNode::Heading(node) => BlockNode::Heading(Heading {
+            id: allocate(),
+            level: node.level,
+            content: node.content.clone(),
+        }),
+        BlockNode::List(node) => BlockNode::List(ListBlock {
+            id: allocate(),
+            kind: node.kind.clone(),
+            tight: node.tight,
+            items: node
+                .items
+                .iter()
+                .map(|item| ListItem {
+                    id: allocate(),
+                    checked: item.checked,
+                    blocks: clone_blocks_with_ids(&item.blocks, allocate),
+                })
+                .collect::<Vec<_>>()
+                .into(),
+        }),
+        BlockNode::BlockQuote { blocks, .. } => BlockNode::BlockQuote {
+            id: allocate(),
+            blocks: clone_blocks_with_ids(blocks, allocate),
+        },
+        BlockNode::Definition { kind, blocks, .. } => BlockNode::Definition {
+            id: allocate(),
+            kind: *kind,
+            blocks: clone_blocks_with_ids(blocks, allocate),
+        },
+        BlockNode::CodeBlock(node) => BlockNode::CodeBlock(CodeBlock {
+            id: allocate(),
+            language: node.language.clone(),
+            content: node.content.clone(),
+            syntax: node.syntax,
+        }),
+        BlockNode::Image(node) => BlockNode::Image(ImageNode {
+            id: allocate(),
+            source: node.source.clone(),
+            alt: node.alt.clone(),
+            title: node.title.clone(),
+            intrinsic_size: node.intrinsic_size,
+            link: node.link.clone(),
+        }),
+        BlockNode::Table(node) => BlockNode::Table(Table {
+            id: allocate(),
+            columns: node.columns.clone(),
+            rows: node
+                .rows
+                .iter()
+                .map(|row| clone_row_with_ids(row, allocate))
+                .collect::<Vec<_>>()
+                .into(),
+            header_rows: node.header_rows,
+            border: node.border,
+            preserved_metadata: node.preserved_metadata.clone(),
+        }),
+        BlockNode::Alert {
+            kind,
+            title,
+            blocks,
+            ..
+        } => BlockNode::Alert {
+            id: allocate(),
+            kind: kind.clone(),
+            title: title.clone(),
+            blocks: clone_blocks_with_ids(blocks, allocate),
+        },
+        BlockNode::FootnoteDefinition { label, blocks, .. } => BlockNode::FootnoteDefinition {
+            id: allocate(),
+            label: label.clone(),
+            blocks: clone_blocks_with_ids(blocks, allocate),
+        },
+        BlockNode::ThematicBreak { .. } => BlockNode::ThematicBreak { id: allocate() },
+        BlockNode::PreservedSource {
+            source,
+            description,
+            ..
+        } => BlockNode::PreservedSource {
+            id: allocate(),
+            source: source.clone(),
+            description: description.clone(),
+        },
     }
 }

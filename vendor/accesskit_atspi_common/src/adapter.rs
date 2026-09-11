@@ -9,11 +9,11 @@
 // found in the LICENSE.chromium file.
 
 use crate::{
-    AdapterCallback, Event, ObjectEvent, WindowEvent,
     context::{ActionHandlerNoMut, ActionHandlerWrapper, AppContext, Context},
     filters::filter,
     node::{NodeIdOrRoot, NodeWrapper, PlatformNode, PlatformRoot},
     util::WindowBounds,
+    AdapterCallback, Event, ObjectEvent, WindowEvent,
 };
 use accesskit::{ActionHandler, Role, TreeUpdate};
 use accesskit_consumer::{FilterResult, Node, NodeId, Tree, TreeChangeHandler, TreeState};
@@ -22,27 +22,150 @@ use std::fmt::{Debug, Formatter};
 use std::{
     collections::HashSet,
     sync::{
-        Arc, RwLock,
         atomic::{AtomicUsize, Ordering},
+        Arc, RwLock,
     },
 };
 
 struct AdapterChangeHandler<'a> {
     adapter: &'a Adapter,
+    coalesce_document_geometry: bool,
+    geometry_documents: HashSet<NodeId>,
     added_nodes: HashSet<NodeId>,
     removed_nodes: HashSet<NodeId>,
     checked_text_change: HashSet<NodeId>,
     selection_changed: HashSet<NodeId>,
+    text_documents_compared: usize,
 }
 
 impl<'a> AdapterChangeHandler<'a> {
-    fn new(adapter: &'a Adapter) -> Self {
+    const MAX_TEXT_EVENT_REPLACEMENT_BYTES: usize = 64 * 1024;
+    const RETAINED_DOCUMENT_TEXT_MARKER: &'static str = "Mineral retained document text";
+
+    fn first_text_run<'tree>(node: Node<'tree>) -> Option<Node<'tree>> {
+        if node.role() == Role::TextRun {
+            return Some(node);
+        }
+        for child in node.children() {
+            if let Some(run) = Self::first_text_run(child) {
+                return Some(run);
+            }
+        }
+        None
+    }
+
+    fn is_geometry_only_update(old_node: &Node, new_node: &Node) -> bool {
+        if old_node.role() != new_node.role() || old_node.data() == new_node.data() {
+            return false;
+        }
+
+        let mut old_data = old_node.data().clone();
+        let mut new_data = new_node.data().clone();
+        old_data.clear_bounds();
+        old_data.clear_transform();
+        new_data.clear_bounds();
+        new_data.clear_transform();
+        old_data == new_data
+    }
+
+    fn document_ancestor(mut node: Node<'_>) -> Option<NodeId> {
+        loop {
+            if node.role() == Role::Document {
+                return Some(node.id());
+            }
+            node = node.parent()?;
+        }
+    }
+
+    fn emit_text_difference(&self, id: NodeId, old_text: &str, new_text: &str) {
+        let mut prefix_byte_count = old_text
+            .as_bytes()
+            .iter()
+            .zip(new_text.as_bytes())
+            .take_while(|(old, new)| old == new)
+            .count();
+        while prefix_byte_count > 0
+            && (!old_text.is_char_boundary(prefix_byte_count)
+                || !new_text.is_char_boundary(prefix_byte_count))
+        {
+            prefix_byte_count -= 1;
+        }
+        if prefix_byte_count == old_text.len() && prefix_byte_count == new_text.len() {
+            return;
+        }
+
+        let max_suffix = (old_text.len() - prefix_byte_count)
+            .min(new_text.len() - prefix_byte_count);
+        let mut suffix_byte_count = old_text
+            .as_bytes()
+            .iter()
+            .rev()
+            .zip(new_text.as_bytes().iter().rev())
+            .take(max_suffix)
+            .take_while(|(old, new)| old == new)
+            .count();
+        while suffix_byte_count > 0
+            && (!old_text.is_char_boundary(old_text.len() - suffix_byte_count)
+                || !new_text.is_char_boundary(new_text.len() - suffix_byte_count))
+        {
+            suffix_byte_count -= 1;
+        }
+        let Ok(prefix_usv_count) = new_text[..prefix_byte_count].chars().count().try_into() else {
+            return;
+        };
+
+        let old_content = &old_text[prefix_byte_count..old_text.len() - suffix_byte_count];
+        if let Ok(length) = old_content.chars().count().try_into()
+            && length > 0
+        {
+            self.adapter.emit_object_event(
+                id,
+                ObjectEvent::TextRemoved {
+                    start_index: prefix_usv_count,
+                    length,
+                    content: old_content.to_string(),
+                },
+            );
+        }
+
+        let new_content = &new_text[prefix_byte_count..new_text.len() - suffix_byte_count];
+        if let Ok(length) = new_content.chars().count().try_into()
+            && length > 0
+        {
+            self.adapter.emit_object_event(
+                id,
+                ObjectEvent::TextInserted {
+                    start_index: prefix_usv_count,
+                    length,
+                    content: new_content.to_string(),
+                },
+            );
+        }
+    }
+
+    fn new(adapter: &'a Adapter, coalesce_document_geometry: bool) -> Self {
         Self {
             adapter,
+            coalesce_document_geometry,
+            geometry_documents: HashSet::new(),
             added_nodes: HashSet::new(),
             removed_nodes: HashSet::new(),
             checked_text_change: HashSet::new(),
             selection_changed: HashSet::new(),
+            text_documents_compared: 0,
+        }
+    }
+
+    fn emit_coalesced_geometry_changes(&self) {
+        if self.geometry_documents.is_empty() {
+            return;
+        }
+        let bounds = *self.adapter.context.read_root_window_bounds();
+        let tree = self.adapter.context.read_tree();
+        for id in &self.geometry_documents {
+            if let Some(node) = tree.state().node_by_id(*id) {
+                NodeWrapper(&node).notify_ancestor_bounds_change(&bounds, self.adapter);
+            }
         }
     }
 
@@ -117,7 +240,7 @@ impl<'a> AdapterChangeHandler<'a> {
     }
 
     fn emit_text_change_if_needed_parent(&mut self, old_node: &Node, new_node: &Node) {
-        if !new_node.supports_text_ranges() || !old_node.supports_text_ranges() {
+        if !NodeWrapper(new_node).supports_text() || !NodeWrapper(old_node).supports_text() {
             return;
         }
         let id = new_node.id();
@@ -125,58 +248,31 @@ impl<'a> AdapterChangeHandler<'a> {
             return;
         }
         self.checked_text_change.insert(id);
+        if let (Some(old_run), Some(new_run)) = (
+            Self::first_text_run(*old_node),
+            Self::first_text_run(*new_node),
+        ) {
+            let old_text = old_run.data().value().unwrap_or_default();
+            let new_text = new_run.data().value().unwrap_or_default();
+            if old_run.data().label() == Some(Self::RETAINED_DOCUMENT_TEXT_MARKER)
+                && new_run.data().label() == Some(Self::RETAINED_DOCUMENT_TEXT_MARKER)
+            {
+                if old_text.len().abs_diff(new_text.len())
+                    <= Self::MAX_TEXT_EVENT_REPLACEMENT_BYTES
+                {
+                    self.emit_text_difference(id, old_text, new_text);
+                }
+                return;
+            }
+            if old_text.len().abs_diff(new_text.len()) > Self::MAX_TEXT_EVENT_REPLACEMENT_BYTES {
+                return;
+            }
+        }
+        self.text_documents_compared += 1;
         let old_text = old_node.document_range().text();
         let new_text = new_node.document_range().text();
 
-        let mut old_chars = old_text.chars();
-        let mut new_chars = new_text.chars();
-        let mut prefix_usv_count = 0;
-        let mut prefix_byte_count = 0;
-        loop {
-            match (old_chars.next(), new_chars.next()) {
-                (Some(old_char), Some(new_char)) if old_char == new_char => {
-                    prefix_usv_count += 1;
-                    prefix_byte_count += new_char.len_utf8();
-                }
-                (None, None) => return,
-                _ => break,
-            }
-        }
-
-        let suffix_byte_count = old_text[prefix_byte_count..]
-            .chars()
-            .rev()
-            .zip(new_text[prefix_byte_count..].chars().rev())
-            .take_while(|(old_char, new_char)| old_char == new_char)
-            .fold(0, |count, (c, _)| count + c.len_utf8());
-
-        let old_content = &old_text[prefix_byte_count..old_text.len() - suffix_byte_count];
-        if let Ok(length) = old_content.chars().count().try_into() {
-            if length > 0 {
-                self.adapter.emit_object_event(
-                    id,
-                    ObjectEvent::TextRemoved {
-                        start_index: prefix_usv_count,
-                        length,
-                        content: old_content.to_string(),
-                    },
-                );
-            }
-        }
-
-        let new_content = &new_text[prefix_byte_count..new_text.len() - suffix_byte_count];
-        if let Ok(length) = new_content.chars().count().try_into() {
-            if length > 0 {
-                self.adapter.emit_object_event(
-                    id,
-                    ObjectEvent::TextInserted {
-                        start_index: prefix_usv_count,
-                        length,
-                        content: new_content.to_string(),
-                    },
-                );
-            }
-        }
+        self.emit_text_difference(id, &old_text, &new_text);
     }
 
     fn emit_text_change_if_needed(&mut self, old_node: &Node, new_node: &Node) {
@@ -193,7 +289,7 @@ impl<'a> AdapterChangeHandler<'a> {
     }
 
     fn emit_text_selection_change(&self, old_node: Option<&Node>, new_node: &Node) {
-        if !new_node.supports_text_ranges() {
+        if !NodeWrapper(new_node).supports_text() {
             return;
         }
         let Some(old_node) = old_node else {
@@ -283,7 +379,20 @@ impl TreeChangeHandler for AdapterChangeHandler<'_> {
     }
 
     fn node_updated(&mut self, old_node: &Node, new_node: &Node) {
-        self.emit_text_change_if_needed(old_node, new_node);
+        let geometry_only = Self::is_geometry_only_update(old_node, new_node);
+        if self.coalesce_document_geometry
+            && geometry_only
+            && let Some(document) = Self::document_ancestor(*new_node)
+        {
+            self.geometry_documents.insert(document);
+            return;
+        }
+        let transparent_geometry_only = geometry_only
+            && old_node.role() == Role::GenericContainer
+            && new_node.role() == Role::GenericContainer;
+        if !transparent_geometry_only {
+            self.emit_text_change_if_needed(old_node, new_node);
+        }
         let filter_old = filter(old_node);
         let filter_new = filter(new_node);
         if filter_new != filter_old {
@@ -315,6 +424,18 @@ impl TreeChangeHandler for AdapterChangeHandler<'_> {
             self.emit_text_selection_change(Some(old_node), new_node);
             if new_node.is_selected() != old_node.is_selected() {
                 self.enqueue_selection_changed_if_needed(new_node);
+            }
+        } else if filter_new == FilterResult::ExcludeNode
+            && new_node.role() == Role::GenericContainer
+            && transparent_geometry_only
+        {
+            // A transparent geometry owner can move an immutable semantic
+            // subtree without becoming its text-range owner. Notify the first
+            // exposed descendants so clients invalidate cached coordinates;
+            // do not rebuild an unrelated ancestor's document text.
+            let bounds = *self.adapter.context.read_root_window_bounds();
+            for child in new_node.filtered_children(&filter) {
+                NodeWrapper(&child).notify_ancestor_bounds_change(&bounds, self.adapter);
             }
         }
     }
@@ -514,15 +635,31 @@ impl Adapter {
     }
 
     pub fn update(&mut self, update: TreeUpdate) {
-        let mut handler = AdapterChangeHandler::new(self);
+        // Large measured reflows can adjust the bounds of thousands of nodes
+        // in one document. Keep the consumer tree exact, but coalesce their
+        // redundant notifications into one document-level invalidation.
+        let coalesce_document_geometry = update.nodes.len() >= 256;
+        let mut handler =
+            AdapterChangeHandler::new(self, coalesce_document_geometry);
         let mut tree = self.context.tree.write().unwrap();
         tree.update_and_process_changes(update, &mut handler);
         drop(tree);
         handler.emit_selection_changed();
+        handler.emit_coalesced_geometry_changes();
+    }
+
+    #[cfg(test)]
+    fn update_and_count_text_documents_compared(&mut self, update: TreeUpdate) -> usize {
+        let mut handler = AdapterChangeHandler::new(self, false);
+        let mut tree = self.context.tree.write().unwrap();
+        tree.update_and_process_changes(update, &mut handler);
+        drop(tree);
+        handler.emit_selection_changed();
+        handler.text_documents_compared
     }
 
     pub fn update_window_focus_state(&mut self, is_focused: bool) {
-        let mut handler = AdapterChangeHandler::new(self);
+        let mut handler = AdapterChangeHandler::new(self, false);
         let mut tree = self.context.tree.write().unwrap();
         tree.update_host_focus_state_and_process_changes(is_focused, &mut handler);
     }
@@ -597,5 +734,464 @@ impl Drop for Adapter {
         // implementation on context, because AppContext owns a second
         // strong reference to Context, and we need that to be released.
         self.context.write_app_context().remove_adapter(self.id);
+    }
+}
+
+#[cfg(test)]
+mod mineral_text_update_tests {
+    use super::*;
+    use accesskit::{ActionRequest, Affine, Node as NodeData, NodeId as LocalId, Rect, TreeId};
+    use std::sync::Mutex;
+
+    #[derive(Clone, Default)]
+    struct Events(Arc<Mutex<Vec<Event>>>);
+
+    impl AdapterCallback for Events {
+        fn register_interfaces(&self, _: &Adapter, _: NodeId, _: InterfaceSet) {}
+        fn unregister_interfaces(&self, _: &Adapter, _: NodeId, _: InterfaceSet) {}
+        fn emit_event(&self, _: &Adapter, event: Event) {
+            self.0.lock().unwrap().push(event);
+        }
+    }
+
+    struct Actions;
+    impl ActionHandler for Actions {
+        fn do_action(&mut self, _: ActionRequest) {}
+    }
+
+    fn document(text: &str) -> TreeUpdate {
+        let mut document = NodeData::new(Role::Document);
+        document.set_children(vec![LocalId(2)]);
+        let mut run = NodeData::new(Role::TextRun);
+        run.set_value(text);
+        run.set_character_lengths(text.chars().map(|c| c.len_utf8() as u8).collect::<Vec<_>>());
+        TreeUpdate {
+            nodes: vec![(LocalId(1), document), (LocalId(2), run)],
+            tree: Some(accesskit::Tree::new(LocalId(1))),
+            tree_id: TreeId::ROOT,
+            focus: LocalId(1),
+        }
+    }
+
+    fn adapter(update: TreeUpdate, events: Events) -> Adapter {
+        Adapter::new(
+            &AppContext::new(None),
+            events,
+            update,
+            false,
+            WindowBounds::default(),
+            Actions,
+        )
+    }
+
+    fn retained_text_editor(text: &str, extra_child: bool) -> TreeUpdate {
+        let mut window = NodeData::new(Role::Window);
+        window.set_children(vec![LocalId(2)]);
+        let mut editor = NodeData::new(Role::MultilineTextInput);
+        editor.set_children(if extra_child {
+            vec![LocalId(3), LocalId(6)]
+        } else {
+            vec![LocalId(3)]
+        });
+        let mut geometry = NodeData::new(Role::GenericContainer);
+        geometry.set_children(vec![LocalId(4)]);
+        let mut document = NodeData::new(Role::Document);
+        document.set_children(vec![LocalId(5)]);
+        let mut run = NodeData::new(Role::TextRun);
+        run.set_label(AdapterChangeHandler::RETAINED_DOCUMENT_TEXT_MARKER);
+        run.set_value(text);
+        run.set_character_lengths(text.chars().map(|c| c.len_utf8() as u8).collect::<Vec<_>>());
+        let mut nodes = vec![
+            (LocalId(1), window),
+            (LocalId(2), editor),
+            (LocalId(3), geometry),
+            (LocalId(4), document),
+            (LocalId(5), run),
+        ];
+        if extra_child {
+            nodes.push((LocalId(6), NodeData::new(Role::Group)));
+        }
+        TreeUpdate {
+            nodes,
+            tree: Some(accesskit::Tree::new(LocalId(1))),
+            tree_id: TreeId::ROOT,
+            focus: LocalId(2),
+        }
+    }
+
+    #[test]
+    fn retained_text_makes_large_child_only_editor_updates_bounded() {
+        let text = "x".repeat(128 * 1024);
+        let events = Events::default();
+        let mut adapter = adapter(retained_text_editor(&text, false), events);
+
+        assert_eq!(
+            adapter.update_and_count_text_documents_compared(retained_text_editor(&text, true)),
+            0
+        );
+    }
+
+    #[test]
+    fn retained_text_edit_uses_direct_run_and_emits_exact_unicode_delta() {
+        let prefix = "x".repeat(512 * 1024);
+        let suffix = "y".repeat(512 * 1024);
+        let old = format!("{prefix}é文{suffix}");
+        let new = format!("{prefix}猫文{suffix}");
+        let events = Events::default();
+        let mut adapter = adapter(retained_text_editor(&old, false), events.clone());
+        events.0.lock().unwrap().clear();
+
+        assert_eq!(
+            adapter.update_and_count_text_documents_compared(retained_text_editor(&new, false)),
+            0,
+            "the marked canonical run must bypass document-range concatenation"
+        );
+        let events = events.0.lock().unwrap();
+        assert!(events.iter().any(|event| matches!(event, Event::Object {
+            event: ObjectEvent::TextRemoved { start_index, length: 1, content }, ..
+        } if *start_index == prefix.len() as i32 && content == "é")));
+        assert!(events.iter().any(|event| matches!(event, Event::Object {
+            event: ObjectEvent::TextInserted { start_index, length: 1, content }, ..
+        } if *start_index == prefix.len() as i32 && content == "猫")));
+    }
+
+    #[test]
+    fn wholesale_text_replacement_does_not_emit_an_unbounded_event() {
+        let events = Events::default();
+        let mut adapter = adapter(document(""), events);
+        let replacement = "x".repeat(
+            AdapterChangeHandler::MAX_TEXT_EVENT_REPLACEMENT_BYTES + 1,
+        );
+
+        assert_eq!(
+            adapter.update_and_count_text_documents_compared(document(&replacement)),
+            0
+        );
+    }
+
+    #[test]
+    fn disabled_buttons_are_not_enabled_or_sensitive() {
+        for disabled in [false, true] {
+            let mut root = NodeData::new(Role::Document);
+            root.set_children(vec![LocalId(2)]);
+            let mut button = NodeData::new(Role::Button);
+            button.set_label("Zoom in");
+            if disabled {
+                button.set_disabled();
+            }
+            let tree = Tree::new(
+                TreeUpdate {
+                    nodes: vec![(LocalId(1), root), (LocalId(2), button)],
+                    tree: Some(accesskit::Tree::new(LocalId(1))),
+                    tree_id: TreeId::ROOT,
+                    focus: LocalId(1),
+                },
+                false,
+            );
+            let child = tree.state().root().children().next().unwrap();
+            let state = NodeWrapper(&child).state(true);
+            assert_eq!(state.contains(atspi_common::State::Enabled), !disabled);
+            assert_eq!(state.contains(atspi_common::State::Sensitive), !disabled);
+        }
+    }
+
+    #[test]
+    fn filtered_child_notifications_preserve_order_indexes_and_visibility_changes() {
+        fn children(ids: &[u64], hidden: Option<u64>) -> TreeUpdate {
+            let mut parent = NodeData::new(Role::Document);
+            parent.set_children(ids.iter().copied().map(LocalId).collect::<Vec<_>>());
+            let mut nodes = vec![(LocalId(1), parent)];
+            for &id in ids {
+                let mut child = NodeData::new(Role::Button);
+                child.set_label(format!("Child {id}"));
+                if hidden == Some(id) {
+                    child.set_hidden();
+                }
+                nodes.push((LocalId(id), child));
+            }
+            TreeUpdate {
+                nodes,
+                tree: Some(accesskit::Tree::new(LocalId(1))),
+                tree_id: TreeId::ROOT,
+                focus: LocalId(1),
+            }
+        }
+        for (old_ids, new_ids, old_hidden, new_hidden, expected) in [
+            (
+                vec![2, 3, 4],
+                vec![4, 5, 2, 6],
+                None,
+                None,
+                vec![(true, 1, 5), (true, 3, 6), (false, 0, 3)],
+            ),
+            // Raw child IDs are unchanged, but the filtered membership changes.
+            (
+                vec![2, 3, 4],
+                vec![2, 3, 4],
+                Some(3),
+                Some(4),
+                vec![(true, 1, 3), (false, 0, 4)],
+            ),
+            // The adapter's existing contract emits no add/remove for reordering.
+            (vec![2, 3, 4], vec![4, 2, 3], None, None, vec![]),
+            ((2..3002).collect(), (2..3002).collect(), None, None, vec![]),
+        ] {
+            let initial = children(&old_ids, old_hidden);
+            let events = Events::default();
+            let adapter = adapter(initial.clone(), events.clone());
+            events.0.lock().unwrap().clear();
+            let old_tree = Tree::new(initial, false);
+            let mut changed = children(&new_ids, new_hidden);
+            changed.nodes[0]
+                .1
+                .set_transform(Affine::translate((0., -120.)));
+            let new_tree = Tree::new(changed, false);
+            let old_root = old_tree.state().root();
+            let new_root = new_tree.state().root();
+            NodeWrapper(&new_root).notify_changes(
+                &WindowBounds::default(),
+                &adapter,
+                &NodeWrapper(&old_root),
+            );
+            let actual = events
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|event| match event {
+                    Event::Object {
+                        event: ObjectEvent::ChildAdded(index, child),
+                        ..
+                    } => Some((
+                        true,
+                        *index,
+                        new_tree.state().locate_node(*child).unwrap().0 .0,
+                    )),
+                    Event::Object {
+                        event: ObjectEvent::ChildRemoved(child),
+                        ..
+                    } => Some((false, 0, old_tree.state().locate_node(*child).unwrap().0 .0)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn geometry_only_document_update_does_not_announce_text_changes() {
+        let initial = document("aé文");
+        let events = Events::default();
+        let adapter = adapter(initial.clone(), events.clone());
+        events.0.lock().unwrap().clear();
+        let old_tree = Tree::new(initial.clone(), false);
+        let mut scrolled = initial;
+        scrolled.nodes[0]
+            .1
+            .set_transform(Affine::translate((0., -120.)));
+        let new_tree = Tree::new(scrolled, false);
+        let mut handler = AdapterChangeHandler::new(&adapter, false);
+        handler.node_updated(&old_tree.state().root(), &new_tree.state().root());
+        // Notification correctness, not a performance/scan-count oracle.
+        assert!(!events.0.lock().unwrap().iter().any(|event| matches!(
+            event,
+            Event::Object {
+                event: ObjectEvent::TextInserted { .. } | ObjectEvent::TextRemoved { .. },
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn transparent_geometry_scroll_is_bounded_and_invalidates_document_extents() {
+        fn update(scroll: f64) -> TreeUpdate {
+            let mut root = NodeData::new(Role::Window);
+            root.set_children([LocalId(1)]);
+            let mut editor = NodeData::new(Role::MultilineTextInput);
+            editor.set_children([LocalId(2)]);
+            let mut geometry = NodeData::new(Role::GenericContainer);
+            geometry.set_children([LocalId(3)]);
+            geometry.set_transform(Affine::translate((0., -scroll)));
+            let mut document = NodeData::new(Role::Document);
+            document.set_bounds(Rect::new(0., 0., 800., 90_000.));
+            document.set_children((4..3004).map(LocalId).collect::<Vec<_>>());
+            let mut nodes = vec![
+                (LocalId(0), root),
+                (LocalId(1), editor),
+                (LocalId(2), geometry),
+                (LocalId(3), document),
+            ];
+            for id in 4..3004 {
+                let mut run = NodeData::new(Role::TextRun);
+                run.set_value(format!("Paragraph {id}"));
+                nodes.push((LocalId(id), run));
+            }
+            TreeUpdate {
+                nodes,
+                tree: Some(accesskit::Tree::new(LocalId(0))),
+                tree_id: TreeId::ROOT,
+                focus: LocalId(1),
+            }
+        }
+
+        let events = Events::default();
+        let mut adapter = adapter(update(0.), events.clone());
+        events.0.lock().unwrap().clear();
+        let mut geometry = NodeData::new(Role::GenericContainer);
+        geometry.set_children([LocalId(3)]);
+        geometry.set_transform(Affine::translate((0., -120.)));
+        let compared = adapter.update_and_count_text_documents_compared(TreeUpdate {
+            nodes: vec![(LocalId(2), geometry)],
+            tree: Some(accesskit::Tree::new(LocalId(0))),
+            tree_id: TreeId::ROOT,
+            focus: LocalId(1),
+        });
+
+        assert_eq!(
+            compared, 0,
+            "scrolling the transparent owner must not scan document text"
+        );
+        assert_eq!(
+            events
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|event| matches!(
+                    event,
+                    Event::Object {
+                        event: ObjectEvent::BoundsChanged(_),
+                        ..
+                    }
+                ))
+                .count(),
+            1,
+            "the exposed document must receive one coordinate invalidation"
+        );
+    }
+
+    #[test]
+    fn large_document_reflow_coalesces_geometry_notifications() {
+        const CHILDREN: u64 = 300;
+        fn initial() -> TreeUpdate {
+            let mut document = NodeData::new(Role::Document);
+            document.set_children((2..2 + CHILDREN).map(LocalId).collect::<Vec<_>>());
+            document.set_bounds(Rect::new(0., 0., 800., 10_000.));
+            let mut nodes = vec![(LocalId(1), document)];
+            nodes.extend((2..2 + CHILDREN).map(|id| {
+                let mut paragraph = NodeData::new(Role::Paragraph);
+                paragraph.set_bounds(Rect::new(0., id as f64 * 20., 800., id as f64 * 20. + 18.));
+                (LocalId(id), paragraph)
+            }));
+            TreeUpdate {
+                nodes,
+                tree: Some(accesskit::Tree::new(LocalId(1))),
+                tree_id: TreeId::ROOT,
+                focus: LocalId(1),
+            }
+        }
+
+        let events = Events::default();
+        let mut adapter = adapter(initial(), events.clone());
+        events.0.lock().unwrap().clear();
+        let nodes = (2..2 + CHILDREN)
+            .map(|id| {
+                let mut paragraph = NodeData::new(Role::Paragraph);
+                paragraph.set_bounds(Rect::new(
+                    0.,
+                    id as f64 * 20. + 10.,
+                    800.,
+                    id as f64 * 20. + 28.,
+                ));
+                (LocalId(id), paragraph)
+            })
+            .collect();
+        adapter.update(TreeUpdate {
+            nodes,
+            tree: Some(accesskit::Tree::new(LocalId(1))),
+            tree_id: TreeId::ROOT,
+            focus: LocalId(1),
+        });
+
+        let bounds_events = events
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|event| matches!(
+                    event,
+                    Event::Object {
+                        event: ObjectEvent::BoundsChanged(_),
+                        ..
+                    }
+                ))
+                .count();
+        assert_eq!(bounds_events, 1);
+        let tree = adapter.context.read_tree();
+        assert_eq!(
+            tree.state()
+                .root()
+                .children()
+                .next()
+                .unwrap()
+                .raw_bounds()
+                .unwrap()
+                .y0,
+            50.
+        );
+    }
+
+    #[test]
+    fn descendant_text_change_is_announced_with_simultaneous_parent_scroll() {
+        let events = Events::default();
+        let mut adapter = adapter(document("aé文"), events.clone());
+        events.0.lock().unwrap().clear();
+        let mut changed = document("a猫文");
+        changed.nodes[0]
+            .1
+            .set_transform(Affine::translate((0., -120.)));
+        adapter.update(changed);
+        let events = events.0.lock().unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::Object {
+            event: ObjectEvent::TextRemoved { start_index: 1, length: 1, content }, ..
+        } if content == "é")));
+        assert!(events.iter().any(|e| matches!(e, Event::Object {
+            event: ObjectEvent::TextInserted { start_index: 1, length: 1, content }, ..
+        } if content == "猫")));
+    }
+
+    #[test]
+    fn inserted_and_removed_text_runs_are_announced() {
+        let events = Events::default();
+        let initial = document("aé文");
+        let mut adapter = adapter(initial.clone(), events.clone());
+        events.0.lock().unwrap().clear();
+        let mut appended = initial.clone();
+        appended.nodes[0]
+            .1
+            .set_children(vec![LocalId(2), LocalId(3)]);
+        let mut run = NodeData::new(Role::TextRun);
+        run.set_value("猫");
+        run.set_character_lengths([3]);
+        appended.nodes.push((LocalId(3), run));
+        adapter.update(appended);
+        assert!(events
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|e| matches!(e, Event::Object {
+            event: ObjectEvent::TextInserted { start_index: 3, length: 1, content }, ..
+        } if content == "猫")));
+        events.0.lock().unwrap().clear();
+        adapter.update(initial);
+        assert!(events
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|e| matches!(e, Event::Object {
+            event: ObjectEvent::TextRemoved { start_index: 3, length: 1, content }, ..
+        } if content == "猫")));
     }
 }

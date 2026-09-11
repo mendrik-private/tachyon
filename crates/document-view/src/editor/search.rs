@@ -116,7 +116,7 @@ impl Index {
         for segment in projection.segments() {
             let mut part = Part {
                 node: segment.node_id,
-                text: projection.text()[segment.projection_range.clone()].to_owned(),
+                text: projection.text()[segment.projection_range()].to_owned(),
                 html: None,
                 leaves: Vec::new(),
             };
@@ -384,7 +384,7 @@ impl RichDocumentEditor {
             // selection before requesting disclosure geometry: ordinary
             // selection/IME guards correctly prohibit reflow while selecting.
             if let Some(segment) = self.projection.segment_for_node(found.node) {
-                self.move_to(segment.projection_range.start, window, cx);
+                self.move_to(segment.projection_start(), window, cx);
             }
             self.find.read_only_match = Some(found.text.clone());
             self.find.status = "Opening result…".into();
@@ -411,14 +411,14 @@ impl RichDocumentEditor {
             self.find.reveal = Some((found, self.jump_generation));
             self.finish_find_reveal(cx);
         } else if let Some(segment) = self.projection.segment_for_node(found.node) {
-            let range = segment.projection_range.start + found.range.start
-                ..segment.projection_range.start + found.range.end;
+            let range = segment.projection_start() + found.range.start
+                ..segment.projection_start() + found.range.end;
             self.set_selection(range.clone(), false, window, cx);
             _ = self.reveal_find_horizontal();
             if let Some(line) = self
                 .visual_lines
                 .iter()
-                .find(|line| line.range.contains(&range.start))
+                .find(|line| line.projected_range().contains(&range.start))
             {
                 self.set_scroll_y((line.y - 24.).max(0.), cx);
             }
@@ -439,7 +439,8 @@ impl RichDocumentEditor {
             return;
         }
         let target = self.visual_lines.iter().find_map(|line| {
-            (segment_for_line(&self.projection, &line.range)?.node_id == found.node).then_some(line)
+            (segment_for_line(&self.projection, &line.projected_range())?.node_id == found.node)
+                .then_some(line)
         });
         let Some(line) = target else {
             return;
@@ -464,7 +465,7 @@ impl RichDocumentEditor {
                         .get(byte..byte + found.range.len())
                         .is_some()
                 {
-                    y += (32. + bounds[1]) * self.zoom_factor;
+                    y += bounds[1] * self.zoom_factor;
                     self.html_selection = Some(HtmlSelection {
                         cross: None,
                         node: found.node,
@@ -500,14 +501,14 @@ impl RichDocumentEditor {
         let html = self.html_selection.as_ref();
         let line = self.visual_lines.iter().find(|line| {
             html.map_or_else(
-                || line.range.contains(&selected.start),
+                || line.projected_range().contains(&selected.start),
                 |selection| {
-                    segment_for_line(&self.projection, &line.range)
+                    segment_for_line(&self.projection, &line.projected_range())
                         .is_some_and(|segment| segment.node_id == selection.node)
                 },
             )
         })?;
-        let segment = segment_for_line(&self.projection, &line.range)?;
+        let segment = segment_for_line(&self.projection, &line.projected_range())?;
         let owner = horizontal_scroll_owner(&self.projection, segment)?;
         let is_code = matches!(
             self.projection.block(segment.node_id),
@@ -545,13 +546,13 @@ impl RichDocumentEditor {
         } else {
             let layout = self.measurement.shape_unwrapped(
                 &self.projection,
-                line.range.clone(),
+                line.projected_range(),
                 line.style.font_size,
             )?;
             let layout = if let Some(inline) = &line.inline_math {
                 inline_math::compose(
                     layout,
-                    &(0..line.range.len()),
+                    &(0..line.projected_range().len()),
                     &inline.attachments,
                     line.style.font_size,
                 )
@@ -567,16 +568,16 @@ impl RichDocumentEditor {
             ) - viewport_left;
             let start = selected
                 .start
-                .saturating_sub(line.range.start)
-                .min(line.range.len());
+                .saturating_sub(line.projected_start())
+                .min(line.projected_range().len());
             let end = selected
                 .end
-                .saturating_sub(line.range.start)
-                .min(line.range.len());
+                .saturating_sub(line.projected_start())
+                .min(line.projected_range().len());
             let content = f32::from(layout.width()) + line.inset + 8. * self.zoom_factor;
             (
-                left + f32::from(layout.x_for_index(start)),
-                left + f32::from(layout.x_for_index(end)),
+                left + f32::from(shaped_x_for_index(&layout, start)),
+                left + f32::from(shaped_x_for_index(&layout, end)),
                 content,
             )
         };

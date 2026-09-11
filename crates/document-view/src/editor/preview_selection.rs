@@ -23,7 +23,9 @@ impl PreviewSelectionProjection {
             .iter()
             .filter_map(|line| {
                 let preview = line.html_preview.as_ref()?;
-                let segment = editor.projection.segment_for_range(&line.range)?;
+                let segment = editor
+                    .projection
+                    .segment_for_range(&line.projected_range())?;
                 Some((segment.node_id, preview.clone()))
             })
             .collect();
@@ -31,14 +33,14 @@ impl PreviewSelectionProjection {
         let mut segments = Vec::new();
         let mut previous = 0;
         for source in editor.projection.segments() {
-            text.push_str(&editor.projection.text()[previous..source.projection_range.start]);
+            text.push_str(&editor.projection.text()[previous..source.projection_start()]);
             let start = text.len();
             let html = previews
                 .get(&source.node_id)
                 .filter(|preview| preview.can_convert)
                 .cloned();
             text.push_str(html.as_ref().map_or_else(
-                || &editor.projection.text()[source.projection_range.clone()],
+                || &editor.projection.text()[source.projection_range()],
                 |preview| preview.editable_text.as_str(),
             ));
             segments.push(Segment {
@@ -46,7 +48,7 @@ impl PreviewSelectionProjection {
                 source: source.clone(),
                 html,
             });
-            previous = source.projection_range.end;
+            previous = source.projection_end();
         }
         text.push_str(&editor.projection.text()[previous..]);
         Self {
@@ -149,13 +151,13 @@ impl PreviewSelectionProjection {
                     return None;
                 }
                 Some(if end {
-                    segment.source.projection_range.end
+                    segment.source.projection_end()
                 } else {
-                    segment.source.projection_range.start
+                    segment.source.projection_start()
                 })
             } else {
                 Some(
-                    segment.source.projection_range.start
+                    segment.source.projection_start()
                         + byte
                             .saturating_sub(segment.range.start)
                             .min(segment.range.len()),
@@ -253,15 +255,14 @@ impl RichDocumentEditor {
                 return false;
             };
             let segments = self.projection.segments();
-            let first =
-                segments.partition_point(|segment| segment.projection_range.end <= a.min(b));
+            let first = segments.partition_point(|segment| segment.projection_end() <= a.min(b));
             if !segments[first..]
                 .iter()
-                .take_while(|segment| segment.projection_range.start < a.max(b))
+                .take_while(|segment| segment.projection_start() < a.max(b))
                 .any(|segment| {
                     segment.context.preserved_source
-                        && segment.projection_range.start < a.max(b)
-                        && segment.projection_range.end > a.min(b)
+                        && segment.projection_start() < a.max(b)
+                        && segment.projection_end() > a.min(b)
                 })
             {
                 return false;
@@ -305,7 +306,7 @@ mod tests {
                 line.html_preview.is_some()
                     && editor
                         .projection
-                        .segment_for_range(&line.range)
+                        .segment_for_range(&line.projected_range())
                         .is_some_and(|segment| segment.node_id == node)
             })
             .unwrap_or_else(|| panic!("missing HTML line for {node:?}"));
@@ -342,7 +343,7 @@ mod tests {
                 + px(line.x_fraction * f32::from(bounds.size.width)
                     + line.inset
                     + (left + (right - left) * fraction) * editor.zoom_factor),
-            bounds.top() + px(line.y + (32. + (top + bottom) * 0.5) * editor.zoom_factor),
+            bounds.top() + px(line.y + ((top + bottom) * 0.5) * editor.zoom_factor),
         )
     }
 
@@ -360,7 +361,7 @@ mod tests {
         let line = painted_line_for_offset(&editor.painted_lines, offset).unwrap();
         let point = point(
             aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + line.layout.x_for_index(offset - line.range.start),
+                + shaped_x_for_index(&line.layout, offset - line.range.start),
             line.bounds.top() + line.bounds.size.height * 0.5,
         );
         assert_eq!(
@@ -506,7 +507,7 @@ mod tests {
                         .unwrap()
                         .plain_text
                         .as_deref(),
-                    Some("Alpha café\nMiddle\nBeta tail")
+                    Some("Alpha **café**\n\nMiddle\n\nBeta *tail*")
                 );
                 let original_anchor = selected.anchor;
                 editor.left(&Left, window, cx);
@@ -542,7 +543,7 @@ mod tests {
                         .unwrap()
                         .plain_text
                         .as_deref(),
-                    Some("Alpha café\nMiddle\nBeta tail")
+                    Some("Alpha **café**\n\nMiddle\n\nBeta *tail*")
                 );
                 editor.right(&Right, window, cx);
                 editor.select_right(&SelectRight, window, cx);
@@ -561,7 +562,7 @@ mod tests {
                         .unwrap()
                         .plain_text
                         .as_deref(),
-                    Some("\nA")
+                    Some("\n\nA")
                 );
                 editor.right(&Right, window, cx);
                 assert!(
@@ -955,7 +956,13 @@ mod tests {
                         *fragments.last_mut().unwrap() = words[end_index][..4].to_string();
                         assert_eq!(
                             cx.read_from_clipboard().unwrap().text().unwrap(),
-                            fragments.join("\n")
+                            fragments
+                                .iter()
+                                .map(|text| text
+                                    .replace("café", "**café**")
+                                    .replace("tail", "*tail*"))
+                                .collect::<Vec<_>>()
+                                .join("\n\n")
                         );
                         editor.replace_text_in_range(None, "X", window, cx);
                         assert!(editor.html_selection.is_none());
@@ -1060,7 +1067,7 @@ mod tests {
                 editor.copy(&Copy, window, cx);
                 assert_eq!(
                     cx.read_from_clipboard().unwrap().text().unwrap(),
-                    "café\nMiddle\nBeta"
+                    "**café**\n\nMiddle\n\nBeta"
                 );
                 editor.select_left(&SelectLeft, window, cx);
                 assert!(
@@ -1075,7 +1082,7 @@ mod tests {
                 editor.copy(&Copy, window, cx);
                 assert_eq!(
                     cx.read_from_clipboard().unwrap().text().unwrap(),
-                    "Before\nAlpha café\nMiddle\nBeta tail\nAfter"
+                    "Before\n\nAlpha **café**\n\nMiddle\n\nBeta *tail*\n\nAfter"
                 );
                 assert_eq!(editor.document.snapshot().serialize().unwrap(), SOURCE);
                 editor.replace_and_mark_text_in_range(None, "全", Some(0..1), window, cx);

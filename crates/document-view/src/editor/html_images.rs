@@ -128,6 +128,31 @@ impl RichDocumentEditor {
             .get_or_insert_with(|| Arc::new(std::sync::Mutex::new((0, HashMap::new()))));
     }
 
+    /// Returns the unique authored image resources for bounded background
+    /// decoding. Visible painting remains responsible for GPU atlas uploads.
+    #[must_use]
+    pub fn document_image_resources(&self) -> Vec<Resource> {
+        const MAX_PREFETCH_RESOURCES: usize = 32;
+        let mut seen = rustc_hash::FxHashSet::default();
+        self.projection
+            .image_segments()
+            .filter_map(|segment| segment.context.image_source.as_deref())
+            .chain(
+                self.projection
+                    .html_image_references
+                    .values()
+                    .flatten()
+                    .map(|reference| reference.source.as_str()),
+            )
+            .map(|source| resolved_image_resource(source, self.document_directory.as_deref()))
+            // Avoid speculative network traffic and bound retained decoded
+            // pixels for image-heavy documents.
+            .filter(|resource| matches!(resource, Resource::Path(_)))
+            .filter(|resource| seen.insert(hash(resource)))
+            .take(MAX_PREFETCH_RESOURCES)
+            .collect()
+    }
+
     pub(super) fn request_html_images(
         &mut self,
         visible: &[usize],
@@ -140,8 +165,10 @@ impl RichDocumentEditor {
         let mut requests = Vec::new();
         let mut keys = HashSet::new();
         for &index in visible {
-            let Some(segment) = segment_for_line(&self.projection, &self.visual_lines[index].range)
-            else {
+            let Some(segment) = segment_for_line(
+                &self.projection,
+                &self.visual_lines[index].projected_range(),
+            ) else {
                 continue;
             };
             let Some(references) = self.projection.html_image_references.get(&segment.node_id)
@@ -395,7 +422,8 @@ mod tests {
                         width: 760.,
                         height: 1000.,
                         zoom: 1.,
-                        math_edit_node: None,
+                        preview_edit_node: None,
+                        expanded_code_tail: None,
                         editing_node: None,
                         table_layout_lock: None,
                         html_disclosures: Arc::default(),

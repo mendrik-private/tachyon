@@ -5,7 +5,7 @@ members = [
     "crates/markdown-app",
 ]
 default-members = ["crates/markdown-app"]
-exclude = ["vendor/latex-rust", "vendor/stylo_derive", "vendor/blitz-dom", "vendor/accesskit_atspi_common", "vendor/gpui_linux"]
+exclude = ["vendor/latex-rust", "vendor/stylo_derive", "vendor/blitz-dom", "vendor/accesskit_atspi_common", "vendor/gpui_linux", "vendor/gpui"]
 resolver = "2"
 
 [patch.crates-io]
@@ -15,6 +15,7 @@ latex-rust = { path = "vendor/latex-rust" }
 stylo_derive = { path = "vendor/stylo_derive" }
 
 [patch."https://github.com/zed-industries/zed"]
+gpui = { path = "vendor/gpui" }
 gpui_linux = { path = "vendor/gpui_linux" }
 
 [workspace.package]
@@ -44,6 +45,8 @@ hdrhistogram = "7.6.0"
 html5ever = "0.36.1"
 imagesize = "0.14.0"
 latex-rust = "=1.0.2"
+mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
+usvg = "=0.46.0"
 markup5ever_rcdom = "0.36.0"
 mimalloc3 = { version = "0.1.54", features = ["override"] }
 notify = "7.0.0"
@@ -61,6 +64,8 @@ sha2 = "0.10.9"
 smallvec = { version = "1.15.1", features = ["serde"] }
 thiserror = "2.0.17"
 ttf-parser = "0.25.1"
+unicode-bidi = "0.3.18"
+unicode-linebreak = "0.1.5"
 unicode-segmentation = "1.12.0"
 
 # Keep GPUI Component and GPUI on the revisions recorded below. Cargo.lock

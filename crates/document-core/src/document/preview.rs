@@ -7,6 +7,22 @@ pub(super) fn resolve(
     state: &mut SnapshotState,
     selection: &PreviewSelection,
 ) -> Result<bool, DocumentError> {
+    Ok(!resolve_with_roots(state, selection)?.is_empty())
+}
+
+/// IDs allocated by one private conversion retain their canonical HTML owner.
+/// They are used only while exporting that snapshot, never as persisted IDs.
+pub(super) struct HtmlCopyRoot {
+    pub nodes: std::ops::Range<u64>,
+    pub owner: NodeId,
+    pub source: Arc<str>,
+    pub emitted: bool,
+}
+
+pub(super) fn resolve_with_roots(
+    state: &mut SnapshotState,
+    selection: &PreviewSelection,
+) -> Result<Vec<HtmlCopyRoot>, DocumentError> {
     if state.revision != selection.revision {
         return Err(DocumentError::Html(
             "The document changed; choose the text again".into(),
@@ -50,7 +66,7 @@ pub(super) fn resolve(
     };
     let anchor_index = index_of(&selection.anchor)?;
     let head_index = index_of(&selection.head)?;
-    let mut converted = false;
+    let mut roots = Vec::new();
     for (node_id, source) in &order[anchor_index.min(head_index)..=anchor_index.max(head_index)] {
         let Some(source) = source else {
             continue;
@@ -72,14 +88,20 @@ pub(super) fn resolve(
                 head.unwrap_or(first),
             )
         });
+        let first_id = state.next_node_id;
         let range = convert_html_to_markdown(state, *node_id, targets)?;
+        roots.push(HtmlCopyRoot {
+            nodes: first_id..state.next_node_id,
+            owner: *node_id,
+            source: source.clone(),
+            emitted: false,
+        });
         if anchor.is_some() {
             resolved[0] = Some(range.anchor);
         }
         if head.is_some() {
             resolved[1] = Some(range.head);
         }
-        converted = true;
     }
     let [Some(anchor), Some(head)] = resolved else {
         return Err(DocumentError::Html(
@@ -90,7 +112,107 @@ pub(super) fn resolve(
     validate_selection_in_blocks(&state.blocks, &state.selection)?;
     retire_transient_caret(state);
     validate_tree(&state.blocks)?;
-    Ok(converted)
+    Ok(roots)
+}
+
+/// Expand only HTML ownership, preserving the selected Markdown containers.
+pub(super) fn expand_copy_roots(
+    blocks: &BlockSequence,
+    roots: &mut [HtmlCopyRoot],
+) -> Result<BlockSequence, DocumentError> {
+    // Normalize each owner independently: an unclosed authored tag must not
+    // capture selected Markdown neighbors when the combined HTML is parsed.
+    let html = roots
+        .iter()
+        .map(|root| {
+            crate::html::clipboard_html_fragment(&root.source)
+                .map(Arc::<str>::from)
+                .ok_or_else(|| DocumentError::Clipboard("HTML cannot be safely copied".into()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(map_copy_blocks(blocks, &mut |original| {
+        let id = original.id().get();
+        let index = roots.partition_point(|root| root.nodes.end <= id);
+        let root = roots
+            .get_mut(index)
+            .filter(|root| root.nodes.contains(&id))?;
+        let replacement = if root.emitted {
+            Vec::new()
+        } else {
+            root.emitted = true;
+            vec![Arc::new(BlockNode::PreservedSource {
+                id: root.owner,
+                source: html[index].clone(),
+                description: String::new(),
+            })]
+        };
+        Some(BlockSequence::new(replacement))
+    }))
+}
+
+/// Text copied from rich table/definition containers must not expose the HTML
+/// fallback used by the source-preserving serializer. Rich metadata still
+/// retains that structural representation for application-to-application paste.
+pub(super) fn selected_markdown(blocks: &BlockSequence) -> Result<String, DocumentError> {
+    let text = map_copy_blocks(blocks, &mut |block| match block.as_ref() {
+        BlockNode::Table(table) => Some(BlockSequence::new(
+            table
+                .rows
+                .iter()
+                .flat_map(|row| row.cells.iter())
+                .flat_map(|cell| cell.blocks.iter().cloned())
+                .collect(),
+        )),
+        BlockNode::Definition { blocks, .. } => Some(blocks.clone()),
+        _ => None,
+    });
+    crate::markdown::serialize_clipboard_blocks(&text)
+}
+
+fn map_copy_blocks(
+    blocks: &BlockSequence,
+    replace: &mut impl FnMut(&Arc<BlockNode>) -> Option<BlockSequence>,
+) -> BlockSequence {
+    let mut result = Vec::new();
+    for original in blocks {
+        if let Some(replacement) = replace(original) {
+            result.extend(map_copy_blocks(&replacement, replace).iter().cloned());
+            continue;
+        }
+        let mut block = original.as_ref().clone();
+        match &mut block {
+            BlockNode::BlockQuote { blocks, .. }
+            | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
+            | BlockNode::FootnoteDefinition { blocks, .. } => {
+                *blocks = map_copy_blocks(blocks, replace);
+            }
+            BlockNode::List(list) => {
+                let mut items = list.items.to_vec();
+                for item in &mut items {
+                    item.blocks = map_copy_blocks(&item.blocks, replace);
+                }
+                list.items = items.into();
+            }
+            BlockNode::Table(table) => {
+                let mut rows = table.rows.to_vec();
+                for row in &mut rows {
+                    let mut cells = row.cells.to_vec();
+                    for cell in &mut cells {
+                        cell.blocks = map_copy_blocks(&cell.blocks, replace);
+                    }
+                    row.cells = cells.into();
+                }
+                table.rows = rows.into();
+            }
+            _ => {
+                result.push(original.clone());
+                continue;
+            }
+        }
+        result.push(Arc::new(block));
+    }
+    BlockSequence::new(result)
 }
 
 /// One source-order traversal; don't repeatedly search the tree for every
@@ -112,6 +234,7 @@ fn collect_blocks(blocks: &BlockSequence, output: &mut Vec<(NodeId, Option<Arc<s
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => collect_blocks(blocks, output),
             BlockNode::Table(table) => {
                 for row in table.rows.iter() {
@@ -147,6 +270,132 @@ mod tests {
                 byte_offset,
                 crate::Affinity::Downstream,
             )),
+        }
+    }
+
+    #[test]
+    fn incomplete_html_roots_cannot_swallow_selected_markdown_neighbors() {
+        let source = "<div><p>Alpha\n\nMiddle\n\nAfter\n";
+        let document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let selection = PreviewSelection {
+            revision: snapshot.revision(),
+            anchor: endpoint(&snapshot, 0, 2),
+            head: endpoint(&snapshot, 2, 2),
+        };
+        let payload = snapshot
+            .preview_clipboard_payload(&selection)
+            .unwrap()
+            .unwrap();
+        assert_eq!(payload.plain_text.as_deref(), Some("pha\n\nMiddle\n\nAf"));
+        assert_eq!(
+            payload.html.as_deref(),
+            Some("<div><p>Alpha\n</p></div>\n<p>Middle</p>\n<p>Af</p>\n")
+        );
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+    }
+
+    #[test]
+    fn one_html_root_with_multiple_table_leaves_copies_markdown_text() {
+        let source = "<div><table><tr><td>Alpha</td><td>Beta</td></tr></table></div>\n";
+        let document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let node = snapshot.blocks().get(0).unwrap();
+        let BlockNode::PreservedSource { source: root, .. } = node.as_ref() else {
+            panic!("root")
+        };
+        let position = |text_node, byte_offset| PreviewPosition::Html {
+            node_id: node.id(),
+            expected_source: root.clone(),
+            position: crate::HtmlTextPosition {
+                text_node,
+                byte_offset,
+            },
+        };
+        let selection = PreviewSelection {
+            revision: snapshot.revision(),
+            anchor: position(0, 2),
+            head: position(1, 2),
+        };
+        let payload = snapshot
+            .preview_clipboard_payload(&selection)
+            .unwrap()
+            .unwrap();
+        assert_eq!(payload.plain_text.as_deref(), Some("pha\n\nBe"));
+        assert_eq!(payload.html, crate::html::clipboard_html_fragment(root));
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+    }
+
+    #[test]
+    fn root_copy_expands_multiple_converted_blocks_once_inside_markdown_containers() {
+        for source in [
+            "> Before\n>\n> <div><p>Alpha</p><p>Sibling</p></div>\n>\n> After\n",
+            "> [!NOTE]\n> Before\n>\n> <div><p>Alpha</p><p>Sibling</p></div>\n>\n> After\n",
+            "- [x] Before\n\n    <div><p>Alpha</p><p>Sibling</p></div>\n\n    After\n",
+            "- Before\n\n    <div><p>Alpha</p><p>Sibling</p></div>\n\n    After\n",
+            "<table><tr><td><p>Before</p><details open><summary>Alpha</summary><p>Sibling</p></details><p>After</p></td></tr></table>\n",
+        ] {
+            let mut document = Document::from_markdown(source).unwrap();
+            let before = document.snapshot();
+            let mut order = Vec::new();
+            collect_blocks(before.blocks(), &mut order);
+            let (owner, root) = order
+                .iter()
+                .find_map(|(id, root)| root.as_ref().map(|root| (*id, root.clone())))
+                .unwrap();
+            let after = order
+                .iter()
+                .find_map(|(id, _)| {
+                    before
+                        .node(*id)
+                        .filter(|node| node.text().is_some_and(|text| text.as_string() == "After"))
+                        .map(|_| *id)
+                })
+                .unwrap();
+            for reverse in [false, true] {
+                let anchor = PreviewPosition::Html {
+                    node_id: owner,
+                    expected_source: root.clone(),
+                    position: crate::HtmlTextPosition {
+                        text_node: 0,
+                        byte_offset: 2,
+                    },
+                };
+                let head = PreviewPosition::Document(DocumentPosition::new(
+                    after,
+                    2,
+                    crate::Affinity::Upstream,
+                ));
+                let selection = PreviewSelection {
+                    revision: before.revision(),
+                    anchor: if reverse {
+                        head.clone()
+                    } else {
+                        anchor.clone()
+                    },
+                    head: if reverse { anchor } else { head },
+                };
+                let payload = before
+                    .preview_clipboard_payload(&selection)
+                    .unwrap()
+                    .unwrap();
+                let html = payload.html.unwrap();
+                let complete = crate::html::clipboard_html_fragment(&root).unwrap();
+                assert_eq!(html.matches(complete.trim()).count(), 1, "{html}");
+                assert!(html.contains("Af"));
+                assert!(!html.contains("Before"));
+                assert!(!html.contains("After"));
+                let plain = payload.plain_text.unwrap();
+                assert!(
+                    !plain.contains('<'),
+                    "plain text must contain selected Markdown, not HTML: {plain}"
+                );
+                assert!(!plain.contains("Alpha"));
+                assert!(plain.contains("pha"));
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+                assert_eq!(document.snapshot().revision(), before.revision());
+                assert!(matches!(document.undo(), Err(DocumentError::NothingToUndo)));
+            }
         }
     }
 
@@ -292,7 +541,16 @@ mod tests {
                 .preview_clipboard_payload(&selection)
                 .unwrap()
                 .unwrap();
-            assert_eq!(payload.plain_text.as_deref(), Some("café\nMiddle\nBeta"));
+            assert_eq!(
+                payload.plain_text.as_deref(),
+                Some("**café**\n\nMiddle\n\nBeta")
+            );
+            assert_eq!(
+                payload.html.as_deref(),
+                Some(
+                    "<div><p>Alpha <strong>café</strong></p></div>\n\n<p>Middle</p>\n<div><p>Beta <em>tail</em></p></div>\n\n"
+                )
+            );
             assert!(
                 crate::RichClipboard::from_json(payload.rich_json.as_deref().unwrap())
                     .unwrap()
@@ -393,10 +651,33 @@ mod tests {
                             head: map(&selection.head),
                         })))
                         .unwrap();
+                    let actual = before
+                        .preview_clipboard_payload(&selection)
+                        .unwrap()
+                        .unwrap();
+                    let expected = reference.snapshot().clipboard_payload().unwrap().unwrap();
+                    let expected_rich =
+                        crate::RichClipboard::from_json(expected.rich_json.as_deref().unwrap())
+                            .unwrap();
+                    let actual_rich =
+                        crate::RichClipboard::from_json(actual.rich_json.as_deref().unwrap())
+                            .unwrap();
                     assert_eq!(
-                        before.preview_clipboard_payload(&selection).unwrap(),
-                        reference.snapshot().clipboard_payload().unwrap()
+                        actual.plain_text.as_deref(),
+                        Some(expected_rich.markdown.as_str())
                     );
+                    assert_eq!(actual_rich.markdown, expected_rich.markdown);
+                    for index in start..=end {
+                        if let BlockNode::PreservedSource { source, .. } =
+                            before.blocks().get(index).unwrap().as_ref()
+                        {
+                            let root = crate::html::clipboard_html_fragment(source).unwrap();
+                            assert_eq!(
+                                actual.html.as_ref().unwrap().matches(root.trim()).count(),
+                                1
+                            );
+                        }
+                    }
                     reference.apply(edit.clone().into_command()).unwrap_or_else(|error| panic!("reference {start}..{end}, reverse={reverse}, edit={edit:?}: {error:?}"));
                     atomic
                         .apply(EditCommand::EditPreviewSelection { selection, edit })
@@ -738,7 +1019,7 @@ mod tests {
                     .unwrap()
                     .plain_text
                     .as_deref(),
-                Some("rst\nSec")
+                Some("rst\n\nSec")
             );
             document
                 .apply(EditCommand::EditPreviewSelection {

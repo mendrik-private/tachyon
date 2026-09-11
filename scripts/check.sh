@@ -29,4 +29,7 @@ cargo fmt --all -- --check
 cargo check --workspace --all-targets --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --all-targets --locked
+cargo test --locked -p accesskit_atspi_common
+cargo test --manifest-path performance/a11y-publication-tests/Cargo.toml --locked
+cargo clippy --manifest-path performance/a11y-publication-tests/Cargo.toml --all-targets --locked -- -D warnings
 cargo test --workspace --doc --locked

@@ -27,7 +27,7 @@ replacement app shell or web editor. Files and Outline remain the existing panes
 | Tables | `editor/measurement.rs` shapes complete bounded header/cell sets; projection owns minimum/preferred constraints and fitting; nested flow preserves cell geometry and local overflow |
 | Image dimensions/policy | `markdown-app/src/image_cache.rs`; node dimensions passed to document-view; reuse this owner, do not fetch during measurement |
 | Focus, IME, anchors, commit | `document-view/src/editor.rs`, `adaptive/rows.rs`; per-view focus-aware row/width locks, canonical range remapping, selection/IME commit guards and source-offset scroll anchors; full native acceptance matrix remains |
-| Native accessibility | `editor/accessibility.rs` publishes cached canonical AccessKit nodes independently of painting; private AT-SPI checks exercise offscreen traversal/reveal and task actions/undo. Complete text, inline-link, HTML and table-interface acceptance remains. |
+| Native accessibility | `editor/accessibility.rs` publishes cached canonical AccessKit nodes independently of painting; private AT-SPI checks exercise offscreen traversal/reveal, task actions/undo, and contextual source-order semantics for visually composed tables. Complete text, inline-link, HTML and adapter-level table-interface acceptance remains. |
 | UI preference persistence | `markdown-app/src/persistence.rs`; workspace/document identity, separate from Markdown; no layout override schema yet |
 | Performance instrumentation | `markdown-app/src/performance.rs`, `performance/capture-layout.py`, isolated Weston harness |
 | Fixtures/design references | `performance/layout-fixtures/`, `designs/`; user-authored Nudge document must remain a read-only external fixture if found |
@@ -44,16 +44,125 @@ separately; no performance target is inferred from a green correctness test.
 | --- | --- |
 | WP-01 | Integration mapped above. Existing synthetic fixtures available; full AT-specific fixtures and source-order baseline still to extend. |
 | WP-02 | Canonical groups and heading tree integrated into measured planning with conservative initial stacks. Full acceptance still requires identity/ownership, barrier, duplicate-heading and generated-partition evidence at the requested scope. Hierarchical adaptations use the same IDs. |
-| WP-03 | **Partial:** native shaping supplies line breaks, intrinsic widths, measured list/peer eligibility and complete bounded table constraints. Wrap cache includes node/revision/local range, exact text, font runs, width and scaled font size; intrinsic cache keys exact text, font runs and scaled size. Font-family/zoom changes invalidate geometry. Image-resource arrivals now have bounded batching with anchor preservation. Still required: font-completion notifications, complete pending-resource integration and bounded visible-window measurement. |
-| WP-04 | **Partial integrated row planner:** 40-unit DP with previous-template state, contiguous 1–3-unit rows, all seven track templates, measured peer/explanation/table/gallery rows, normalized scoring, deterministic ties, 10% hysteresis and invalid-layout escape. Gallery internal figures use bounded units without changing canonical groups. Still required: full resource-state integration, affected-window scheduling, inspector verification and full edit-lock/anchor cost contract. |
-| WP-05 | **Partial:** stack/list grids/measured peer cards, measured explanation/code/table/image pairs, unequal adjacent table groups and measured galleries. No font shrinking to force fit. Full native semantic traversal remains unverified. |
-| WP-06 | **Partial:** focused row/list/prose width locks, native group-blur reconsideration, identity-remapped placements, focus/selection/IME commit guards and source-offset anchors. Full structural-edit/IME/AT-SPI and resize/anchor acceptance still required, plus Plain/Adaptive/Focus and persisted override behavior from §15. Earlier automatic-only UI preference conflicts with §15; a nonblocking user question is pending before exposing new controls. Adaptive remains the default. |
+| WP-03 | **Partial:** native shaping supplies line breaks, intrinsic widths, measured list/peer eligibility and complete bounded table constraints. Wrap cache includes node/revision/local range, exact text, font runs, width and scaled font size; intrinsic cache keys exact text, font runs and scaled size. Font-family/zoom changes invalidate geometry. Image-resource arrivals now have bounded batching with anchor preservation. Candidate measurement is bounded to visible/lookahead windows and retains completed compatible windows; whole-document geometry publication remains the dominant long-document cost. Still required: font-completion notifications and complete pending-resource integration. |
+| WP-04 | **Partial integrated row planner:** 40-unit DP with previous-template state, contiguous 1–3-unit rows, all seven track templates, measured peer/explanation/table/gallery rows, normalized scoring, deterministic ties, 10% hysteresis and invalid-layout escape. Gallery internal figures use bounded units without changing canonical groups. Visible/lookahead and structurally affected windows are scheduled without remeasuring intervening chapters. The opt-in developer trace now reports stable, content-free nomination/fit/rejection reason codes for row and list candidates. Still required: full resource-state integration, broader inspector/acceptance verification and the full edit-lock/anchor cost contract. |
+| WP-05 | **Partial:** stack/list grids/measured peer cards, measured explanation/code/table/image pairs, unequal adjacent table groups and measured galleries. No font shrinking to force fit. Private AT-SPI now verifies source-order table/row/header/cell traversal and contextual names while adjacent tables are visibly composed side by side; broader native semantics remain unfinished. |
+| WP-06 | **Partial:** focused row/list/prose width locks, native group-blur reconsideration, identity-remapped placements, focus/selection/IME commit guards and source-offset anchors. Full structural-edit/IME/AT-SPI and resize/anchor acceptance still required. The user's later explicit direction supersedes §15's user-selectable modes and group overrides: layout remains automatic-only, with no layout chooser or Markdown annotations. Internal stack fallback remains available for safety. |
 | WP-07 | **Incomplete:** full acceptance matrix, feature/mode fallback, native visual/authoring/accessibility verification, measured planning budgets and performance evidence. |
-| HTML | **Partial:** actual Blitz local layout/paint, bounded inert input, retained preview, source-bound native disclosure controls, temporary direct text selection, atomic conversion on first edit and provisional same-leaf IME, plus explicit undoable conversion. Verified-text links have safe web/email opening, native heading/local Markdown navigation, hover and context copy. Authored IDs in supported previews now resolve with nested-disclosure reveal and verified target carets. Still required: full native CJK IME/candidate UI, cross-fragment selection, opaque-fragment link regions, find/source-only anchor reveal, full semantic tree/AT, safe resource integration and complete performance/scale gates. |
-| Math | **Partial:** real `latex-rust` / STIX block and inline formulas, measured inline attachments with source-indexed caret/copy geometry, per-paragraph source reveal while editing, matrix/script fixes and canonical preservation. Still required: assistive-technology validation, broader RTL/mixed display behavior and formula-heavy performance/quality gates. |
+| HTML | **Partial:** actual Blitz local layout/paint, bounded inert input, retained preview, source-bound native disclosure controls, temporary direct text selection, atomic conversion on first edit and provisional same-leaf IME, plus explicit undoable conversion. Verified-text links have safe web/email opening, native heading/local Markdown navigation, hover and context copy. Opaque links retain exact Blitz pointer geometry without gaining editable text ranges or placing destinations in the renderer DOM. Authored IDs in supported previews resolve with nested-disclosure reveal and verified target carets. Still required: full native CJK IME/candidate UI, cross-fragment selection, find/source-only anchor reveal, full semantic tree/AT, safe resource integration and complete performance/scale gates. |
+| Math | **Partial:** real `latex-rust` / STIX block and inline formulas, measured inline attachments with source-indexed caret/copy geometry, per-paragraph source reveal while editing, matrix/script fixes, canonical preservation, native MathML/token validation and accessible overflow ranges. Overflowing block formulas are pointer- and Tab-focusable and support Left/Right/Home/End/Escape without changing source. Safe unwrapped LTR-leading formulas can precede an RTL suffix. Still required: cross-platform assistive-technology validation, fully bidirectional RTL-first/wrapped object mapping and the complete formula quality matrix. |
 | Gaps | Pairwise heading/prose/group spacing and external-vs-internal geometry are implemented; native fixture reviews and edit-lock title/intro gap regression pass. Full content/viewport acceptance remains. |
 
 ## Current implementation evidence
+
+### Contextual semantics for automatically composed tables
+
+The canonical accessibility tree previously named every Markdown table only
+`Table`, even when an authored section heading provided a concise, stable
+description. The section-aware semantic constructor is now shared by unit-test
+and cached production publication paths. A table inherits its nearest preceding
+authored heading as `<heading> table`; its source, identity and visual placement
+remain unchanged. Cells additionally publish explicit unit row/column spans,
+matching GFM's non-spanning table model.
+
+Release `caff09e469d924ddfbe346a37d1cf5a4bedd584df5bb754fc22342922919c5ff`
+passes the isolated private-session AT-SPI fixture at 1440×1000. The two tables
+are visibly side by side, while traversal remains canonical table → row →
+column-header/cell order and announces `Connection properties table` followed
+by `Execution options table`. Offscreen heading reveal, task activation, exact
+undo, stable heading identities and formula discovery also pass. The fixture is
+byte-identical after the exercise. Evidence: `spec-adaptive-tables-at.png`,
+`.atspi.json` and `.source.json` in `layout-previews/`. The current AccessKit
+Unix adapter exposes these roles through Accessible/Component rather than a
+separate AT-SPI Table interface, so adapter-level table navigation remains an
+explicit acceptance gap.
+
+### Explainable automatic layout choices
+
+The opt-in layout trace previously exposed normalized score terms and rejection
+counts, but not the semantic reason a candidate existed or the specific fit
+decision attached to it. That made the automatic-only product direction hard to
+tune without reconstructing planner state from geometry. Trace schema 2 now
+adds deterministic, content-free `reason_codes` to chosen rows, rejected row
+candidates, list decisions and list candidates. Codes cover structural
+nomination (`COMPACT_SIBLING_SECTIONS`, `ADJACENT_EXPLANATION`,
+`ADJACENT_TABLES`, `CONSECUTIVE_IMAGES`, `SHORT_FLAT_LIST`), measured fit,
+unequal tracks, conservative stack fallback, resource/edit locks, retained
+layouts and each hard rejection. They contain no Markdown text, paths, URLs or
+formula/HTML source and remain behind the existing developer trace shortcut;
+no user layout chooser was introduced.
+
+Release `5f1d18da8e901998f925b6a0aba43e336d59b70a097924b51fbd312b349970f9`
+was exercised through isolated native Wayland at 1920×1080. Fixture 11 reports
+the visible three-column sibling-section row and unequal explanation/code pair;
+fixture 6 reports its measured three-column list plus long-item rejection. The
+explicit warm planner samples complete in 0.124–0.234 ms for fixture 11 and
+0.147–0.202 ms for fixture 6; both source oracles are byte-identical. Evidence:
+`spec-auto-reasons-1920.*` and `spec-auto-list-reasons-1920.*` in
+`layout-previews/`. These small warm samples validate the diagnostic path, not
+the specification's cold long-document planning budget.
+
+The same binary passes the 10 MiB isolated continuous-scroll gate at **109.4
+FPS and 5.70 ms draw p99**, with byte-identical generated source. Evidence:
+`spec-auto-reasons-scroll.json` and `.source.json`. This preserves the user's
+over-60-FPS scrolling requirement while expanding only off-frame diagnostics.
+The full workspace passes **432 tests**, with two installed-font tests ignored;
+17 Python harness tests, formatting, diff whitespace checks and warning-denied
+all-target workspace Clippy pass.
+
+### Inert link geometry for opaque HTML
+
+HTML structures that Blitz can render but the conservative converter cannot
+map back to editable Markdown—such as a table with spanning cells—previously
+lost all link interaction. The inert adapter now assigns authored anchors a
+generated numeric descriptor and retains their destinations in a separate
+side channel. Live `href` values still never enter Blitz's DOM or its denying
+resource provider, and a caller-authored descriptor cannot spoof the generated
+mapping.
+
+For fragments without verified text correspondence, the view accepts only
+finite, in-viewport Blitz client rectangles whose centres hit the same anchor;
+transformed, hidden, occluded and empty boxes are rejected. These regions allow
+the existing safe Ctrl-click and context-copy paths while retaining the exact
+source as opaque HTML. They deliberately have no editable byte range, so a
+plain click cannot imply a source mapping or trigger conversion. Focused core
+and view regressions cover descriptor isolation, unsafe-scheme inertness,
+spanning-table geometry, source identity and absence of invented edit ranges.
+The full workspace passes **431 tests**, with two installed-font tests ignored;
+17 Python harness tests, formatting, diff whitespace checks and warning-denied
+Clippy for both affected crates pass. This is renderer-level geometry evidence;
+native assistive-technology semantics for opaque links remain part of the
+unfinished HTML acceptance matrix.
+
+### Keyboard-operable display-formula overflow
+
+The visible display-math scrollbar and native accessibility value previously
+left a keyboard-only reader without a direct focus target. Overflowing formula
+viewports now enter the native tab order and expose a restrained inset focus
+ring plus a short interaction hint. Left and Right pan by the same bounded
+viewport-relative step as accessibility actions, Home and End reach the exact
+edges, and Escape returns focus to the Markdown editor. Fitting formulas do not
+gain a tab stop. Tab keeps its existing table-cell and list-indentation behavior
+inside those structures; from ordinary prose it now follows the native control
+order instead of only ringing the system bell.
+
+The focused GPUI regression exercises both pointer and Tab entry, every formula
+navigation key, Escape, exact serialization, unchanged revision and an empty
+content-undo history. The full workspace passes **428 tests**, with two
+installed-font tests ignored. Release
+`ffaec5e8fb45edb789cf69e448771bd269b1e29b9c8a63345e613f6ac1e19534`
+was exercised through the private Wayland seat at 360×1000. The before capture
+shows the formula start; the keyboard End capture shows the inset focus ring and
+the final `a_17 + a_18 + a_19 + a_20 = S`. Both source reports are byte-identical
+(`8e2659d3…`). Evidence: `spec-math-keyboard-before.*` and
+`spec-math-keyboard-end.*` in `layout-previews/`.
+
+The same release passes the formula-stress continuous-scroll gate at **109.8
+FPS and 3.35 ms draw p99**, with byte-identical source
+(`spec-math-keyboard-scroll.json` and `.source.json`). This is an isolated
+Weston regression gate, not physical-display performance or complete AT-12
+coverage. RTL-first/wrapped inline formula mapping and cross-platform assistive
+technology remain unfinished.
 
 ### Discoverable contained overflow for display math
 
@@ -88,6 +197,26 @@ is byte-identical (`052bfdec…` before and after). Evidence:
 `spec-math-scrollbar-narrow.png`, `spec-math-scrollbar-narrow-drag.png`,
 `spec-math-scrollbar-medium.png`, and their `.source.json` reports.
 
+Overflow state is now operable through native accessibility as well. The
+canonical formula node keeps its pure MathML child tree and exact source label;
+only an overflowing formula additionally publishes standard horizontal-scroll
+offsets plus a native numeric Value range. AccessKit scroll actions and AT-SPI
+Value changes both call one clamped per-node view-state path. Fitting and invalid
+formulas expose neither a false range nor an extra semantic child. Release
+`5cbd850970bd715fd1090d44514fbe217da91e4f6cb82d166e6902efb710de35`
+passes the private AT-SPI exercise at 360×1400: the long formula moves from 0 to
+its exact maximum 803, its final `= S` is visible, all structured equation/token
+checks still pass, and source remains byte-identical (`8e2659d3…`). Evidence:
+`spec-math-scroll-accessible.png`, `.math-atspi.json`, and `.source.json`.
+The same private AT-SPI exercise passes at 200% text in a 768×1600 window: the
+range expands from 0 to 1,503, the final `= S` remains reachable, equation
+structure and token order remain intact, and source is unchanged
+(`spec-math-scroll-accessible-200.*`).
+With accessibility active, the same release passes the formula-stress
+continuous-scroll gate at **104.7 FPS and 12.08 ms draw p99**, with no interval
+or application stall at least 25 ms and byte-identical source
+(`spec-math-scroll-accessible-perf.json` and `.source.json`).
+
 The same release passes the formula-heavy isolated Wayland continuous-scroll
 gate with an active private AT-SPI tree: **108.4 FPS, 9.26 ms draw p99**, no
 application or presentation interval at least 25 ms, and 2,473 accessible nodes
@@ -95,9 +224,35 @@ over ten measured seconds (`spec-math-scrollbar-formula-scroll.json`). The
 adjacent `.source.json` report records byte-identical formula-stress source
 (`0381ff2b…`). This is a
 regression gate on the private compositor, not physical-display performance or
-a claimed speedup. Keyboard/programmatic operation of the horizontal formula
-viewport, complete formula semantics, and broader mixed-direction inline math
-remain part of the unfinished AT-12 matrix.
+a claimed speedup. Direct non-AT keyboard focus for the horizontal formula
+viewport, complete formula semantics across assistive technologies, and broader
+mixed-direction inline math remain part of the unfinished AT-12 matrix.
+
+### Safe inline formulas before RTL suffixes
+
+The earlier inline-math gate rejected an entire paragraph as soon as it found
+an Arabic or Hebrew character. It now admits a bounded mixed-direction case:
+all formula attachments must belong to a leading LTR portion, every RTL
+character must follow them, native shaped glyph positions must prove that no
+source span crosses the formula visually, and the complete paragraph must fit
+without wrapping. This uses measured output rather than guessing from item
+content. RTL-leading, interleaved and wrapped cases still render their canonical
+source until fully bidirectional object/caret mapping exists.
+
+Focused regressions cover Arabic and Hebrew in one suffix, formula/source range
+identity, narrow-width fallback, RTL-leading fallback, source reveal while the
+formula is edited, exact serialization and one-step undo. All **425 workspace
+tests pass**, with two installed-font tests ignored; 17 Python tests, formatting,
+diff whitespace checks and warning-denied Clippy pass. At 768×1200, release
+`9fa764ab56b313687c4dbdb90d0a69be0efe254282d143e744ab842fe9737e51`
+renders `E = mc²` before the shaped RTL suffix while the RTL-leading `x^2 + y^2`
+remains source. At 360×1400 the first paragraph wraps and therefore also retains
+source. Both native runs preserve the fixture byte-for-byte (`a6bd8de3…`).
+Evidence: `spec-math-mixed-direction.png`,
+`spec-math-mixed-direction-narrow.png`, and their `.source.json` reports.
+The same release passes the formula-stress continuous-scroll gate with native
+accessibility active at **109.6 FPS and 6.40 ms draw p99**, with byte-identical
+source (`spec-math-mixed-direction-perf.json` and `.source.json`).
 
 ### HTML-only documents: retire the unneeded caret scaffold
 
@@ -4452,6 +4607,407 @@ python3 performance/capture-layout.py --width 1728 --height 1080 --scale 200 --g
 The harness copies synthetic fixtures into a temporary workspace before editing;
 it never types into the user's document or unlocks/operates the physical session.
 
+### Editorial composition increment
+
+- `47-editorial-composition.md` exercises a title and lead, section
+  introduction plus independent task list, repeated heading/table units,
+  repeated heading/prose units, explanation plus code, and a return to ordinary
+  prose. It contains no layout directives or duplicated presentation content.
+- A section heading and its introduction can now remain full width while a
+  following compact independent unordered/task list shares a measured two-track
+  row with the prose. Ordered and nested lists are excluded, narrow windows
+  retain the source-order stack, and focused editing retains the chosen card
+  geometry.
+- Three legal matched sibling sections are one coherent peer unit. A complete
+  measured three-card row wins when readable; if that row fails width, height,
+  or overflow gates, two-card candidates inside the matched trio are rejected
+  so the result is a full source-order stack rather than an orphan plus pair.
+  After a narrower viewport forced that stack, a wider canvas may reform the
+  complete row without paying the ordinary arbitrary-layout change penalty.
+- Native 1280×1920 captures are
+  `layout-previews/editorial-before-1280.png` and
+  `layout-previews/editorial-after-1280.png`. The latter visibly retains all
+  three architecture siblings in one card row and composes the checklist
+  beside its introduction. Its source-unchanged check passed with SHA-256
+  `ce533a00231b29f813d86b4637af5bade9bf58cfddbaf7047c2e21180b05235a`.
+  The optimized binary SHA-256 is
+  `4c8fdecef9430aae7469ec03c03a37d6ecb6609d9aeaf7e508f9fa7c75afa39f`;
+  cold-to-warm planner passes were 37.4 ms, 8.7 ms, 0.7 ms, and 0.6 ms.
+- The same optimized binary passed a 10 MiB continuous-scroll run at 1920×1080
+  and 120 Hz with **106.6 FPS** and **8.03 ms draw p99**, while retaining exact
+  source bytes. Report:
+  `layout-previews/editorial-composition-scroll.json`. The first attempt with a
+  private AT-SPI bus hit a Wayland transport buffer limit before producing a
+  performance report; the successful performance run therefore did not claim
+  simultaneous AT-SPI load.
+- Native select-all/copy traverses the introduction/list row, all table groups,
+  the three-card peer row, and the explanation/code row in canonical order.
+  The complete 2,131-byte semantic clipboard equals the reviewed
+  `47-editorial-composition.copy.txt` golden exactly, including tab-separated
+  table cells, every list item and paragraph, code newlines, and the final text.
+  Its SHA-256 is
+  `eba4fc18c6c090b5e33b716eb599d91487d87fe5784f0acd51da5267691ca3e8`;
+  ten cross-composition markers additionally occur exactly once in source
+  order, and the layout operation leaves the fixture byte-identical. Evidence:
+  `layout-previews/editorial-copy-exact-1280.copy.json`, `.source.json`, and
+  `.png`.
+- Native dead-key IME and plain-text paste now pass inside the middle card of
+  the three-column peer row. During preedit the private AT-SPI tree contains the
+  provisional accent in the existing paragraph node while the source remains
+  unchanged; commit/autosave targets that paragraph, 1.5 seconds of focused
+  idle layout retains the row, and one content undo restores every original
+  byte. The paste path has the same target, idle and exact-undo oracles.
+  Evidence: `layout-previews/editorial-ime-card-1280*` and
+  `layout-previews/editorial-paste-card-1280*`. The harness now distinguishes a
+  standalone preedit node from one provisional Unicode codepoint inserted into
+  an existing accessible label, and compares regenerated plain-text nodes after
+  projecting only legal Markdown punctuation escapes.
+- A private-session AT-SPI traversal of the same 1280×1920 composition publishes
+  190 nodes with all 12 authored headings in order, five task checkboxes under
+  their canonical list, and exact 5×3, 5×2, and 4×2 table shapes. The three peer
+  headings share y=1401 and retain source-order x positions 260, 596, and 932;
+  their paragraph children, the following explanation/code pair, and final
+  heading also traverse in canonical order. The document editor exposes native
+  focus, code text is accessible, and source remains byte-identical. Evidence:
+  `layout-previews/editorial-atspi-1280.atspi.json`, `.source.json`, and `.png`.
+  The structural oracle has rejecting regressions for reordered peer content,
+  broken visual rows, and incomplete table-cell hierarchy.
+- AT-11 now has native wide→narrow→wide evidence under Weston 14's desktop
+  shell, which permits real client resizes rather than kiosk-shell no-ops. The
+  validation-only binary resized the window from 1360 to 720 logical pixels;
+  the exposed editor width changed 1030→622→1030 pixels. While reading, the
+  `3. Architecture and persistence` anchor stayed exactly 12 pixels below the
+  viewport top through narrow reflow, a repeated identical resize, and wide
+  restoration. The peer group changed from one three-card row to three complete
+  stacked sections and back to one row; all heading identities and visible
+  geometry remained stable and the source stayed byte-identical. Evidence:
+  `layout-previews/editorial-resize-reading.resize.json` and the
+  `editorial-resize-reading-reading-{wide,narrow,restored-wide}.png` captures.
+- The companion active-edit run used native Find, selection collapse, typing,
+  autosave, resize, and undo. The exact canonical caret remained focused at
+  `1479..1479` before and after reflow, the inserted `x` remained inside the
+  intended middle-peer paragraph, the trio used the legal narrow stack, and one
+  undo restored every original byte. Evidence:
+  `layout-previews/editorial-resize-editing.resize.json` and
+  `editorial-resize-editing-editing-{typed-wide,narrow}.png`. F8/F9/F10 state
+  and resize commands exist only behind `layout-validation`; the production UI
+  remains automatic-only. Both runs used optimized binary SHA-256
+  `a2a16a2f0a315b8a94302ea8f1c8cb72df734eb0eec611f259070fa99fa278f6`.
+
+### Typography-environment remeasurement and wrapped-line anchors
+
+- `48-typography-direction-overflow.md` is a bounded synthetic body-font,
+  200%-text, Arabic/Hebrew and long-unbroken-content fixture. F6/F7 switch the
+  component theme between bundled `Noto Sans Mineral` and
+  `Spline Sans Mineral` only in a `layout-validation` build; no font or layout
+  control is exposed in the production UI. A font mismatch creates a new
+  immutable `FontMeasurement`, clears the table lock, advances geometry and
+  runs a committed measured plan rather than reusing a previous font's cache.
+- The native 100% run records a real 29 px downstream geometry change under the
+  alternate face, 132 shaping calls and 27 wrap-cache misses, then exact
+  geometry restoration. The 200% run legally retains the same wrap boundaries
+  but records 128 shaping calls and 22 wrap-cache misses for both alternate and
+  restored environments. All six heading identities and every source byte stay
+  unchanged. Evidence: `layout-previews/typography-font-reflow-{100,200}.font.json`
+  and their `-{before,alternate,restored}.png` captures.
+- The first two 200% runs reproducibly moved the chosen heading
+  `69→126→184` pixels down the viewport. The renderer's semantic anchor stored
+  the visible wrapped line's start, but resolution treated both the preceding
+  line's end and following line's start as inclusive and selected the earlier
+  iterator entry. `resolve_scroll_anchor` now prefers an exact line start
+  before its inclusive mid-line/terminal fallback. A focused regression locks
+  that boundary rule while the existing insertion-above test remains green.
+  With optimized validation binary SHA-256
+  `1f9c3ea44a5141d65c50b9c864cb45ce2c419713e689e87596e6eabc856708ab`,
+  both native runs keep the heading at exactly 11 px through font change,
+  repeated identical environment and restoration.
+- The reviewed 100% screenshots show the Arabic and Hebrew paragraphs painted
+  in native visual RTL order, and the long inline identifier wraps without
+  widening/clipping the page. Existing table/code/HTML tests prove retained
+  local horizontal overflow for technical blocks, including 200% text. This is
+  partial AT-12 evidence: native RTL caret/hit-test order and an actual delayed
+  asynchronous font-load event still need independent oracles before AT-12/13
+  can be closed.
+
+### Native content-sensitive list, row, and table acceptance
+
+- `adaptive_layout_check.py` now inspects the complete private-session AT-SPI
+  tree and window-relative geometry for fixtures 06, 11, and 12. It rejects
+  missing/duplicated/reordered content, split or missing list ancestry,
+  overlapping/ambiguous visual order, malformed table row/cell hierarchy, and
+  a layout that contradicts the declared wide/medium/narrow profile. Every run
+  also hashes and re-reads the isolated fixture source and retains a screenshot.
+- At **1440×1200**, the two short six-item groups form source-ordered 3×2 grids.
+  At **900×1200**, the one-word directions form a 2×3 grid while the longer
+  labeled descriptions stack because their measured content no longer fits
+  comfortably. At **480×1200**, both stack. The uneven, cross-referencing, and
+  ten-item lists remain vertical at every width; nested paragraphs and code
+  retain their authored traversal. Ordered numbers remain visible in the
+  reviewed captures, while all item paragraphs retain one canonical native
+  list-item/list ancestry. Evidence:
+  `layout-previews/adaptive-lists-{wide,medium,narrow}.{adaptive.json,png}`.
+- At **1280×1100**, the three repeated review sections form one complete
+  source-ordered card row. The long worker example remains a readable stack,
+  while the shorter second explanation and code use two non-overlapping
+  columns. At **900×1100** and **480×1200**, all of those groups become complete
+  stacks; no orphaned pair is retained, and the thematic break keeps the final
+  section outside the preceding group. Evidence:
+  `layout-previews/adaptive-rows-{wide,medium,narrow}.{adaptive.json,png}`.
+- At **1280×1100**, the 161 px runtime table and 518 px comparison table share
+  one source-ordered row without being flattened to equal widths. At **900×1100**
+  and **480×1200** they stack. All four tables preserve their exact authored
+  header/cell names and 4×2, 4×3, 4×3, and 3×2 native structures; the narrow
+  long-identifier table keeps its bounded horizontal overflow. Evidence:
+  `layout-previews/adaptive-tables-{wide,medium,narrow}.{adaptive.json,png}`.
+- All nine native runs use optimized validation binary SHA-256
+  `1f9c3ea44a5141d65c50b9c864cb45ce2c419713e689e87596e6eabc856708ab`,
+  isolated Weston 14/Wayland and private accessibility/session state at 100%
+  display/text scale. Six oracle regressions cover legal wide/narrow cases plus
+  reordered list content, broken list ancestry, overlapping peer cards, and a
+  missing table cell. This supplies the requested AT-01–05 width, fit,
+  fallback, source-order, hierarchy, and intrinsic-table evidence; it does not
+  close the unrelated remaining acceptance rows below.
+
+### Native chapter barriers and duplicate identity
+
+- `49-chapter-identity.md` contains two unrelated long sibling chapters with
+  identical H2/H3 labels and repeated prose. The second repeated paragraph has
+  one unique lowercase edit target, but the surrounding wording remains
+  deliberately ambiguous. No layout directive or presentation-only duplicate
+  is embedded in the fixture.
+- The private AT-SPI oracle verifies exact seven-heading source traversal,
+  exactly two distinct persistent identities for each repeated heading level,
+  and a hard chapter barrier: every semantic node owned by chapter one ends
+  before chapter two begins. It then uses native Find, collapses the selected
+  target, types `x`, waits for autosave/reflow, and proves all six duplicate
+  heading identities plus the targeted paragraph identity are unchanged. The
+  complete first-chapter byte prefix is identical during the edit; one content
+  undo restores the original file byte-for-byte.
+- Optimized validation binary SHA-256
+  `1f9c3ea44a5141d65c50b9c864cb45ce2c419713e689e87596e6eabc856708ab`
+  passes at **1280×1000** and **480×1100**, 100% display/text scale, isolated
+  Weston 14/Wayland and a private accessibility/session bus. In both widths the
+  first chapter's final semantic bottom and second chapter top retain a 45 px
+  gap before, during, and after the edit. Reviewed captures show the caret only
+  in `beta edit targetx` and the scrollbar on the outer window edge. Evidence:
+  `layout-previews/chapter-identity-{wide,narrow}.identity.json` and their
+  `-{before,edited,restored}.png` captures.
+- Five rejecting/passing oracle regressions cover a legal transition, chapter
+  overlap, duplicate native paths, a mutation leaking into chapter one, and a
+  heading identity change. Existing group-analysis tests independently retain
+  duplicate canonical anchors across ordinary typing. Together these provide
+  native AT-06/07 barrier, identity, targeted-edit, and exact-undo evidence;
+  production remains automatic-only, so no obsolete user override is invented.
+
+### Exhaustive feasible row-template search
+
+- `exhaustive_small_sequences_are_deterministic_legal_exact_partitions` now
+  exercises all seven 12-track templates: stack, equal pair, four unequal pair
+  orientations, and the three-column row. It enumerates all 729 mixed
+  pair/triple rejection masks at a 1280 px canvas for each preferred adaptive
+  template, plus all-available, boundary-rejected, and all-rejected cases at
+  360, 768, and 1920 px. This is 4,428 generated candidate sets, and every set
+  is solved twice.
+- Every result must cover canonical groups `0..6` exactly once and in order,
+  contain only `RowCandidate::legal` rows, reproduce the identical partition
+  and template sequence on the second solve, and match every selected width to
+  the exact feasible 12-track span at that canvas. The test also requires that
+  all seven templates win at least once; a template silently excluded by
+  candidate order cannot pass.
+- The independent group analyzer still checks 1,296 generated Markdown block
+  sequences for exact deterministic ownership, while the native AT-01–05
+  fixtures above exercise the corresponding stack, equal/unequal pair, and
+  three-column renderer paths. The strengthened focused planner test completes
+  in about 2.8 seconds after compilation on this machine. This closes AT-20's
+  bounded combinatorial evidence without changing production scoring or
+  geometry.
+
+### Native inert HTML side-effect boundary
+
+- `50-inert-html-effects.md` combines a safe authored disclosure with eight
+  loopback references across script, iframe, stylesheet, image, video poster,
+  video source, CSS background, and unknown custom-element markup. The normal
+  HTML safety policy remains unchanged: safe details use the Blitz renderer;
+  active/unsupported markup is inert visible source/fallback rather than being
+  executed, fetched, or silently converted.
+- The capture harness binds an ephemeral **loopback-only** HTTP server before
+  launching the app and substitutes its port only in the temporary fixture
+  copy. A control GET must reach the monitor and is then cleared, so an empty
+  result cannot come from a broken listener. During app startup, three explicit
+  detailed replans, native AT-SPI open, and native AT-SPI close, the monitor
+  records **zero requests** at all three checkpoints.
+- The safe disclosure retains one native identity, Click action, expandable /
+  expanded state, correct closed/open body visibility and byte-identical source
+  through both transitions. Content following all unsafe fragments remains
+  accessible, and the reviewed opened capture shows conservative fallbacks and
+  literal preserved markup without remote content. The detailed trace contains
+  eight reports, seven committed measured plans and all three requested warm
+  replans. Evidence: `layout-previews/inert-html-effects.effects.json`,
+  `.planning.json`, and `-{initial,opened,restored}.png`.
+- The run uses optimized validation binary SHA-256
+  `1f9c3ea44a5141d65c50b9c864cb45ce2c419713e689e87596e6eabc856708ab`
+  at **1280×1000**, 100% display/text scale, isolated Weston 14/Wayland and a
+  private accessibility/session bus. Five pure oracle regressions reject any
+  observed request, an unverified monitor, disclosure identity replacement,
+  lost conservative fallback, or source/state failure. This supplies AT-14's
+  safe-renderer, authored-state, inert-measurement, and no-external-effect
+  evidence without enabling a network provider in the app.
+
+### Automatic-only intent and native boundary hysteresis
+
+- The later product direction supersedes AT-16's proposed Plain / Adaptive /
+  Focus chooser and per-group overrides: production has one automatic layout
+  intent and stores no layout-mode preference. The feature-gated validation
+  build adds only keyboard-driven window resize commands; the native AT-SPI
+  tree contains no layout, Plain, Adaptive, or Focus control at any sampled
+  width. A fresh wide process independently chooses the measured three-card
+  row, so process reopen cannot restore a hidden manual layout mode.
+- `boundary_layout_check.py` reveals the real chapter first, then changes the
+  native window by 8 logical px per step. In the retained native run the peer
+  group stayed a legal three-card row through **806 px** of editor width and
+  changed directly to the legal source-order stack at **798 px**. There was no
+  invalid intermediate geometry. The oracle then alternated those adjacent
+  widths four times; every sample retained the stack rather than flapping back
+  and forth. Expansion to 1030 px retained legal geometry, as permitted by the
+  previous-legal-candidate tie rule.
+- All heading AT-SPI identities remain exact through 38 geometry samples. A
+  native Ctrl+Z after the layout-only sequence is a no-op and the copied fixture
+  remains byte-identical, proving that automatic composition does not enter the
+  content undo history. Existing reading/editing resize runs separately prove
+  anchor/caret preservation and exact content undo when a real edit precedes
+  reflow.
+- Evidence: `layout-previews/automatic-boundary.boundary.json`, `.planning.json`,
+  `.log`, and `-wide.png`, `-first-stack.png`, `-restored-wide.png`. The run used
+  optimized validation binary SHA-256
+  `d8aa955741f47982c5111d8fc70cbe7255c73a3dcfe939bfef85477314de1bc1`,
+  isolated Weston 14/Wayland at 120 Hz, 1440×1000 output, 100% display/text
+  scale, and a private AT-SPI/session bus. All 40 detailed planner reports
+  committed; worker durations were 0.319–27.404 ms. Five pure oracle tests also
+  reject topology thrashing, source mutation, invented controls, or illegal
+  transition geometry. This closes the effective automatic-only AT-16 contract
+  and AT-17.
+
+### Current-production long-document acceptance
+
+- The user's later performance policy explicitly permits slower startup while
+  requiring scrolling above 60 FPS. AT-18 therefore uses the existing eager
+  canonical geometry build at open, but requires the steady scrolling and
+  localized editing paths to remain bounded. This does **not** claim that cold
+  whole-document startup reflow is viewport-bounded.
+- The non-confidential fixture `17-long-layout-spec.md` is explicitly synthetic:
+  22,967 whitespace-separated words, 148,655 UTF-8 bytes, exactly 20 numbered
+  H2 sections, 60 dense tables, repeated six-item feature groups, and 362 roots /
+  1,522 rendered segments. It contains no Nudge text. Its only H1 and its 20 H2
+  headings are authored source; the layout system does not invent summaries,
+  fields, status, or navigation headings.
+- Current production binary SHA-256
+  `b473c707192ec449e0d33cba11312863f4b64df336594a77d44dc2fbe126dfc5`
+  passes a ten-second continuous bidirectional native scroll run at 1728×1080,
+  166.7% display scale and 120 Hz: **108.7 presented FPS**, 6.87 ms draw p99,
+  10.84 ms input-latency p99, zero ≥25 ms stalls/intervals, and 0.55% missed
+  presentation deadlines. Source remains byte-identical. Paint continues to use
+  the bounded viewport slice; no layout job is dispatched merely for traversing
+  already prepared content.
+- On the same production binary, a native pointer edit in the unique fixture
+  disclosure paragraph reaches autosave, remains stable through one second of
+  focused idle, and one Ctrl+Z restores all 148,655 source bytes exactly. The
+  edit/undo committed workers take 3.25/1.70 ms, search only two visible/lookahead
+  DP windows while deferring 19 chapters, reuse 17/18 group footprints and all
+  18 list-item footprints, and publish retained geometry with zero anchor
+  displacement. A separate native Select All/copy finds `S1-F12`, `S10-F12`,
+  and `S20-F12` exactly once in source order at byte positions 7,178, 71,369,
+  and 142,809, including unvisited offscreen chapters.
+- Evidence: `layout-previews/current-long-spec-scroll.json` and `.log`,
+  `current-long-spec-edit.edit.json`, `.planning.json`, `-typed.png`, `-idle.png`,
+  and `current-long-spec-copy.copy.json` / `.source.json`. These current-binary
+  results supplement the earlier twelve-sample geometry-cache and chapter-window
+  evidence above. Under the explicitly revised startup policy, they close AT-18
+  without weakening source-order, edit, or steady-state scrolling requirements.
+
+### Current-production responsive visual matrix
+
+- The retained production matrix uses binary SHA-256
+  `b473c707192ec449e0d33cba11312863f4b64df336594a77d44dc2fbe126dfc5`,
+  isolated Weston 14 headless GL/Wayland with kiosk shell at 120 Hz, 100% display
+  scale, bundled **Spline Sans Mineral**, **Spline Sans Mono Mineral**, and
+  **Fraunces Mineral**, and `47-editorial-composition.md`. Every run verifies the
+  copied fixture remains byte-identical.
+- Reviewed captures at **360, 768, 1280, and 1920×900 logical px** show the same
+  authored hierarchy and consistent content leading edges. At 360 the navigation
+  is absent and prose/cards form one readable stack; at 768 navigation remains
+  collapsed while the independent confirmation group pairs only when it fits;
+  1280 restores Files/Outline and the paired opening; 1920 uses the wider canvas
+  for the pair without stretching prose across the page. Ordered source flow and
+  heading attachment remain clear in all four.
+- The **1280×480** short-height capture keeps identical horizontal composition
+  and clips only at the viewport edge for ordinary document scrolling. The
+  **1280×900 / 200% document-text** capture remeasures and stacks the opening,
+  keeps the outer document scrollbar at the window edge, preserves full heading
+  and paragraph glyphs, and does not page-clip or ellipsize essential text.
+- Artifacts: `layout-previews/visual-matrix-{360,768,1280,1920}.png`,
+  `visual-matrix-short.png`, `visual-matrix-200pct.png`, their `.source.json`,
+  `.planning.json`, and `.log` files. All six source oracles pass. This closes the
+  required responsive visual review matrix; renderer-specific math/Blitz
+  selection and native RTL/delayed-font cases remain tracked separately.
+
+The earlier native panic/timeout recovery evidence satisfies AT-15's required
+usable stack, stable primary nodes, late-result rejection, source-order copy,
+edit/undo, and non-blank document outcomes. The standalone linked-gallery
+evidence likewise satisfies AT-19's required complete images, source order,
+authored target, accessible descriptions, wide/narrow fallback, activation and
+unchanged source. Their documented limitations concern broader interactions
+outside those acceptance fixtures, not a missing required outcome in AT-15 or
+AT-19.
+
+### Native direction, delayed fonts, and current renderer closure
+
+- The validation build now omits **Noto Sans Mineral** from startup and registers
+  its two bundled faces only when the native F6 acceptance action runs after the
+  document is visible. The first action records `loaded=true`; applying the same
+  environment again records `loaded=false`, so the oracle distinguishes a real
+  font-completion event from a warm theme toggle. Both 100% and 200% runs commit
+  freshly shaped geometry, retain every heading identity, keep the Reading
+  anchor exactly 11 px below the viewport edge through alternate/repeat/restore,
+  restore the original geometry, and preserve all source bytes. Evidence:
+  `typography-delayed-font-{100,200}.{font.json,log,png}`.
+- Bidirectional paragraphs no longer consume GPUI wrap boundaries as though
+  visual glyph order were monotonically increasing source order. A bounded
+  logical wrapper shapes real source-order word/grapheme candidates, and the
+  editor derives pointer/caret stops from shaped visual cluster positions.
+  Native Arabic checks at 100% and 200% prove that right/left hits map to
+  reversed logical offsets while Left/Right move physically left/right; all
+  carets remain collapsed and source is unchanged. The inspected 200% capture
+  wraps Arabic and Hebrew inside the canvas while the following unbroken Latin
+  identifier remains scoped to its own content. Evidence:
+  `typography-rtl-{100,200}.{rtl.json,log,png}`.
+- Optimized validation binary SHA-256
+  `75cd965e87775bda0fe05eed2165fe535f24b17f20a9219ab62934398732c22b`
+  also passes the current Blitz HTML AT-SPI disclosure/text/source check at
+  1280×1000 and the MathML/token/overflow-value/source check at 1280×1400 with
+  200% document text. The formula's native value reaches its exact 1,223 px
+  maximum. Evidence: `current-html-atspi-1280.*` and
+  `current-math-atspi-200.*`. Current core/view tests additionally exercise
+  HTML first-edit conversion and exact undo, rich preview selection, inert
+  links/resources, malformed/oversized fallbacks, inline/display math editing,
+  invalid formula fallback, keyboard overflow and exact source preservation.
+- The complete current check set passes **439 Rust tests** (105 core, 294 view
+  with two installed-system-font cases ignored, one fixture test and 39 app
+  tests) plus **55 Python oracle tests**. Default and `layout-validation`
+  warning-denied Clippy, all-target checks, formatting and diff whitespace are
+  clean. No test-only controls are present in the normal release.
+- Normal production binary SHA-256
+  `409c4226486642b765154f6526de4bb1513582040cc64cd6ec781086dbe5e36c`
+  passes the final 10 MiB continuous-input run at **109.1 FPS**, 5.28 ms draw
+  p99 and 10.00 ms input-latency p99, with no missed presentation deadlines,
+  no ≥25 ms application stalls/intervals, and the generated fixture hash
+  retained in the report. Evidence: `current-rtl-long-scroll.json` and `.log`.
+
+These results close AT-12 and AT-13 for the native Linux Wayland target and
+complete the requested Blitz/math acceptance alongside the prior edit/undo,
+safe-fallback and responsive matrix evidence. Cross-platform assistive
+technology and physical-display profiling remain useful follow-up work, not
+unmet outcomes in this target-specific contract.
+
 ## Renderer dependency investigation (not implementation evidence)
 
 Context7 documents inert default net/navigation/shell providers in Blitz. The
@@ -4468,24 +5024,70 @@ integration and known renderer-quality issues above. Inline/display integration
 and final selection acceptance remain open. Primary references: [Blitz](https://github.com/dioxuslabs/blitz),
 [LaTeX-Rust API](https://docs.rs/latex-rust/1.0.2/latex_rust/).
 
-## Acceptance evidence required (not a checklist of assumed passes)
+## Acceptance status
 
-| Cases | Required authoritative evidence still to gather |
-| --- | --- |
-| AT-01–03 | Actual width-specific list measurements at wide/medium/narrow; uneven/nested rejection, source-order and numbering assertions |
-| AT-04–05 | Real explanation/code and unequal property/comparison table rows, stack fallback and intact headers/cells |
-| AT-06–07 | No chapter crossing, true hierarchy, stable duplicate IDs through edits; analyzer tests are only one layer |
-| AT-08–10 | Native cross-column copy, keyboard/AT-SPI traversal, paste/undo/IME and retained caret |
-| AT-11–13 | Resize/zoom/font/RTL and delayed-media tests, legal stack fallback and measured anchor displacement |
-| AT-14–15 | Safe HTML/details, no measurement side effects, timeout/error stack, obsolete-plan rejection |
-| AT-16–17 | Layout-only byte/undo invariance, view intent across reopen, hysteresis and invalid-plan escape |
-| AT-18 | Read-only actual Nudge spec if available, otherwise explicitly identified synthetic ~20k-word/20-section stress case; bounded work and scrolling/editing measurements |
-| AT-19 | Complete linked images and alt semantics in source-order gallery |
-| AT-20 | Exhaustive generated planner sequences: ordered exact partition, deterministic output, all chosen widths feasible; group-only tests do not satisfy the planner requirement |
-| Visual | 360/768/1280/1920 logical widths, short height, 200% text; record fonts, scale, compositor, shell; retain before/after artifacts |
-| Additional renderers | Blitz and math actual native renders, source/edit/undo fidelity, selection/accessibility and safe/error fallbacks |
+All AT-01–19 cases and hard invariants INV-01–12 now have Linux Wayland evidence
+in this ledger, including current-binary native oracles for the formerly open
+AT-12/13 and renderer rows. §20 handoff artifacts are retained under
+`performance/layout-previews/`; synthetic sources remain under
+`performance/layout-fixtures/`. Newspaper columns, masonry, table record cards,
+sidecars and model-generated semantic content remain outside MVP as the contract
+specifies.
 
-Completion requires all hard invariants INV-01–12 and §20 handoff evidence. Do
-not mark this goal complete on the strength of this ledger, group tests, or
-screenshots alone. Newspaper columns, masonry, table record cards, sidecars and
-model-generated semantic content remain outside MVP as the contract specifies.
+### Editorial decision-panel refinement
+
+- A level-two section containing introductory prose, a short colon-terminated
+  label, and three to nine flat unordered/task items now nominates a measured
+  editorial split. The heading stays full width, prose occupies the leading
+  column, and the authored label travels with the list inside one quiet panel.
+  No text is synthesized and canonical source order is unchanged.
+- The panel uses one rounded native quad with an integrated green leading rail;
+  its short authored label receives semibold heading color. Neutral peer and
+  list cards retain their existing treatment.
+- Heading rhythm now reserves 30 px between an opening H1 and an immediately
+  following H2, 56 px before subsequent H1/H2 sections, 40 px before H3-H6,
+  and 12-18 px after headings according to level. Insets and table/card padding
+  remain separate from these external gaps.
+- The actual `plan.md` is covered by a native-font planner regression asserting
+  the labelled split and byte-identical serialization. The synthetic
+  `51-editorial-decision-panel.md` fixture was visually inspected at 1600x1200,
+  1280x1000, and 760x900. Wide/regular views form the split; the narrow view
+  preserves the vertical source-order fallback. All three native captures pass
+  the unchanged-source oracle. Evidence: `editorial-decision-{wide,regular,narrow}.*`.
+- Production binary SHA-256
+  `6172aaa44acce5c04dccec51a6b885b1bc62200cc00e03c4334ef64b81ebc5a9`
+  passes the 10 MiB continuous-input regression at **109.2 FPS** with **4.15 ms
+  draw p99**. The complete check set passes 440 Rust tests (two optional
+  installed-font tests ignored) and 55 Python oracle tests. Evidence:
+  `editorial-decision-long-scroll.{json,log}`.
+
+### Document-wide labelled-list compositions
+
+- The automatic selector now recognizes repeated authored `**Label:**` and
+  `` `TechnicalLabel`: `` prefixes throughout a document. Three labelled items
+  nominate one measured three-card row; longer groups nominate two or three
+  columns according to their native wraps. One unlabelled summary item is
+  tolerated when at least three quarters of the group retains the repeated
+  structure.
+- Labelled groups receive quiet cards with one green top rule. Bold labels use
+  the document's restrained Fraunces card-heading treatment; inline-code labels
+  remain monospaced. Ordinary short lists retain the existing neutral measured
+  grid, while uneven prose lists and complex/nested content remain vertical.
+- The earlier introduction/list split now requires an actual short authored
+  colon label before the list. This prevents generic section paragraphs from
+  being repeatedly pushed beside unrelated bullet lists.
+- The real `plan.md` planner regression requires its opening decision panel and
+  at least three additional labelled list groups to compose, with byte-identical
+  serialization. Fixture `52-labelled-list-compositions.md` covers three-card,
+  six-item specification, uneven vertical-list, and ordered-step decisions.
+- Inspected native captures at 1600×1200, 1280×1000, and 520×1000 demonstrate
+  three columns, two columns, and the narrow vertical fallback respectively.
+  Every capture passes the unchanged-source oracle. Evidence:
+  `layout-previews/labelled-compositions-{wide,regular,narrow}.{png,source.json,planning.json,log}`.
+- Production binary SHA-256
+  `4ccc3530d79660c9e3433cebca35a44e2b06f426d2b7e3239cbb026250546bb8`
+  passes the isolated 10 MiB continuous-input gate at **109.4 FPS** with
+  **3.99 ms draw p99**. The complete check set passes 443 Rust tests (two
+  optional installed-font tests ignored) and 55 Python oracle tests; formatting,
+  all-target checks, warning-denied Clippy, and diff whitespace are clean.
+  Evidence: `layout-previews/labelled-compositions-long-scroll.{json,log}`.

@@ -12,6 +12,7 @@ use crate::{
 };
 
 mod preview;
+mod source_rebase;
 
 #[derive(Clone, Debug)]
 struct SnapshotState {
@@ -20,6 +21,7 @@ struct SnapshotState {
     selection: Selection,
     dirty_nodes: BTreeSet<NodeId>,
     structure_changed: bool,
+    moved_source_nodes: BTreeSet<NodeId>,
     source: SourceSpine,
     next_node_id: u64,
     node_revisions: Arc<HashMap<NodeId, Revision>>,
@@ -30,6 +32,22 @@ struct SnapshotState {
 
 #[derive(Clone, Debug)]
 pub struct DocumentSnapshot(Arc<SnapshotState>);
+
+/// Source metadata prepared from the exact bytes to write. Install only after
+/// that write succeeds; preparation can run on a background worker.
+#[derive(Debug)]
+pub struct SourceRebase {
+    origin: DocumentSnapshot,
+    bytes: Arc<[u8]>,
+    source: Option<SourceSpine>,
+}
+
+impl SourceRebase {
+    #[must_use]
+    pub fn bytes(&self) -> &Arc<[u8]> {
+        &self.bytes
+    }
+}
 
 impl DocumentSnapshot {
     #[must_use]
@@ -62,6 +80,10 @@ impl DocumentSnapshot {
     #[must_use]
     pub fn dirty_node_ids(&self) -> &BTreeSet<NodeId> {
         &self.0.dirty_nodes
+    }
+
+    pub(crate) fn source_was_moved(&self, node: NodeId) -> bool {
+        self.0.moved_source_nodes.contains(&node)
     }
 
     #[must_use]
@@ -101,8 +123,81 @@ impl DocumentSnapshot {
         selection: &crate::PreviewSelection,
     ) -> Result<Option<crate::ClipboardPayload>, DocumentError> {
         let mut state = (*self.0).clone();
-        preview::resolve(&mut state, selection)?;
-        DocumentSnapshot(Arc::new(state)).clipboard_payload()
+        let mut roots = preview::resolve_with_roots(&mut state, selection)?;
+        let snapshot = DocumentSnapshot(Arc::new(state));
+        let mut payload = snapshot.clipboard_payload()?;
+        if let Some(payload) = &mut payload
+            && !roots.is_empty()
+        {
+            let mut rich =
+                crate::RichClipboard::from_json(payload.rich_json.as_deref().ok_or_else(
+                    || DocumentError::Clipboard("Missing selected Markdown".into()),
+                )?)?;
+            let Selection::Text(resolved) = snapshot.selection() else {
+                unreachable!("preview resolves to text")
+            };
+            let blocks = if resolved.anchor.node_id != resolved.head.node_id {
+                Some(
+                    crate::tree_selection::TreeRange::resolve(snapshot.blocks(), resolved)?
+                        .extract(snapshot.blocks())?,
+                )
+            } else {
+                None
+            };
+            let plain = if let Some(blocks) = &blocks {
+                preview::selected_markdown(blocks)?
+            } else {
+                rich.markdown.clone()
+            };
+            let html = if roots.len() == 1
+                && matches!((&selection.anchor, &selection.head),
+                    (crate::PreviewPosition::Html { node_id: anchor, .. },
+                     crate::PreviewPosition::Html { node_id: head, .. }) if anchor == head)
+            {
+                crate::html::clipboard_html_fragment(&roots[0].source).ok_or_else(|| {
+                    DocumentError::Clipboard("HTML cannot be safely copied".into())
+                })?
+            } else {
+                let blocks = blocks
+                    .as_ref()
+                    .expect("different owners resolve to different text nodes");
+                let blocks = preview::expand_copy_roots(blocks, &mut roots)?;
+                crate::markdown::clipboard_html_blocks(&blocks)?
+            };
+            payload.plain_text = Some(plain.clone());
+            rich.plain_text = plain;
+            rich.html = Some(html.clone());
+            payload.html = Some(html);
+            payload.rich_json = Some(rich.to_json()?);
+        }
+        Ok(payload)
+    }
+
+    /// Prepare byte-exact saved-source metadata without mutating the document.
+    /// If Markdown cannot represent the current editing topology exactly, keep
+    /// the existing spine rather than attaching ranges to different nodes.
+    pub fn prepare_source_rebase(&self) -> Result<SourceRebase, DocumentError> {
+        let serialized = self.serialize()?;
+        let imported = crate::markdown::import(Arc::from(serialized.as_str()))?;
+        let mut imported_ids = Vec::new();
+        let canonical = map_sequence_ids(imported.blocks(), &mut |id| {
+            imported_ids.push(id);
+            NodeId::new_unchecked(imported_ids.len() as u64)
+        });
+        let mut current_ids = Vec::new();
+        let current = map_sequence_ids(self.blocks(), &mut |id| {
+            current_ids.push(id);
+            NodeId::new_unchecked(current_ids.len() as u64)
+        });
+        let source = source_rebase::same_blocks(&canonical, &current).then(|| {
+            let ids = imported_ids.into_iter().zip(current_ids).collect();
+            imported.source_spine().remap(&ids, self.blocks())
+        });
+        Ok(SourceRebase {
+            origin: self.clone(),
+            bytes: serialized.into_bytes().into(),
+            source,
+        })
     }
 
     pub fn save_snapshot(
@@ -153,6 +248,7 @@ fn table_cell_containing(
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 if let Some(found) = table_cell_containing(blocks, node_id) {
                     return Some(found);
@@ -186,6 +282,7 @@ fn list_item_containing(
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 if let Some(found) = list_item_containing(blocks, node_id) {
                     return Some(found);
@@ -282,6 +379,10 @@ impl SelectionMutation {
                 table_id: *table_id,
                 index: *index,
             },
+            EditCommand::DuplicateTableRow { table_id, index } => Self::InsertRow {
+                table_id: *table_id,
+                index: index.saturating_add(1),
+            },
             EditCommand::MoveTableRow { table_id, from, to } => Self::MoveRow {
                 table_id: *table_id,
                 from: *from,
@@ -294,6 +395,10 @@ impl SelectionMutation {
             EditCommand::DeleteTableColumn { table_id, index } => Self::DeleteColumn {
                 table_id: *table_id,
                 index: *index,
+            },
+            EditCommand::DuplicateTableColumn { table_id, index } => Self::InsertColumn {
+                table_id: *table_id,
+                index: index.saturating_add(1),
             },
             EditCommand::MoveTableColumn { table_id, from, to } => Self::MoveColumn {
                 table_id: *table_id,
@@ -344,6 +449,29 @@ impl Document {
         self.current.clone()
     }
 
+    /// Install metadata after a successful write, without changing content,
+    /// selection, revisions or Undo. A stale/foreign completion is a no-op.
+    pub fn rebase_source(&mut self, prepared: SourceRebase) -> bool {
+        if self.composition.is_some()
+            || self.current.revision() != prepared.origin.revision()
+            || !Arc::ptr_eq(
+                &self.current.0.node_revisions,
+                &prepared.origin.0.node_revisions,
+            )
+        {
+            return false;
+        }
+        let Some(source) = prepared.source else {
+            return false;
+        };
+        let state = Arc::make_mut(&mut self.current.0);
+        state.source = source;
+        state.dirty_nodes.clear();
+        state.structure_changed = false;
+        state.moved_source_nodes.clear();
+        true
+    }
+
     #[must_use]
     pub fn composition_active(&self) -> bool {
         self.composition.is_some()
@@ -376,11 +504,12 @@ impl Document {
 
         let before = self.current.clone();
         let before_selection = before.selection().clone();
+        let changes_image_text = !matches!(&command, EditCommand::SetImageAttributes { .. });
         let mut text_changed_node = command.localized_text_node(&before_selection).filter(|id| {
             matches!(
                 before.node(*id),
                 Some(BlockNode::Paragraph(_) | BlockNode::Heading(_) | BlockNode::CodeBlock(_))
-            )
+            ) || changes_image_text && matches!(before.node(*id), Some(BlockNode::Image(_)))
         });
         let mut localized_text_node = command
             .localized_text_node(&before_selection)
@@ -430,7 +559,12 @@ impl Document {
         for node_id in &transaction_dirty {
             node_revisions.insert(*node_id, revision);
         }
-        if localized_text_node.is_none() {
+        // Classified single-leaf text/style commands preserve IDs, container
+        // shapes and ownership at every depth. RichText mutation validates its
+        // ranges, and reconciliation above validates the published selection.
+        // Keep ancestor dirty propagation independent from this validation
+        // shortcut; structural and preview conversions still scan the tree.
+        if localized_text_node.is_none() && text_changed_node.is_none() {
             validate_tree(&state.blocks)?;
         }
         let after = DocumentSnapshot(Arc::new(state));
@@ -789,6 +923,7 @@ fn replace_node_with_blocks(
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 replace_node_with_blocks(blocks, node_id, replacement)?;
             }
@@ -1020,6 +1155,21 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
             state.structure_changed = true;
             Ok(true)
         }
+        EditCommand::MoveBlock { from, to } => {
+            let mut blocks = state.blocks.to_vec();
+            if from >= blocks.len() || to >= blocks.len() {
+                return Err(DocumentError::BlockIndex(from.max(to)));
+            }
+            if from == to {
+                return Ok(false);
+            }
+            let block = blocks.remove(from);
+            state.moved_source_nodes.insert(block.id());
+            blocks.insert(to, block);
+            state.blocks = BlockSequence::new(blocks);
+            state.structure_changed = true;
+            Ok(true)
+        }
         EditCommand::ConvertHtmlToMarkdown { node_id }
         | EditCommand::ConvertHtmlToMarkdownAt { node_id, .. }
         | EditCommand::EditHtmlSelection { node_id, .. } => {
@@ -1070,6 +1220,11 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
         EditCommand::DeleteTableRow { table_id, index } => {
             mutate_table(state, table_id, |table| table.delete_row(index))
         }
+        EditCommand::DuplicateTableRow { table_id, index } => {
+            mutate_table_with_ids(state, table_id, |table, allocate| {
+                table.duplicate_row(index, allocate)
+            })
+        }
         EditCommand::MoveTableRow { table_id, from, to } => {
             mutate_table(state, table_id, |table| table.move_row(from, to))
         }
@@ -1080,6 +1235,11 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
         }
         EditCommand::DeleteTableColumn { table_id, index } => {
             mutate_table(state, table_id, |table| table.delete_column(index))
+        }
+        EditCommand::DuplicateTableColumn { table_id, index } => {
+            mutate_table_with_ids(state, table_id, |table, allocate| {
+                table.duplicate_column(index, allocate)
+            })
         }
         EditCommand::MoveTableColumn { table_id, from, to } => {
             mutate_table(state, table_id, |table| table.move_column(from, to))
@@ -1102,6 +1262,13 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
                 Ok(())
             })
         }
+        EditCommand::ClearTableCell {
+            table_id,
+            row,
+            column,
+        } => mutate_table_with_ids(state, table_id, |table, allocate| {
+            table.clear_cell(row, column, allocate)
+        }),
         EditCommand::PasteTsv {
             table_id,
             row,
@@ -1189,6 +1356,7 @@ fn indent_list_item(
         let found = match Arc::make_mut(&mut sequence[block_index]) {
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 indent_list_item(blocks, item_id, next_id)?
             }
@@ -1294,6 +1462,7 @@ fn outdent_in_sequence(
         let result = match Arc::make_mut(&mut sequence[block_index]) {
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 outdent_in_sequence(blocks, item_id, true)?
             }
@@ -1460,6 +1629,7 @@ fn first_editable_in_block(block: &BlockNode) -> Option<DocumentPosition> {
         }),
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => blocks
             .iter()
             .find_map(|block| first_editable_in_block(block)),
@@ -1485,6 +1655,7 @@ fn block_contains_node(block: &BlockNode, node_id: NodeId) -> bool {
         }),
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => blocks
             .iter()
             .any(|block| block.id() == node_id || block_contains_node(block, node_id)),
@@ -1517,6 +1688,12 @@ fn validate_composition_range(
     state: &SnapshotState,
     range: &TextSelection,
 ) -> Result<(), DocumentError> {
+    if range.anchor.node_id == range.head.node_id {
+        // A same-leaf replacement cannot change tree shape or stable IDs.
+        // Preview composition also enters here, so validate against its
+        // converted baseline rather than assuming the caller did so.
+        return validate_selection_in_blocks(&state.blocks, &Selection::Text(range.clone()));
+    }
     let mut probe = state.clone();
     replace_text_selection(&mut probe, range.clone(), String::new(), false)?;
     validate_tree(&probe.blocks)
@@ -1541,58 +1718,7 @@ fn replace_text_selection(
             },
         );
     }
-
-    let anchor_index = state
-        .blocks
-        .iter()
-        .position(|block| block.id() == selection.anchor.node_id);
-    let head_index = state
-        .blocks
-        .iter()
-        .position(|block| block.id() == selection.head.node_id);
-    let (Some(anchor_index), Some(head_index)) = (anchor_index, head_index) else {
-        return Err(DocumentError::Markdown(
-            "cross-block replacement must begin and end in top-level editable blocks".into(),
-        ));
-    };
-    let (start_index, start_position, end_index, end_position) = if anchor_index < head_index {
-        (anchor_index, selection.anchor, head_index, selection.head)
-    } else {
-        (head_index, selection.head, anchor_index, selection.anchor)
-    };
-    let suffix = state
-        .blocks
-        .get(end_index)
-        .expect("the index was resolved from this sequence")
-        .text()
-        .ok_or(PositionError::NotText(end_position.node_id))?
-        .clone();
-    suffix.validate_range(
-        end_position.node_id,
-        &(end_position.text_offset..end_position.text_offset),
-    )?;
-
-    let mut blocks = state.blocks.to_vec();
-    let first = Arc::make_mut(&mut blocks[start_index]);
-    first
-        .text_mut()
-        .ok_or(PositionError::NotText(start_position.node_id))?
-        .replace_tail_with_text_and_suffix(
-            start_position.node_id,
-            start_position.text_offset,
-            &text,
-            &suffix,
-            end_position.text_offset,
-        )?;
-    blocks.drain(start_index + 1..=end_index);
-    state.blocks = BlockSequence::new(blocks);
-    state.structure_changed = true;
-    state.dirty_nodes.insert(start_position.node_id);
-    state.selection = caret_after(
-        start_position.node_id,
-        start_position.text_offset + text.len(),
-    );
-    Ok(true)
+    replace_tree_selection(state, &selection, SelectionText::Plain(&text))
 }
 
 fn replace_rich_text_selection(
@@ -1612,119 +1738,104 @@ fn replace_rich_text_selection(
         state.selection = caret_after(node_id, range.start + replacement.len());
         return Ok(!range.is_empty() || !replacement.is_empty());
     }
+    replace_tree_selection(state, &selection, SelectionText::Rich(replacement))
+}
 
-    let anchor_index = state
-        .blocks
-        .iter()
-        .position(|block| block.id() == selection.anchor.node_id);
-    let head_index = state
-        .blocks
-        .iter()
-        .position(|block| block.id() == selection.head.node_id);
-    let (Some(anchor_index), Some(head_index)) = (anchor_index, head_index) else {
-        return Err(DocumentError::Clipboard(
-            "rich cross-block paste requires top-level editable blocks".into(),
-        ));
-    };
-    let (start_index, start_position, end_index, end_position) = if anchor_index < head_index {
-        (anchor_index, selection.anchor, head_index, selection.head)
-    } else {
-        (head_index, selection.head, anchor_index, selection.anchor)
-    };
-    let suffix = state
-        .blocks
-        .get(end_index)
-        .expect("the index was resolved from this sequence")
+enum SelectionText<'a> {
+    Plain(&'a str),
+    Rich(&'a crate::RichText),
+}
+
+fn replace_tree_selection(
+    state: &mut SnapshotState,
+    selection: &TextSelection,
+    replacement: SelectionText<'_>,
+) -> Result<bool, DocumentError> {
+    let range = crate::tree_selection::TreeRange::resolve(&state.blocks, selection)?;
+    let end_text = range
+        .end_block
         .text()
-        .ok_or(PositionError::NotText(end_position.node_id))?
-        .clone();
-    let mut blocks = state.blocks.to_vec();
-    let first = Arc::make_mut(&mut blocks[start_index]);
-    first
+        .ok_or(PositionError::NotText(range.end.node_id))?;
+    let empty = crate::RichText::default();
+    let (suffix, suffix_start) = if range.same_flow() {
+        (end_text, range.end.text_offset)
+    } else {
+        (&empty, 0)
+    };
+    let mut start = range.start_block.as_ref().clone();
+    let start_text = start
         .text_mut()
-        .ok_or(PositionError::NotText(start_position.node_id))?
-        .replace_tail_with_rich_and_suffix(
-            start_position.node_id,
-            start_position.text_offset,
-            replacement,
-            &suffix,
-            end_position.text_offset,
-        )?;
-    blocks.drain(start_index + 1..=end_index);
-    state.blocks = BlockSequence::new(blocks);
+        .ok_or(PositionError::NotText(range.start.node_id))?;
+    let added = match replacement {
+        SelectionText::Plain(text) => {
+            start_text.replace_tail_with_text_and_suffix(
+                range.start.node_id,
+                range.start.text_offset,
+                text,
+                suffix,
+                suffix_start,
+            )?;
+            text.len()
+        }
+        SelectionText::Rich(text) => {
+            start_text.replace_tail_with_rich_and_suffix(
+                range.start.node_id,
+                range.start.text_offset,
+                text,
+                suffix,
+                suffix_start,
+            )?;
+            text.len()
+        }
+    };
+    let end = if range.same_flow() {
+        Vec::new()
+    } else {
+        let mut end = range.end_block.as_ref().clone();
+        *end.text_mut()
+            .ok_or(PositionError::NotText(range.end.node_id))? =
+            end_text.slice(range.end.text_offset..end_text.len());
+        vec![Arc::new(end)]
+    };
+    let blocks = range.splice(
+        &state.blocks,
+        &[Arc::new(start)],
+        &end,
+        &mut state.next_node_id,
+    )?;
+    let caret = caret_after(range.start.node_id, range.start.text_offset + added);
+    state.blocks = blocks;
     state.structure_changed = true;
-    state.dirty_nodes.insert(start_position.node_id);
-    state.selection = caret_after(
-        start_position.node_id,
-        start_position.text_offset + replacement.len(),
-    );
+    state.selection = caret;
     Ok(true)
 }
 
 fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, DocumentError> {
     let imported = crate::markdown::import(Arc::<str>::from(markdown))?;
-    if imported.blocks().len() == 1
-        && let Some(BlockNode::Paragraph(paragraph)) = imported.blocks().get(0).map(AsRef::as_ref)
-    {
-        let Selection::Text(selection) = state.selection.clone() else {
-            return Err(DocumentError::TableSelectionForTextCommand);
-        };
-        return replace_rich_text_selection(state, selection, &paragraph.content);
-    }
-
     let Selection::Text(selection) = state.selection.clone() else {
         return Err(DocumentError::TableSelectionForTextCommand);
     };
-    let anchor_index = state
-        .blocks
-        .iter()
-        .position(|block| block.id() == selection.anchor.node_id);
-    let head_index = state
-        .blocks
-        .iter()
-        .position(|block| block.id() == selection.head.node_id);
-    let (Some(anchor_index), Some(head_index)) = (anchor_index, head_index) else {
-        return Err(DocumentError::Clipboard(
-            "block Markdown paste requires a top-level text selection".into(),
-        ));
-    };
-    let (start_index, start_position, end_index, end_position) = if anchor_index < head_index
-        || (anchor_index == head_index
-            && selection.anchor.text_offset <= selection.head.text_offset)
+    if imported.blocks().is_empty() {
+        return replace_text_selection(state, selection, String::new(), false);
+    }
+    if imported.blocks().len() == 1
+        && let Some(BlockNode::Paragraph(paragraph)) = imported.blocks().get(0).map(AsRef::as_ref)
     {
-        (anchor_index, selection.anchor, head_index, selection.head)
-    } else {
-        (head_index, selection.head, anchor_index, selection.anchor)
-    };
+        return replace_rich_text_selection(state, selection, &paragraph.content);
+    }
 
-    let start_block = state
-        .blocks
-        .get(start_index)
-        .expect("the index was resolved from this sequence")
-        .clone();
-    let end_block = state
-        .blocks
-        .get(end_index)
-        .expect("the index was resolved from this sequence")
-        .clone();
-    let start_text = start_block
+    let range = crate::tree_selection::TreeRange::resolve(&state.blocks, &selection)?;
+    let start_text = range
+        .start_block
         .text()
-        .ok_or(PositionError::NotText(start_position.node_id))?;
-    let end_text = end_block
+        .ok_or(PositionError::NotText(range.start.node_id))?;
+    let end_text = range
+        .end_block
         .text()
-        .ok_or(PositionError::NotText(end_position.node_id))?;
-    start_text.validate_range(
-        start_position.node_id,
-        &(start_position.text_offset..start_position.text_offset),
-    )?;
-    end_text.validate_range(
-        end_position.node_id,
-        &(end_position.text_offset..end_position.text_offset),
-    )?;
-    let prefix = start_text.slice(0..start_position.text_offset);
-    let suffix = end_text.slice(end_position.text_offset..end_text.len());
+        .ok_or(PositionError::NotText(range.end.node_id))?;
+    let prefix = start_text.slice(0..range.start.text_offset);
+    let suffix = end_text.slice(range.end.text_offset..end_text.len());
     let has_prefix = !prefix.is_empty();
-
     let mut inserted = imported
         .blocks()
         .iter()
@@ -1737,38 +1848,40 @@ fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, Doc
     let mut replacement = Vec::with_capacity(inserted.len() + 2);
     if has_prefix {
         replacement.push(Arc::new(block_with_text(
-            &start_block,
-            start_block.id(),
+            range.start_block,
+            range.start.node_id,
             prefix,
         )?));
     }
     replacement.append(&mut inserted);
-    if !suffix.is_empty() {
-        let suffix_id = if start_index == end_index && has_prefix {
+    let mut end = Vec::new();
+    if !suffix.is_empty() || !range.same_flow() {
+        let suffix_id = if range.start.node_id == range.end.node_id && has_prefix {
             allocate_from(&mut state.next_node_id)
-        } else if start_index == end_index {
-            start_block.id()
         } else {
-            end_block.id()
+            range.end.node_id
         };
-        replacement.push(Arc::new(block_with_text(&end_block, suffix_id, suffix)?));
+        let suffix = Arc::new(block_with_text(range.end_block, suffix_id, suffix)?);
+        if range.same_flow() {
+            replacement.push(suffix);
+        } else {
+            end.push(suffix);
+        }
     }
     if replacement.is_empty() {
         replacement.push(Arc::new(BlockNode::Paragraph(crate::Paragraph {
-            id: start_block.id(),
+            id: range.start.node_id,
             content: crate::RichText::default(),
         })));
     }
-
     let selection_after = caret.or_else(|| {
         replacement
             .iter()
             .rev()
             .find_map(|block| last_editable_in_block(block))
     });
-    let mut blocks = state.blocks.to_vec();
-    blocks.splice(start_index..=end_index, replacement);
-    state.blocks = BlockSequence::new(blocks);
+    let blocks = range.splice(&state.blocks, &replacement, &end, &mut state.next_node_id)?;
+    state.blocks = blocks;
     state.structure_changed = true;
     if let Some(position) = selection_after {
         state.selection = Selection::Text(TextSelection::caret(position));
@@ -1801,33 +1914,44 @@ fn block_with_text(
 }
 
 fn remap_sequence_ids(blocks: &BlockSequence, next_id: &mut u64) -> BlockSequence {
+    map_sequence_ids(blocks, &mut |_| allocate_from(next_id))
+}
+
+fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
+    map_block_ids(block, &mut |_| allocate_from(next_id))
+}
+
+fn map_sequence_ids(
+    blocks: &BlockSequence,
+    map: &mut impl FnMut(NodeId) -> NodeId,
+) -> BlockSequence {
     BlockSequence::new(
         blocks
             .iter()
-            .map(|block| remap_block_ids(block, next_id))
+            .map(|block| map_block_ids(block, map))
             .collect(),
     )
 }
 
-fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
+fn map_block_ids(block: &BlockNode, map: &mut impl FnMut(NodeId) -> NodeId) -> Arc<BlockNode> {
     let block = match block {
         BlockNode::Paragraph(paragraph) => BlockNode::Paragraph(crate::Paragraph {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             content: paragraph.content.clone(),
         }),
         BlockNode::Heading(heading) => BlockNode::Heading(crate::Heading {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             level: heading.level,
             content: heading.content.clone(),
         }),
         BlockNode::CodeBlock(code) => BlockNode::CodeBlock(crate::CodeBlock {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             language: code.language.clone(),
             syntax: code.syntax,
             content: code.content.clone(),
         }),
         BlockNode::Image(image) => BlockNode::Image(crate::ImageNode {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             source: image.source.clone(),
             alt: image.alt.clone(),
             title: image.title.clone(),
@@ -1835,38 +1959,43 @@ fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
             link: image.link.clone(),
         }),
         BlockNode::List(list) => BlockNode::List(crate::ListBlock {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             kind: list.kind.clone(),
             tight: list.tight,
             items: list
                 .items
                 .iter()
                 .map(|item| crate::ListItem {
-                    id: allocate_from(next_id),
+                    id: map(item.id),
                     checked: item.checked,
-                    blocks: remap_sequence_ids(&item.blocks, next_id),
+                    blocks: map_sequence_ids(&item.blocks, map),
                 })
                 .collect::<Vec<_>>()
                 .into(),
         }),
         BlockNode::BlockQuote { blocks, .. } => BlockNode::BlockQuote {
-            id: allocate_from(next_id),
-            blocks: remap_sequence_ids(blocks, next_id),
+            id: map(block.id()),
+            blocks: map_sequence_ids(blocks, map),
+        },
+        BlockNode::Definition { kind, blocks, .. } => BlockNode::Definition {
+            id: map(block.id()),
+            kind: *kind,
+            blocks: map_sequence_ids(blocks, map),
         },
         BlockNode::Table(table) => BlockNode::Table(crate::Table {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             columns: table.columns.clone(),
             rows: table
                 .rows
                 .iter()
                 .map(|row| crate::TableRow {
-                    id: allocate_from(next_id),
+                    id: map(row.id),
                     cells: row
                         .cells
                         .iter()
                         .map(|cell| crate::TableCell {
-                            id: allocate_from(next_id),
-                            blocks: remap_sequence_ids(&cell.blocks, next_id),
+                            id: map(cell.id),
+                            blocks: map_sequence_ids(&cell.blocks, map),
                         })
                         .collect::<Vec<_>>()
                         .into(),
@@ -1883,25 +2012,25 @@ fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
             blocks,
             ..
         } => BlockNode::Alert {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             kind: kind.clone(),
             title: title.clone(),
-            blocks: remap_sequence_ids(blocks, next_id),
+            blocks: map_sequence_ids(blocks, map),
         },
         BlockNode::FootnoteDefinition { label, blocks, .. } => BlockNode::FootnoteDefinition {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             label: label.clone(),
-            blocks: remap_sequence_ids(blocks, next_id),
+            blocks: map_sequence_ids(blocks, map),
         },
         BlockNode::ThematicBreak { .. } => BlockNode::ThematicBreak {
-            id: allocate_from(next_id),
+            id: map(block.id()),
         },
         BlockNode::PreservedSource {
             source,
             description,
             ..
         } => BlockNode::PreservedSource {
-            id: allocate_from(next_id),
+            id: map(block.id()),
             source: source.clone(),
             description: description.clone(),
         },
@@ -1926,6 +2055,7 @@ fn last_editable_in_block(block: &BlockNode) -> Option<DocumentPosition> {
         }),
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => blocks
             .iter()
             .rev()
@@ -2036,6 +2166,7 @@ fn split_in_sequence(
         let found = match Arc::make_mut(&mut next[index]) {
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 split_in_sequence(blocks, node_id, offset, next_id)?
             }
@@ -2328,6 +2459,7 @@ fn collect_editable_node_ids(blocks: &BlockSequence, output: &mut Vec<NodeId>) {
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 collect_editable_node_ids(blocks, output);
             }
@@ -2400,18 +2532,21 @@ fn reconcile_selection(
         return Ok(());
     }
 
-    let repaired =
-        match state.selection.clone() {
-            Selection::Text(selection) => Selection::Text(TextSelection {
-                anchor: repair_position(before, &state.blocks, selection.anchor),
-                head: repair_position(before, &state.blocks, selection.head),
-            }),
-            Selection::Table(_) => Selection::Text(TextSelection::caret(
-                first_editable_position_in_sequence(&state.blocks).unwrap_or(
-                    DocumentPosition::new(NodeId::new_unchecked(1), 0, crate::Affinity::Downstream),
-                ),
-            )),
-        };
+    let repaired = match state.selection.clone() {
+        Selection::Text(selection) => Selection::Text(TextSelection {
+            anchor: repair_position(before, &state.blocks, selection.anchor),
+            head: repair_position(before, &state.blocks, selection.head),
+        }),
+        Selection::Table(selection) => Selection::Text(TextSelection::caret(
+            deleted_table_caret(before, &state.blocks, &selection)
+                .or_else(|| first_editable_position_in_sequence(&state.blocks))
+                .unwrap_or(DocumentPosition::new(
+                    NodeId::new_unchecked(1),
+                    0,
+                    crate::Affinity::Downstream,
+                )),
+        )),
+    };
     state.selection = repaired;
 
     if validate_selection_in_blocks(&state.blocks, &state.selection).is_err() {
@@ -2432,6 +2567,27 @@ fn reconcile_selection(
         )));
     }
     validate_selection_in_blocks(&state.blocks, &state.selection)
+}
+
+fn deleted_table_caret(
+    before: &DocumentSnapshot,
+    blocks: &BlockSequence,
+    selection: &crate::RectangularSelection,
+) -> Option<DocumentPosition> {
+    let BlockNode::Table(table) = before.node(selection.table_id)? else {
+        return None;
+    };
+    let cell = table
+        .rows
+        .get(selection.anchor_row)?
+        .cells
+        .get(selection.anchor_column)?;
+    let previous = first_editable_position_in_sequence(&cell.blocks)?;
+    // Reuse the text-selection neighbor policy: the next surviving leaf,
+    // then the previous leaf's end, before considering a document-wide host.
+    let repaired = repair_position(before, blocks, previous);
+    find_node(blocks, repaired.node_id)?.text()?;
+    Some(repaired)
 }
 
 fn inserted_index(value: usize, inserted: usize) -> usize {
@@ -2553,7 +2709,14 @@ fn validate_selection_in_blocks(
     Ok(())
 }
 
+#[cfg(test)]
+thread_local! {
+    static TREE_VALIDATION_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 fn validate_tree(blocks: &BlockSequence) -> Result<(), DocumentError> {
+    #[cfg(test)]
+    TREE_VALIDATION_COUNT.with(|count| count.set(count.get() + 1));
     let mut ids = HashSet::new();
     validate_sequence(blocks, &mut ids)
 }
@@ -2583,6 +2746,7 @@ fn validate_sequence(
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => validate_sequence(blocks, ids)?,
             BlockNode::Table(table) => {
                 if table.rows.is_empty() || table.columns.is_empty() {
@@ -2624,6 +2788,7 @@ fn find_node(blocks: &BlockSequence, id: NodeId) -> Option<&BlockNode> {
             .find_map(|item| find_node(&item.blocks, id)),
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => find_node(blocks, id),
         BlockNode::Table(table) => table
             .rows
@@ -2674,6 +2839,7 @@ fn mutate_descendant(
         }
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => {
             return mutate_node_optional(blocks, id, operation);
         }
@@ -2758,6 +2924,7 @@ fn mutate_list_item_in_block(
         }
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => {
             if blocks.contains_node(item_id) {
                 mutate_list_item(blocks, item_id)?;
@@ -2797,6 +2964,7 @@ pub(crate) fn snapshot_from_import(
         selection,
         dirty_nodes: BTreeSet::new(),
         structure_changed: false,
+        moved_source_nodes: BTreeSet::new(),
         source,
         next_node_id,
         node_revisions: Arc::new(HashMap::new()),
@@ -2855,6 +3023,10 @@ fn collect_changed_sequence(
             )
             | (BlockNode::Alert { blocks: old, .. }, BlockNode::Alert { blocks: new, .. })
             | (
+                BlockNode::Definition { blocks: old, .. },
+                BlockNode::Definition { blocks: new, .. },
+            )
+            | (
                 BlockNode::FootnoteDefinition { blocks: old, .. },
                 BlockNode::FootnoteDefinition { blocks: new, .. },
             ) => collect_changed_sequence(old, new, changed),
@@ -2908,6 +3080,7 @@ fn collect_block_ids(block: &BlockNode, visitor: &mut impl FnMut(NodeId)) {
         }
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => collect_node_ids(blocks, visitor),
         BlockNode::Table(table) => {
             for row in table.rows.iter() {
@@ -3040,6 +3213,32 @@ mod tests {
             Some(result.revision),
             "the top-level layout cache key must advance for nested edits"
         );
+    }
+
+    #[test]
+    fn image_alt_typing_is_localized_but_attribute_replacement_is_structural() {
+        let source = "![before](image.png)\n";
+        let mut document = Document::from_markdown(source).expect("document");
+        let image = document.snapshot().blocks().get(0).unwrap().id();
+        let typed = document
+            .apply(EditCommand::ReplaceText {
+                node_id: image,
+                range: 6..6,
+                text: " after".into(),
+                selection_after: None,
+                typing: true,
+            })
+            .expect("alt edit");
+        assert_eq!(typed.text_changed_node, Some(image));
+
+        let attributes = document
+            .apply(EditCommand::SetImageAttributes {
+                image_id: image,
+                source: "other.png".into(),
+                alt: "replacement".into(),
+            })
+            .expect("attribute edit");
+        assert_eq!(attributes.text_changed_node, None);
     }
 
     #[test]
@@ -3499,6 +3698,143 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_and_clear_table_commands_preserve_structure_and_fresh_ids() {
+        let mut document =
+            Document::from_markdown("| Key | Value |\n| --- | --- |\n| **Bold** | *Italic* |\n")
+                .expect("document");
+        let table_id = document.snapshot().blocks().get(0).expect("table").id();
+
+        document
+            .apply(EditCommand::DuplicateTableRow { table_id, index: 1 })
+            .expect("duplicate row");
+        document
+            .apply(EditCommand::DuplicateTableColumn { table_id, index: 0 })
+            .expect("duplicate column");
+        let duplicated = document.snapshot();
+        let BlockNode::Table(table) = duplicated.node(table_id).expect("table") else {
+            panic!("table");
+        };
+        assert_eq!((table.row_count(), table.column_count()), (3, 3));
+        assert_eq!(
+            table.rows[1].cells[0].blocks.get(0).unwrap().plain_text(),
+            table.rows[2].cells[0].blocks.get(0).unwrap().plain_text()
+        );
+        assert_eq!(
+            table.rows[1].cells[0].blocks.get(0).unwrap().plain_text(),
+            table.rows[1].cells[1].blocks.get(0).unwrap().plain_text()
+        );
+        let mut ids = Vec::new();
+        collect_node_ids(duplicated.blocks(), &mut |id| ids.push(id));
+        assert_eq!(
+            ids.len(),
+            ids.iter().copied().collect::<HashSet<_>>().len(),
+            "duplicated table content must receive fresh stable IDs"
+        );
+
+        document
+            .apply(EditCommand::ClearTableCell {
+                table_id,
+                row: 1,
+                column: 0,
+            })
+            .expect("clear cell");
+        let cleared = document.snapshot();
+        let BlockNode::Table(table) = cleared.node(table_id).expect("table") else {
+            panic!("table");
+        };
+        assert_eq!(
+            table.rows[1].cells[0].blocks.get(0).unwrap().plain_text(),
+            ""
+        );
+
+        let restored = document.undo().expect("undo clear");
+        let BlockNode::Table(table) = restored.node(table_id).expect("table") else {
+            panic!("table");
+        };
+        assert_eq!(
+            table.rows[1].cells[0].blocks.get(0).unwrap().plain_text(),
+            "Bold"
+        );
+    }
+
+    #[test]
+    fn nested_text_edits_skip_whole_tree_validation_but_structural_edits_do_not() {
+        for source in [
+            "> Target\n\nUntouched\n",
+            "- Target\n\nUntouched\n",
+            "| H |\n| --- |\n| Target |\n\nUntouched\n",
+            "> ```rust\n> Target\n> ```\n\nUntouched\n",
+        ] {
+            let mut document = Document::from_markdown(source).unwrap();
+            let initial = document.snapshot();
+            let mut ids = Vec::new();
+            collect_editable_node_ids(initial.blocks(), &mut ids);
+            let id = ids
+                .into_iter()
+                .find(|id| {
+                    initial
+                        .node(*id)
+                        .unwrap()
+                        .plain_text()
+                        .starts_with("Target")
+                })
+                .unwrap();
+            let owner = initial.blocks().get(0).unwrap().id();
+            let unrelated = initial.blocks().get(1).unwrap().clone();
+            document
+                .apply(EditCommand::SetSelection(Selection::Text(
+                    TextSelection::caret(DocumentPosition::new(id, 0, Affinity::Downstream)),
+                )))
+                .unwrap();
+            let before = document.snapshot();
+            let scans = TREE_VALIDATION_COUNT.with(std::cell::Cell::get);
+            let transaction = document
+                .apply(EditCommand::ReplaceSelection {
+                    text: "Ω".into(),
+                    typing: false,
+                })
+                .unwrap();
+            assert_eq!(
+                TREE_VALIDATION_COUNT.with(std::cell::Cell::get),
+                scans,
+                "{source}"
+            );
+            assert!(transaction.dirty_node_ids.contains(&id));
+            assert!(transaction.dirty_node_ids.contains(&owner));
+            assert!(Arc::ptr_eq(
+                document.snapshot().blocks().get(1).unwrap(),
+                &unrelated
+            ));
+            validate_selection(&document.snapshot(), document.snapshot().selection()).unwrap();
+            let saved = document.snapshot().serialize().unwrap();
+            assert!(saved.contains("ΩTarget"));
+            document.undo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+            assert_eq!(document.snapshot().selection(), before.selection());
+            document.redo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), saved);
+            let scans = TREE_VALIDATION_COUNT.with(std::cell::Cell::get);
+            let range = TextSelection::caret(DocumentPosition::new(id, 0, Affinity::Downstream));
+            document.begin_composition(range).unwrap();
+            for text in ["", "候", "候補"] {
+                document.update_composition(text.into()).unwrap();
+                validate_selection(&document.snapshot(), document.snapshot().selection()).unwrap();
+            }
+            document.cancel_composition().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), saved);
+            assert_eq!(
+                TREE_VALIDATION_COUNT.with(std::cell::Cell::get),
+                scans,
+                "single-leaf composition: {source}"
+            );
+            document
+                .apply(EditCommand::InsertTable { index: 1 })
+                .unwrap();
+            assert!(TREE_VALIDATION_COUNT.with(std::cell::Cell::get) > scans);
+        }
+    }
+
+    #[test]
     fn deleting_the_active_table_row_repairs_caret_before_publication() {
         let source = "| A | B |\n| --- | --- |\n| one | two |\n| three | four |\n";
         let mut document = Document::from_markdown(source).expect("document");
@@ -3711,14 +4047,35 @@ mod tests {
 
     #[test]
     fn source_with_no_editable_nodes_gets_a_transient_valid_caret() {
-        for source in ["<!-- exact -->\n", "---\n"] {
-            let document = Document::from_markdown(source).expect("document");
+        for source in [
+            "<!-- exact -->\n",
+            "---\n",
+            "---\nname: exact\n---\n",
+            "<div>Preserved</div>\n",
+        ] {
+            let mut document = Document::from_markdown(source).expect("document");
             let snapshot = document.snapshot();
             let Selection::Text(selection) = snapshot.selection() else {
                 panic!("text selection");
             };
             assert!(snapshot.validates_position(selection.head));
             assert_eq!(snapshot.serialize().expect("unchanged source"), source);
+            document
+                .apply(EditCommand::ReplaceSelection {
+                    text: "Ω".into(),
+                    typing: false,
+                })
+                .unwrap();
+            validate_selection(&document.snapshot(), document.snapshot().selection()).unwrap();
+            let saved = document.snapshot().serialize().unwrap();
+            assert!(saved.contains(source.trim_end()));
+            assert!(saved.contains('Ω'));
+            document.undo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+            assert_eq!(document.snapshot().selection(), snapshot.selection());
+            document.redo().unwrap();
+            validate_selection(&document.snapshot(), document.snapshot().selection()).unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), saved);
         }
     }
 
@@ -3907,6 +4264,8 @@ mod tests {
                 Ok(result) if !result.dirty_node_ids.is_empty() => {
                     validate_tree(result.snapshot.blocks())
                         .unwrap_or_else(|error| panic!("step {step} invalid after edit: {error}"));
+                    validate_selection(&result.snapshot, result.snapshot.selection())
+                        .expect("valid selection after edit");
                     let restored = document.undo().expect("every mutation is undoable");
                     assert_eq!(
                         restored.serialize().expect("serialize restored"),
@@ -3918,8 +4277,12 @@ mod tests {
                         &before_selection,
                         "step {step} changed selection after undo"
                     );
+                    validate_selection(&restored, restored.selection())
+                        .expect("valid selection after undo");
                     let redone = document.redo().expect("redo randomized mutation");
                     validate_tree(redone.blocks()).expect("valid tree after redo");
+                    validate_selection(&redone, redone.selection())
+                        .expect("valid selection after redo");
                 }
                 Ok(_) => {
                     assert_eq!(
@@ -3932,6 +4295,8 @@ mod tests {
                 }
                 Err(_) => {
                     let after_error = document.snapshot();
+                    validate_selection(&after_error, after_error.selection())
+                        .expect("valid selection after rejected edit");
                     validate_tree(after_error.blocks()).expect("valid tree after rejected command");
                     assert_eq!(
                         after_error.serialize().expect("serialize after error"),

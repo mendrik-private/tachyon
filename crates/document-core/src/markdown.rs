@@ -1,7 +1,11 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
+
+mod html_source;
+mod reference_source;
+mod source_reuse;
 
 use comrak::{
-    Arena, Options,
+    Anchorizer, Arena, Options,
     nodes::{AlertType, AstNode, ListType, NodeValue, Sourcepos, TableAlignment},
     parse_document,
 };
@@ -21,7 +25,14 @@ pub(crate) fn import(source: Arc<str>) -> Result<DocumentSnapshot, DocumentError
     let arena = Arena::new();
     let options = markdown_options();
     let root = parse_document(&arena, &source, &options);
-    let mut importer = Importer { next_id: 1 };
+    let mut importer = Importer {
+        next_id: 1,
+        list_item_positions: Vec::new(),
+        note_paragraph_positions: Vec::new(),
+        table_cell_positions: Vec::new(),
+        leaf_positions: Vec::new(),
+        original_source: true,
+    };
     let children = root.children().collect::<Vec<_>>();
     let mut blocks = Vec::with_capacity(children.len());
     let mut positions = Vec::with_capacity(children.len());
@@ -88,9 +99,20 @@ pub(crate) fn import(source: Arc<str>) -> Result<DocumentSnapshot, DocumentError
         transient_caret = Some(caret);
         DocumentPosition::new(id, 0, Affinity::Downstream)
     };
-    let spine = build_spine(source, &positions);
+    let blocks = BlockSequence::new(blocks);
+    let references = reference_source::records(&source, root);
+    let spine = build_spine(
+        source,
+        &positions,
+        &blocks,
+        &importer.list_item_positions,
+        &importer.note_paragraph_positions,
+        &importer.table_cell_positions,
+        &importer.leaf_positions,
+    )
+    .with_references(references);
     Ok(snapshot_from_import(
-        BlockSequence::new(blocks),
+        blocks,
         Selection::Text(TextSelection::caret(first_position)),
         spine,
         importer.next_id,
@@ -161,6 +183,7 @@ fn markdown_options() -> Options<'static> {
     options.extension.autolink = true;
     options.extension.tasklist = true;
     options.extension.footnotes = true;
+    options.extension.description_lists = true;
     options.extension.alerts = true;
     options.extension.math_dollars = true;
     options.extension.front_matter_delimiter = Some("---".to_owned());
@@ -169,8 +192,244 @@ fn markdown_options() -> Options<'static> {
     options
 }
 
+#[test]
+fn definition_syntax_has_terms_and_descriptions_not_visible_colon_markers() {
+    let source =
+        "Cache\n: Reusable **prepared geometry**.\n\nViewport\n: The visible document region.\n";
+    let document = crate::Document::from_markdown(source).unwrap();
+    assert_eq!(document.snapshot().serialize().unwrap(), source);
+    assert_eq!(
+        document
+            .snapshot()
+            .blocks()
+            .iter()
+            .map(|block| block.plain_text())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        "Cache\nReusable prepared geometry.\nViewport\nThe visible document region."
+    );
+}
+
+#[cfg(test)]
+mod definition_tests {
+    use super::*;
+    use crate::{
+        Affinity, DefinitionKind, Document, DocumentPosition, EditCommand, Selection, TextSelection,
+    };
+
+    fn leaves(block: &BlockNode, output: &mut Vec<NodeId>) {
+        if block.text().is_some() {
+            output.push(block.id());
+        }
+        match block {
+            BlockNode::Definition { blocks, .. } | BlockNode::BlockQuote { blocks, .. } => {
+                for block in blocks {
+                    leaves(block, output);
+                }
+            }
+            BlockNode::List(list) => {
+                for item in list.items.iter() {
+                    for block in &item.blocks {
+                        leaves(block, output);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn shape(block: &BlockNode) -> String {
+        match block {
+            BlockNode::Definition { kind, blocks, .. } => format!(
+                "{kind:?}({})",
+                blocks
+                    .iter()
+                    .map(|b| shape(b))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            ),
+            BlockNode::List(list) => format!(
+                "List({})",
+                list.items
+                    .iter()
+                    .map(|i| i
+                        .blocks
+                        .iter()
+                        .map(|b| shape(b))
+                        .collect::<Vec<_>>()
+                        .join("|"))
+                    .collect::<Vec<_>>()
+                    .join(";")
+            ),
+            BlockNode::BlockQuote { blocks, .. } => format!(
+                "Quote({})",
+                blocks
+                    .iter()
+                    .map(|b| shape(b))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            ),
+            _ => format!(
+                "{}:{}",
+                match block {
+                    BlockNode::Paragraph(_) => "P",
+                    BlockNode::CodeBlock(_) => "C",
+                    BlockNode::Heading(_) => "H",
+                    _ => "other",
+                },
+                block.plain_text()
+            ),
+        }
+    }
+
+    #[test]
+    fn definition_rich_round_trip_and_each_leaf_edit_undo() {
+        let source = "# Before\n\nCache\n: Reusable **prepared geometry**.\n: A second description.\n\nViewport\n: A visible region.\n\n    Another paragraph.\n\n    - A child\n    - Another child\n\n    ```rust\n    let x = 1;\n    ```\n\n    Nested\n    : A nested definition.\n\n# After\n\nUntouched *tail*.\n";
+        let original = Document::from_markdown(source).unwrap().snapshot();
+        let root = original.blocks().get(1).unwrap();
+        assert!(matches!(
+            root.as_ref(),
+            BlockNode::Definition {
+                kind: DefinitionKind::List,
+                ..
+            }
+        ));
+        let mut ids = Vec::new();
+        leaves(root, &mut ids);
+        assert!(ids.len() >= 10, "rich leaves: {ids:?}");
+        let canonical = serialize_block(root, "\n", 0).unwrap();
+        let reopened = Document::from_markdown(canonical.as_str())
+            .unwrap()
+            .snapshot();
+        assert_eq!(
+            shape(root),
+            shape(reopened.blocks().get(0).unwrap()),
+            "{canonical}"
+        );
+        for id in ids {
+            let mut document = Document::from_markdown(source).unwrap();
+            document
+                .apply(EditCommand::SetSelection(Selection::Text(
+                    TextSelection::caret(DocumentPosition::new(id, 0, Affinity::Downstream)),
+                )))
+                .unwrap();
+            let before = document.snapshot();
+            document
+                .apply(EditCommand::ReplaceSelection {
+                    text: "x".into(),
+                    typing: false,
+                })
+                .unwrap();
+            let edited = document.snapshot();
+            assert!(edited.node(id).unwrap().plain_text().starts_with('x'));
+            let serialized = edited.serialize().unwrap();
+            assert!(serialized.starts_with("# Before\n\n"));
+            assert!(serialized.ends_with("# After\n\nUntouched *tail*.\n"));
+            let reopened = Document::from_markdown(serialized.as_str())
+                .unwrap()
+                .snapshot();
+            assert_eq!(
+                shape(edited.blocks().get(1).unwrap()),
+                shape(reopened.blocks().get(1).unwrap()),
+                "{serialized}"
+            );
+            document.undo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+            assert_eq!(document.snapshot().selection(), before.selection());
+        }
+    }
+
+    #[test]
+    fn definition_empty_and_split_terms_reopen_as_editable_semantic_html() {
+        for (offset, edit) in [
+            (0, EditCommand::SplitSelection),
+            (2, EditCommand::SplitSelection),
+            (4, EditCommand::SplitSelection),
+            (
+                0,
+                EditCommand::ReplaceSelection {
+                    text: String::new(),
+                    typing: false,
+                },
+            ),
+        ] {
+            let source = "Term\n: First description.\n\n    ```rust\n    let x = 1;\n    ```\n";
+            let mut document = Document::from_markdown(source).unwrap();
+            let snapshot = document.snapshot();
+            let mut ids = Vec::new();
+            leaves(snapshot.blocks().get(0).unwrap(), &mut ids);
+            let mut selection =
+                TextSelection::caret(DocumentPosition::new(ids[0], offset, Affinity::Downstream));
+            if matches!(edit, EditCommand::ReplaceSelection { .. }) {
+                selection.head.text_offset = 4;
+            }
+            document
+                .apply(EditCommand::SetSelection(Selection::Text(selection)))
+                .unwrap();
+            document.apply(edit).unwrap();
+            let edited = document.snapshot();
+            let serialized = edited.serialize().unwrap();
+            assert!(serialized.contains("<dl>"), "{serialized}");
+            let reopened = Document::from_markdown(serialized.as_str())
+                .unwrap()
+                .snapshot();
+            assert_eq!(
+                shape(edited.blocks().get(0).unwrap()),
+                shape(reopened.blocks().get(0).unwrap()),
+                "{serialized}"
+            );
+            let mut reopened_ids = Vec::new();
+            leaves(reopened.blocks().get(0).unwrap(), &mut reopened_ids);
+            assert!(reopened_ids.iter().any(|id| matches!(reopened.node(*id), Some(BlockNode::CodeBlock(c)) if c.language.as_deref() == Some("rust"))));
+            document.undo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        }
+    }
+
+    #[test]
+    fn definition_html_preserves_multiple_terms_empty_groups_and_wrappers() {
+        let source = "<dl><dt><strong>CPU</strong></dt><dt>Processor</dt><dd><p>Executes instructions.</p><p></p></dd><dd>Also coordinates work.</dd></dl>\n";
+        let document = Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let root = snapshot.blocks().get(0).unwrap();
+        assert!(matches!(
+            root.as_ref(),
+            BlockNode::Definition {
+                kind: DefinitionKind::List,
+                ..
+            }
+        ));
+        assert_eq!(snapshot.serialize().unwrap(), source);
+        let canonical = serialize_block(root, "\n", 0).unwrap();
+        let reopened = Document::from_markdown(canonical.as_str())
+            .unwrap()
+            .snapshot();
+        assert_eq!(
+            shape(root),
+            shape(reopened.blocks().get(0).unwrap()),
+            "{canonical}"
+        );
+        for source in [
+            "<div>Before<dl><dt>Term</dt><dd>Body</dd></dl>After</div>",
+            "<dl class=\"custom\"><dt>Term</dt><dd>Body</dd></dl>",
+        ] {
+            let snapshot = Document::from_markdown(source).unwrap().snapshot();
+            assert!(matches!(
+                snapshot.blocks().get(0).unwrap().as_ref(),
+                BlockNode::PreservedSource { .. }
+            ));
+            assert_eq!(snapshot.serialize().unwrap(), source);
+        }
+    }
+}
+
 struct Importer {
     next_id: u64,
+    list_item_positions: Vec<(NodeId, Sourcepos)>,
+    note_paragraph_positions: Vec<(NodeId, Sourcepos)>,
+    table_cell_positions: Vec<(NodeId, Sourcepos)>,
+    leaf_positions: Vec<(NodeId, Sourcepos)>,
+    original_source: bool,
 }
 
 impl Importer {
@@ -182,7 +441,15 @@ impl Importer {
 
     fn block<'a>(&mut self, node: &'a AstNode<'a>) -> Result<Option<BlockNode>, DocumentError> {
         let value = node.data.borrow().value.clone();
-        Ok(match value {
+        let source_leaf = (matches!(&value, NodeValue::Paragraph | NodeValue::Heading(_))
+            && !node.ancestors().any(|ancestor| {
+                matches!(
+                    &ancestor.data.borrow().value,
+                    NodeValue::DescriptionTerm | NodeValue::DescriptionDetails
+                )
+            }))
+            || matches!(&value, NodeValue::CodeBlock(code) if code.fenced);
+        let block = match value {
             NodeValue::Paragraph => {
                 let standalone_math = node
                     .first_child()
@@ -212,19 +479,49 @@ impl Importer {
                 level: heading.level,
                 content: inline_content(node),
             })),
-            NodeValue::CodeBlock(code) => Some(BlockNode::CodeBlock(CodeBlock {
-                id: self.allocate(),
-                language: code.info.split_whitespace().next().map(str::to_owned),
-                syntax: crate::CodeBlockSyntax::Fenced,
-                content: RichText::new(code.literal),
-            })),
+            NodeValue::CodeBlock(code) => {
+                let id = self.allocate();
+                Some(BlockNode::CodeBlock(CodeBlock {
+                    id,
+                    language: code.info.split_whitespace().next().map(str::to_owned),
+                    syntax: crate::CodeBlockSyntax::Fenced,
+                    content: RichText::new(code.literal),
+                }))
+            }
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => {
                 Some(BlockNode::BlockQuote {
                     id: self.allocate(),
-                    blocks: self.children_as_blocks(node)?,
+                    blocks: self.editable_children(node)?,
                 })
             }
             NodeValue::List(list) => Some(BlockNode::List(self.list(node, list)?)),
+            NodeValue::DescriptionList => {
+                let id = self.allocate();
+                let blocks = node
+                    .children()
+                    .flat_map(|item| item.children())
+                    .filter_map(|child| self.block(child).transpose())
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .map(Arc::new)
+                    .collect();
+                Some(BlockNode::Definition {
+                    id,
+                    kind: crate::DefinitionKind::List,
+                    blocks: BlockSequence::new(blocks),
+                })
+            }
+            NodeValue::DescriptionTerm | NodeValue::DescriptionDetails => {
+                Some(BlockNode::Definition {
+                    id: self.allocate(),
+                    kind: if matches!(value, NodeValue::DescriptionTerm) {
+                        crate::DefinitionKind::Term
+                    } else {
+                        crate::DefinitionKind::Description
+                    },
+                    blocks: self.children_as_blocks(node)?,
+                })
+            }
             NodeValue::Table(table) => Some(BlockNode::Table(self.table(node, &table.alignments)?)),
             NodeValue::Alert(alert) => Some(BlockNode::Alert {
                 id: self.allocate(),
@@ -236,19 +533,67 @@ impl Importer {
                     AlertType::Caution => AlertKind::Caution,
                 },
                 title: alert.title.map(RichText::new),
-                blocks: self.children_as_blocks(node)?,
+                blocks: self.editable_children(node)?,
             }),
-            NodeValue::FootnoteDefinition(definition) => Some(BlockNode::FootnoteDefinition {
-                id: self.allocate(),
-                label: definition.name,
-                blocks: self.children_as_blocks(node)?,
-            }),
+            NodeValue::FootnoteDefinition(definition) => {
+                let id = self.allocate();
+                let mut blocks = Vec::new();
+                for child in node.children() {
+                    if let Some(block) = self.block(child)? {
+                        // Keep source spans only for direct, original-file note
+                        // paragraphs. HTML imports use a different coordinate space.
+                        if self.original_source && matches!(block, BlockNode::Paragraph(_)) {
+                            self.note_paragraph_positions
+                                .push((block.id(), child.data.borrow().sourcepos));
+                        }
+                        blocks.push(Arc::new(block));
+                    }
+                }
+                Some(BlockNode::FootnoteDefinition {
+                    id,
+                    label: definition.name,
+                    blocks: BlockSequence::new(blocks),
+                })
+            }
             NodeValue::ThematicBreak => Some(BlockNode::ThematicBreak {
                 id: self.allocate(),
             }),
             NodeValue::HtmlBlock(html) => {
                 if let Some(table) = crate::html::html_table_data(&html.literal) {
                     Some(BlockNode::Table(self.html_table(table)?))
+                } else if let Some(groups) = crate::html::html_definition_data(&html.literal) {
+                    let mut definitions = Vec::with_capacity(groups.len());
+                    for (kind, fragments) in groups {
+                        let id = self.allocate();
+                        let mut blocks = Vec::new();
+                        for fragment in fragments {
+                            if fragment.is_empty() {
+                                blocks.push(Arc::new(BlockNode::Paragraph(Paragraph {
+                                    id: self.allocate(),
+                                    content: RichText::new(""),
+                                })));
+                            } else {
+                                blocks.extend(self.blocks_from_markdown(&fragment)?);
+                            }
+                        }
+                        // An empty label/description remains a real caret host.
+                        if blocks.is_empty() {
+                            blocks.push(Arc::new(BlockNode::Paragraph(Paragraph {
+                                id: self.allocate(),
+                                content: RichText::new(""),
+                            })));
+                        }
+                        definitions.push(Arc::new(BlockNode::Definition {
+                            id,
+                            kind,
+                            blocks: BlockSequence::new(blocks),
+                        }));
+                    }
+                    Some(BlockNode::Definition {
+                        id: self.allocate(),
+                        kind: crate::DefinitionKind::List,
+                        blocks: BlockSequence::new(definitions),
+                    })
                 } else {
                     Some(BlockNode::PreservedSource {
                         id: self.allocate(),
@@ -266,7 +611,32 @@ impl Importer {
                 description: "Front matter".to_owned(),
             }),
             _ => None,
-        })
+        };
+        if self.original_source
+            && source_leaf
+            && let Some(block) = &block
+        {
+            self.leaf_positions
+                .push((block.id(), node.data.borrow().sourcepos));
+        }
+        Ok(block)
+    }
+
+    fn editable_children<'a>(
+        &mut self,
+        node: &'a AstNode<'a>,
+    ) -> Result<BlockSequence, DocumentError> {
+        let blocks = self.children_as_blocks(node)?;
+        if blocks.is_empty() {
+            Ok(BlockSequence::new(vec![Arc::new(BlockNode::Paragraph(
+                Paragraph {
+                    id: self.allocate(),
+                    content: RichText::default(),
+                },
+            ))]))
+        } else {
+            Ok(blocks)
+        }
     }
 
     fn children_as_blocks<'a>(
@@ -323,8 +693,29 @@ impl Importer {
                 }
                 _ => continue,
             }
+            // An empty item, including an unlabeled parent of a nested list,
+            // owns a visible marker and a real caret target. Do not steal the
+            // child's text as its label or flatten away this hierarchy level.
+            // SourceSpine retains the original marker-only spelling unchanged.
+            if blocks
+                .first()
+                .is_none_or(|block| matches!(block.as_ref(), BlockNode::List(_)))
+            {
+                blocks.insert(
+                    0,
+                    Arc::new(BlockNode::Paragraph(Paragraph {
+                        id: self.allocate(),
+                        content: RichText::default(),
+                    })),
+                );
+            }
+            let id = self.allocate();
+            if self.original_source {
+                self.list_item_positions
+                    .push((id, item_node.data.borrow().sourcepos));
+            }
             items.push(ListItem {
-                id: self.allocate(),
+                id,
                 checked,
                 blocks: BlockSequence::new(blocks),
             });
@@ -339,10 +730,17 @@ impl Importer {
                 },
             }
         };
+        // Hidden definitions can make the parser report a loose list even
+        // when the semantic item contains only one block. There is no
+        // inter-item/block gap in that shape, and canonical Markdown
+        // cannot persist the distinction after the definition moves away.
+        // Keep authored spelling in SourceSpine; normalize only this vacuous
+        // spacing flag, not genuine multi-item or multi-block loose lists.
+        let tight = list.tight || matches!(items.as_slice(), [item] if item.blocks.len() == 1);
         Ok(ListBlock {
             id: self.allocate(),
             kind,
-            tight: list.tight,
+            tight,
             items: items.into(),
         })
     }
@@ -375,12 +773,22 @@ impl Importer {
             let cells = row_node
                 .children()
                 .filter(|cell| matches!(cell.data.borrow().value, NodeValue::TableCell))
-                .map(|cell| TableCell {
-                    id: self.allocate(),
-                    blocks: BlockSequence::new(vec![Arc::new(BlockNode::Paragraph(Paragraph {
-                        id: self.allocate(),
-                        content: inline_content(cell),
-                    }))]),
+                .map(|cell| {
+                    let id = self.allocate();
+                    let paragraph = self.allocate();
+                    if self.original_source {
+                        self.table_cell_positions
+                            .push((paragraph, cell.data.borrow().sourcepos));
+                    }
+                    TableCell {
+                        id,
+                        blocks: BlockSequence::new(vec![Arc::new(BlockNode::Paragraph(
+                            Paragraph {
+                                id: paragraph,
+                                content: inline_content(cell),
+                            },
+                        ))]),
+                    }
                 })
                 .collect::<Vec<_>>()
                 .into();
@@ -394,7 +802,7 @@ impl Importer {
             columns,
             rows: rows.into(),
             header_rows,
-            border: crate::TableBorder::Dotted,
+            border: crate::TableBorder::default(),
             preserved_metadata: Arc::from([]),
         })
     }
@@ -438,7 +846,7 @@ impl Importer {
             columns,
             rows: rows.into(),
             header_rows: data.header_rows,
-            border: crate::TableBorder::Dotted,
+            border: crate::TableBorder::default(),
             preserved_metadata: Arc::from([]),
         })
     }
@@ -446,10 +854,16 @@ impl Importer {
     fn blocks_from_markdown(&mut self, source: &str) -> Result<Vec<Arc<BlockNode>>, DocumentError> {
         let arena = Arena::new();
         let root = parse_document(&arena, source, &markdown_options());
-        root.children()
+        // Converted HTML fragments have their own coordinate space; their
+        // offsets must never be interpreted as spans of the original file.
+        let original_source = std::mem::replace(&mut self.original_source, false);
+        let result = root
+            .children()
             .filter_map(|child| self.block(child).transpose())
             .map(|block| block.map(Arc::new))
-            .collect()
+            .collect();
+        self.original_source = original_source;
+        result
     }
 }
 
@@ -517,6 +931,19 @@ fn append_inline<'a>(
             push_piece(text, runs, &label, &reference_styles);
         }
         NodeValue::HtmlInline(source) => {
+            // GFM table rows cannot contain source newlines. The table writer
+            // uses a real HTML break for an authored cell newline; recover
+            // that inline meaning rather than displaying the tag as text.
+            if matches!(
+                source.trim().to_ascii_lowercase().as_str(),
+                "<br>" | "<br/>" | "<br />"
+            ) && node
+                .ancestors()
+                .any(|parent| matches!(parent.data.borrow().value, NodeValue::TableCell))
+            {
+                push_piece(text, runs, "\n", styles);
+                return;
+            }
             if apply_inline_html_transition(&source, styles) {
                 return;
             }
@@ -541,6 +968,8 @@ fn apply_inline_html_transition(source: &str, styles: &mut SmallVec<[InlineStyle
         "</em>" | "</i>" => Some((false, InlineStyle::Italic)),
         "<del>" | "<s>" | "<strike>" => Some((true, InlineStyle::Strikethrough)),
         "</del>" | "</s>" | "</strike>" => Some((false, InlineStyle::Strikethrough)),
+        "<code>" => Some((true, InlineStyle::Code)),
+        "</code>" => Some((false, InlineStyle::Code)),
         _ => None,
     };
     let Some((opening, style)) = transition else {
@@ -646,6 +1075,7 @@ fn first_editable_position(blocks: &[Arc<BlockNode>]) -> Option<DocumentPosition
                 .find_map(|item| first_editable_position(&item.blocks.to_vec())),
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 first_editable_position(&blocks.to_vec())
             }
@@ -663,17 +1093,39 @@ fn first_editable_position(blocks: &[Arc<BlockNode>]) -> Option<DocumentPosition
     None
 }
 
-fn build_spine(source: Arc<str>, positions: &[(NodeId, Sourcepos)]) -> SourceSpine {
+fn build_spine(
+    source: Arc<str>,
+    positions: &[(NodeId, Sourcepos)],
+    blocks: &BlockSequence,
+    item_positions: &[(NodeId, Sourcepos)],
+    note_paragraph_positions: &[(NodeId, Sourcepos)],
+    table_cell_positions: &[(NodeId, Sourcepos)],
+    leaf_positions: &[(NodeId, Sourcepos)],
+) -> SourceSpine {
     let line_starts = line_starts(&source);
     let mut previous_end = 0;
-    let mut units = FxHashMap::default();
+    let mut units = FxHashMap::<NodeId, SourceUnit>::default();
     let mut order = Vec::with_capacity(positions.len());
+    let mut owned_roots = FxHashMap::<NodeId, Vec<NodeId>>::default();
     units.reserve(positions.len());
     for (id, position) in positions {
         let Some((start, end)) = source_range(*position, &line_starts, source.len()) else {
             continue;
         };
         if start < previous_end || start > end {
+            if start <= end
+                && let Some(owner) = order.last()
+                && let Some(unit) = units.get_mut(owner)
+                && start >= unit.source.start
+            {
+                // Source-sorted semantic roots may overlap without complete
+                // containment. Their connected range has one source owner;
+                // extending it prevents the overlapping suffix from becoming
+                // an unrelated prefix or a second emitted source fragment.
+                unit.source.end = unit.source.end.max(end);
+                previous_end = unit.source.end;
+                owned_roots.entry(*owner).or_default().push(*id);
+            }
             continue;
         }
         units.insert(
@@ -686,7 +1138,41 @@ fn build_spine(source: Arc<str>, positions: &[(NodeId, Sourcepos)]) -> SourceSpi
         order.push(*id);
         previous_end = end;
     }
-    SourceSpine::new(source, units, order, previous_end)
+    let spans = |positions: &[(NodeId, Sourcepos)]| {
+        positions
+            .iter()
+            .filter_map(|(id, position)| {
+                let (start, end) = source_range(*position, &line_starts, source.len())?;
+                source.get(start..end)?;
+                Some((*id, start..end))
+            })
+            .collect()
+    };
+    let mut nested = crate::source::NestedSourceSpans {
+        list_items: spans(item_positions),
+        note_paragraphs: spans(note_paragraph_positions),
+        table_cells: spans(table_cell_positions),
+        leaf_blocks: spans(leaf_positions),
+        html_paragraphs: FxHashMap::default(),
+        owned_roots,
+        references: FxHashMap::default(),
+    };
+    for block in blocks {
+        if let BlockNode::Table(table) = block.as_ref()
+            && let Some(unit) = units.get(&table.id)
+            && let Some(mapped) = html_source::paragraph_spans(&source[unit.source.clone()], table)
+        {
+            nested
+                .html_paragraphs
+                .extend(mapped.into_iter().map(|(id, range)| {
+                    (
+                        id,
+                        range.start + unit.source.start..range.end + unit.source.start,
+                    )
+                }));
+        }
+    }
+    SourceSpine::new(source, units, order, previous_end, blocks, nested)
 }
 
 fn line_starts(source: &str) -> Vec<usize> {
@@ -715,76 +1201,237 @@ pub(crate) fn serialize(snapshot: &DocumentSnapshot) -> Result<String, DocumentE
     if snapshot.dirty_node_ids().is_empty() && !structure_changed(snapshot) {
         return Ok(snapshot.source_spine().original().to_owned());
     }
+    if !structure_changed(snapshot)
+        && let Some(source) = source_reuse::serialize_snapshot(snapshot)?
+    {
+        return Ok(source);
+    }
 
     let newline = snapshot.source_spine().line_ending().as_str();
-    let (orphaned_before, orphaned_tail) = orphaned_prefixes(snapshot);
-    let mut output = String::new();
-    let mut previous_generated = false;
-    for (index, block) in snapshot
+    let (mut orphaned_before, mut orphaned_tail) = orphaned_prefixes(snapshot);
+    let blocks = snapshot
         .blocks()
         .iter()
         .filter(|block| !snapshot.is_transient_caret(block))
+        .collect::<Vec<_>>();
+    // Lifted footnotes can share their authored bytes with an enclosing root.
+    // Preserve that source unit only while its complete semantic group remains
+    // adjacent and every edit can be patched inside the unit's proven ranges.
+    let positions = blocks
+        .iter()
         .enumerate()
-    {
+        .map(|(i, b)| (b.id(), i))
+        .collect::<FxHashMap<_, _>>();
+    let mut combined = FxHashMap::default();
+    let mut embedded = FxHashSet::default();
+    for (owner, children) in snapshot.source_spine().owned_roots() {
+        if snapshot.source_was_moved(*owner)
+            && !snapshot.source_spine().references(*owner).is_empty()
+        {
+            continue;
+        }
+        let Some(index) = positions.get(owner).copied() else {
+            continue;
+        };
+        if children
+            .iter()
+            .enumerate()
+            .all(|(offset, id)| positions.get(id) == Some(&(index + offset + 1)))
+            && let Some(source) =
+                source_reuse::serialize_owned(&blocks[index..index + children.len() + 1], snapshot)?
+        {
+            combined.insert(*owner, source);
+            embedded.extend(children.iter().copied());
+        }
+    }
+    let blocks = blocks
+        .into_iter()
+        .filter(|block| !embedded.contains(&block.id()))
+        .collect::<Vec<_>>();
+    let mut next_source_unit = vec![None; blocks.len()];
+    let mut next = None;
+    for (index, block) in blocks.iter().enumerate().rev() {
+        next_source_unit[index] = next;
+        if snapshot.source_spine().unit(block.id()).is_some()
+            && !snapshot.source_was_moved(block.id())
+        {
+            next = Some(block.id());
+        }
+    }
+    let source_order = snapshot
+        .source_spine()
+        .order()
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (*id, index))
+        .collect::<FxHashMap<_, _>>();
+    let mut output = String::new();
+    let mut previous_rewritten = false;
+    let mut previous_block = None;
+    for (index, block) in blocks.into_iter().enumerate() {
         let dirty = block_or_descendant_dirty(block, snapshot.dirty_node_ids());
         if let Some(unit) = snapshot.source_spine().unit(block.id()) {
-            if let Some(prefixes) = orphaned_before.get(&block.id()) {
+            if let Some(prefixes) = orphaned_before.remove(&block.id()) {
                 for prefix in prefixes {
-                    output.push_str(snapshot.source_spine().slice(prefix.clone()));
+                    append_source_record(&mut output, &prefix, newline);
                 }
             }
-            output.push_str(snapshot.source_spine().slice(unit.prefix.clone()));
-            // A generated block needs a separator, but the next source-owned
-            // prefix may already supply it. Do not append both separators.
-            if previous_generated {
+            let prefix = snapshot.source_spine().slice(unit.prefix.clone());
+            if !snapshot.source_was_moved(block.id()) || prefix.trim().is_empty() {
+                output.push_str(prefix);
+            }
+            // Canonical serialization does not retain source-owned trailing
+            // whitespace (definition lists can own their final blank line).
+            // Restore the boundary after any rewritten block without doubling
+            // a separator already supplied by the next source-owned prefix.
+            // A moved original unit can have an empty prefix (notably the old
+            // first block), so changed adjacency requires the same guard.
+            let adjacency_changed = previous_block.is_some_and(|previous| {
+                source_order
+                    .get(&previous)
+                    .zip(source_order.get(&block.id()))
+                    .is_none_or(|(before, after)| *before + 1 != *after)
+            });
+            if previous_rewritten || adjacency_changed {
                 ensure_blank_line(&mut output, newline);
             }
-            if dirty {
+            if snapshot.source_was_moved(block.id())
+                && !snapshot.source_spine().references(block.id()).is_empty()
+            {
+                // Its declarations are anchored at the original source boundary.
                 output.push_str(&serialize_block(block, newline, 0)?);
+            } else if let Some(source) = combined.get(&block.id()) {
+                output.push_str(source);
+            } else if snapshot
+                .source_spine()
+                .owned_roots()
+                .contains_key(&block.id())
+            {
+                // The source group was split/deleted/restructured. Regenerate
+                // the enclosing root without its separately owned definitions.
+                output.push_str(&serialize_saved_block(block, snapshot, newline)?);
+            } else if dirty {
+                let rewritten = source_reuse::serialize(block, snapshot)?;
+                output.push_str(&match rewritten {
+                    Some(source) => source,
+                    None => serialize_saved_block(block, snapshot, newline)?,
+                });
             } else {
                 output.push_str(snapshot.source_spine().slice(unit.source.clone()));
             }
         } else {
+            // A generated block can replace a deleted source-backed block.
+            // Emit that block's non-rendered prefix at the replacement
+            // boundary instead of delaying it until the next surviving unit.
+            // This keeps definitions and other source records on their
+            // authored side of converted HTML or a structural replacement.
+            let prefixes = next_source_unit[index]
+                .and_then(|id| orphaned_before.remove(&id))
+                .unwrap_or_else(|| {
+                    if next_source_unit[index].is_none() {
+                        std::mem::take(&mut orphaned_tail)
+                    } else {
+                        Vec::new()
+                    }
+                });
+            for prefix in prefixes {
+                append_source_record(&mut output, &prefix, newline);
+            }
             if index > 0 {
                 ensure_blank_line(&mut output, newline);
             }
-            output.push_str(&serialize_block(block, newline, 0)?);
+            output.push_str(&serialize_saved_block(block, snapshot, newline)?);
         }
-        previous_generated = snapshot.source_spine().unit(block.id()).is_none();
+        previous_rewritten = dirty
+            || (snapshot.source_was_moved(block.id())
+                && !snapshot.source_spine().references(block.id()).is_empty())
+            || snapshot.source_spine().unit(block.id()).is_none()
+            || (snapshot
+                .source_spine()
+                .owned_roots()
+                .contains_key(&block.id())
+                && !combined.contains_key(&block.id()));
+        previous_block = Some(block.id());
     }
     for prefix in orphaned_tail {
-        output.push_str(snapshot.source_spine().slice(prefix));
+        append_source_record(&mut output, &prefix, newline);
     }
     output.push_str(snapshot.source_spine().tail());
     Ok(output)
 }
 
-type SourceRanges = Vec<std::ops::Range<usize>>;
-type OrphanedPrefixes = (FxHashMap<NodeId, SourceRanges>, SourceRanges);
+fn append_source_record(output: &mut String, record: &str, newline: &str) {
+    if !output.is_empty() && !record.trim().is_empty() {
+        let breaks = output
+            .chars()
+            .rev()
+            .take_while(|c| c.is_whitespace())
+            .filter(|c| *c == '\n')
+            .count()
+            + record
+                .chars()
+                .take_while(|c| c.is_whitespace())
+                .filter(|c| *c == '\n')
+                .count();
+        for _ in breaks..2 {
+            output.push_str(newline);
+        }
+    }
+    output.push_str(record);
+}
 
-fn orphaned_prefixes(snapshot: &DocumentSnapshot) -> OrphanedPrefixes {
+/// Canonical output has no hidden reference declarations. Emit the root's
+/// immutable source records in order before its regenerated visible content.
+fn serialize_saved_block(
+    block: &BlockNode,
+    snapshot: &DocumentSnapshot,
+    newline: &str,
+) -> Result<String, DocumentError> {
+    let mut output = String::new();
+    for record in snapshot.source_spine().references(block.id()) {
+        output.push_str(&record.standalone);
+        ensure_blank_line(&mut output, newline);
+    }
+    output.push_str(&serialize_block(block, newline, 0)?);
+    Ok(output)
+}
+
+type SourceRecords<'a> = Vec<Cow<'a, str>>;
+type OrphanedPrefixes<'a> = (FxHashMap<NodeId, SourceRecords<'a>>, SourceRecords<'a>);
+
+fn orphaned_prefixes(snapshot: &DocumentSnapshot) -> OrphanedPrefixes<'_> {
     let live_ids = snapshot
         .blocks()
         .iter()
         .map(|block| block.id())
         .collect::<FxHashSet<_>>();
-    let mut before = FxHashMap::<NodeId, Vec<std::ops::Range<usize>>>::default();
+    let mut before = FxHashMap::<NodeId, SourceRecords<'_>>::default();
     let mut pending = Vec::new();
     for id in snapshot.source_spine().order() {
-        if live_ids.contains(id) {
+        if live_ids.contains(id) && !snapshot.source_was_moved(*id) {
             if !pending.is_empty() {
                 before.insert(*id, std::mem::take(&mut pending));
             }
         } else if let Some(unit) = snapshot.source_spine().unit(*id) {
-            // Deleted blocks no longer own a visual gap. Keep non-rendered
-            // source such as reference definitions, not orphaned whitespace.
+            // Deleted/moved blocks do not take non-rendered declarations with
+            // them. Anchor those records before the next unmoved source unit,
+            // preserving reference precedence even across repeated moves.
             if !snapshot
                 .source_spine()
                 .slice(unit.prefix.clone())
                 .trim()
                 .is_empty()
             {
-                pending.push(unit.prefix.clone());
+                pending.push(Cow::Borrowed(
+                    snapshot.source_spine().slice(unit.prefix.clone()),
+                ));
+            }
+            let newline = snapshot.source_spine().line_ending().as_str();
+            for reference in snapshot.source_spine().references(*id) {
+                pending.push(Cow::Owned(format!(
+                    "{newline}{newline}{}{newline}{newline}",
+                    reference.standalone
+                )));
             }
         }
     }
@@ -818,6 +1465,7 @@ fn block_or_descendant_dirty(
         }),
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => blocks
             .iter()
             .any(|block| block_or_descendant_dirty(block, dirty)),
@@ -841,6 +1489,11 @@ fn serialize_block(
     indent: usize,
 ) -> Result<String, DocumentError> {
     Ok(match block {
+        // An empty Markdown paragraph is a live editing caret, not a distinct
+        // persisted block. Emit no invented markup: surrounding separators
+        // keep nonempty paragraphs apart, and import normalizes blank-only
+        // topology. Source rebasing defers while those live IDs have no match.
+        // Rich HTML containers use their separate explicit paragraph writer.
         BlockNode::Paragraph(paragraph) => serialize_inline(&paragraph.content),
         BlockNode::Heading(heading) => format!(
             "{} {}",
@@ -941,11 +1594,69 @@ fn serialize_block(
             }
         }
         BlockNode::List(list) => serialize_list(list, newline, indent)?,
+        BlockNode::Definition { kind, blocks, .. } => match kind {
+            crate::DefinitionKind::List if !definition_markdown_safe(blocks) => {
+                serialize_block_html(block, newline, indent)?
+            }
+            crate::DefinitionKind::List | crate::DefinitionKind::Term => {
+                serialize_sequence(blocks, newline, indent)?
+            }
+            crate::DefinitionKind::Description => {
+                let content = serialize_sequence(blocks, newline, indent)?;
+                let mut lines = content.split(newline);
+                let mut text = format!(":   {}", lines.next().unwrap_or_default());
+                for line in lines {
+                    text.push_str(newline);
+                    text.push_str("    ");
+                    text.push_str(line);
+                }
+                text
+            }
+        },
         BlockNode::Table(table) if table.requires_html_serialization() => {
             serialize_html_table(table, newline, indent)?
         }
         BlockNode::Table(table) => serialize_pipe_table(table, newline)?,
     })
+}
+
+/// Markdown requires a nonempty, single-paragraph term followed by a
+/// nonempty description. Rich edits outside that grammar use semantic HTML
+/// rather than flattening paragraphs, losing empty caret hosts or inventing text.
+fn definition_markdown_safe(blocks: &BlockSequence) -> bool {
+    use crate::DefinitionKind;
+    let mut term = false;
+    let mut description = false;
+    for block in blocks {
+        match block.as_ref() {
+            BlockNode::Definition {
+                kind: DefinitionKind::Term,
+                blocks,
+                ..
+            } => {
+                if term && !description {
+                    return false;
+                }
+                if blocks.len() != 1
+                    || !matches!(blocks.get(0).map(AsRef::as_ref), Some(BlockNode::Paragraph(p)) if !p.content.as_string().trim().is_empty())
+                {
+                    return false;
+                }
+                term = true;
+                description = false;
+            }
+            BlockNode::Definition {
+                kind: DefinitionKind::Description,
+                blocks,
+                ..
+            } if term => {
+                if blocks.is_empty() || blocks.iter().any(|b| matches!(b.as_ref(), BlockNode::Paragraph(p) if p.content.as_string().trim().is_empty())) { return false; }
+                description = true;
+            }
+            _ => return false,
+        }
+    }
+    term && description
 }
 
 fn serialize_sequence(
@@ -974,18 +1685,49 @@ fn serialize_list(list: &ListBlock, newline: &str, indent: usize) -> Result<Stri
             }
         }
         output.push_str(&" ".repeat(indent));
+        let marker_start = output.len();
         match list.kind {
             ListKind::Unordered => output.push_str("- "),
             ListKind::Ordered { start } => output.push_str(&format!("{}. ", start + index as u64)),
-            ListKind::Task => output.push_str(if item.checked.unwrap_or(false) {
-                "- [x] "
-            } else {
-                "- [ ] "
+            ListKind::Task => output.push_str(match item.checked {
+                Some(true) => "- [x] ",
+                Some(false) => "- [ ] ",
+                None => "- ",
             }),
         }
-        let content = serialize_sequence(&item.blocks, newline, indent + 4)?;
-        let continuation = " ".repeat(indent + 4);
+        let content = serialize_list_content(&item.blocks, newline, list.tight)?;
+        // Continuations align with the list marker's content column. Extra
+        // spaces become literal content in fenced code. A task checkbox is
+        // paragraph content, not part of the Markdown list marker.
+        let marker_width = if matches!(list.kind, ListKind::Task) {
+            2
+        } else {
+            output.len() - marker_start
+        };
+        let continuation = " ".repeat(indent + marker_width);
         output.push_str(&content.replace(newline, &format!("{newline}{continuation}")));
+    }
+    Ok(output)
+}
+
+fn serialize_list_content(
+    blocks: &BlockSequence,
+    newline: &str,
+    tight: bool,
+) -> Result<String, DocumentError> {
+    let mut output = String::new();
+    for (index, block) in blocks.iter().enumerate() {
+        if index > 0 {
+            output.push_str(newline);
+            // A nested list needs no blank separator in a tight item. A
+            // blank would change its paragraph grouping when reopened.
+            if !tight || !matches!(block.as_ref(), BlockNode::List(_)) {
+                output.push_str(newline);
+            }
+        }
+        // The enclosing item owns continuation indentation. Passing its
+        // indent down and then prefixing again can turn a nested list to code.
+        output.push_str(&serialize_block(block, newline, 0)?);
     }
     Ok(output)
 }
@@ -1034,10 +1776,50 @@ fn serialize_html_table(
     newline: &str,
     indent: usize,
 ) -> Result<String, DocumentError> {
+    serialize_html_table_for(table, newline, indent, HtmlTarget::Clipboard)
+}
+
+fn serialize_html_table_for(
+    table: &Table,
+    newline: &str,
+    indent: usize,
+    target: HtmlTarget<'_>,
+) -> Result<String, DocumentError> {
     let mut output = table_metadata(table, newline)?;
-    output.push_str("<table>");
+    let authored_width = table
+        .columns
+        .iter()
+        .filter_map(|column| column.width)
+        .sum::<f32>();
+    if target.is_static() && authored_width > 0. {
+        output.push_str(&format!(
+            "<table class=\"authored-widths\" style=\"width:{authored_width}px\">"
+        ));
+        output.push_str(newline);
+        output.push_str("<colgroup>");
+        for column in table.columns.iter() {
+            if let Some(width) = column.width {
+                output.push_str(&format!("<col style=\"width:{width}px\">"));
+            } else {
+                output.push_str("<col>");
+            }
+        }
+        output.push_str("</colgroup>");
+    } else {
+        output.push_str("<table>");
+    }
     output.push_str(newline);
+    if target.is_static() {
+        output.push_str(if table.header_rows > 0 {
+            "<thead>\n"
+        } else {
+            "<tbody>\n"
+        });
+    }
     for (row_index, row) in table.rows.iter().enumerate() {
+        if target.is_static() && table.header_rows > 0 && row_index == table.header_rows {
+            output.push_str("</thead>\n<tbody>\n");
+        }
         output.push_str("  <tr>");
         output.push_str(newline);
         for (column_index, cell) in row.cells.iter().enumerate() {
@@ -1060,7 +1842,12 @@ fn serialize_html_table(
             }
             output.push('>');
             output.push_str(newline);
-            output.push_str(&serialize_sequence_html(&cell.blocks, newline, indent + 6)?);
+            output.push_str(&serialize_sequence_html_for(
+                &cell.blocks,
+                newline,
+                indent + 6,
+                target,
+            )?);
             output.push_str("    </");
             output.push_str(tag);
             output.push('>');
@@ -1069,12 +1856,21 @@ fn serialize_html_table(
         output.push_str("  </tr>");
         output.push_str(newline);
     }
+    if target.is_static() {
+        output.push_str(
+            if table.header_rows > 0 && table.header_rows >= table.rows.len() {
+                "</thead>\n"
+            } else {
+                "</tbody>\n"
+            },
+        );
+    }
     output.push_str("</table>");
     Ok(output)
 }
 
 fn table_metadata(table: &Table, newline: &str) -> Result<String, DocumentError> {
-    if table.border == crate::TableBorder::Dotted
+    if table.border == crate::TableBorder::default()
         && table.columns.iter().all(|column| column.width.is_none())
         && table.preserved_metadata.is_empty()
     {
@@ -1126,7 +1922,7 @@ fn table_metadata(table: &Table, newline: &str) -> Result<String, DocumentError>
 
 pub(crate) fn serialize_inline(text: &RichText) -> String {
     if inline_styles_need_html_boundaries(text) {
-        return serialize_inline_with_html_boundaries(text);
+        return preserve_inline_edge_spaces(serialize_inline_with_html_boundaries(text));
     }
     let source = text.as_string();
     let mut output = String::new();
@@ -1181,6 +1977,26 @@ pub(crate) fn serialize_inline(text: &RichText) -> String {
         }
         for style in formatting.iter().rev() {
             output.push_str(&close_style(style));
+        }
+    }
+    preserve_inline_edge_spaces(output)
+}
+
+// A split or partial paste can leave significant spaces at a paragraph's edge.
+// Literal Markdown whitespace there is indentation or gets trimmed on import;
+// entities preserve the canonical text without changing its copied characters.
+fn preserve_inline_edge_spaces(value: String) -> String {
+    let first = value.len() - value.trim_start_matches([' ', '\t']).len();
+    let last = value.trim_end_matches([' ', '\t']).len().max(first);
+    if first == 0 && last == value.len() {
+        return value;
+    }
+    let mut output = String::with_capacity(value.len());
+    for (index, character) in value.char_indices() {
+        match character {
+            ' ' if index < first || index >= last => output.push_str("&#32;"),
+            '\t' if index < first || index >= last => output.push_str("&#9;"),
+            _ => output.push(character),
         }
     }
     output
@@ -1355,6 +2171,12 @@ pub(crate) fn escape_inline(value: &str) -> String {
 }
 
 pub(crate) fn serialize_code_span(value: &str) -> String {
+    if value.contains(['\r', '\n']) {
+        let value = escape_html(value)
+            .replace('\r', "&#13;")
+            .replace('\n', "&#10;");
+        return format!("<code>{value}</code>");
+    }
     let fence = "`".repeat(longest_backtick_run(value).saturating_add(1).max(1));
     let needs_padding = value.starts_with('`')
         || value.ends_with('`')
@@ -1375,13 +2197,20 @@ pub(crate) fn serialize_destination(target: &str) -> String {
     }) {
         return target.to_owned();
     }
-    let mut escaped = String::with_capacity(target.len() + 2);
-    escaped.push('<');
+    // Keep complex targets in CommonMark's bare form. Entity-encode syntax
+    // delimiters and double literal backslashes: the angle form consumes a
+    // backslash before punctuation and cannot preserve that target exactly.
+    let mut escaped = String::with_capacity(target.len());
     for character in target.chars() {
         match character {
             '&' => escaped.push_str("&amp;"),
+            '\\' => escaped.push_str("\\\\"),
             '<' => escaped.push_str("&lt;"),
             '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            '(' => escaped.push_str("&#40;"),
+            ')' => escaped.push_str("&#41;"),
             '\n' => escaped.push_str("&#10;"),
             '\r' => escaped.push_str("&#13;"),
             '\t' => escaped.push_str("&#9;"),
@@ -1389,7 +2218,6 @@ pub(crate) fn serialize_destination(target: &str) -> String {
             _ => escaped.push(character),
         }
     }
-    escaped.push('>');
     escaped
 }
 
@@ -1412,15 +2240,93 @@ pub(crate) fn serialize_title(title: &str) -> String {
     escaped
 }
 
+/// Mixed preview copy uses canonical roots before applying export sanitization.
+pub(crate) fn clipboard_html_blocks(blocks: &BlockSequence) -> Result<String, DocumentError> {
+    let html = serialize_sequence_html(blocks, "\n", 0)?;
+    crate::html::clipboard_html_document(&html).ok_or_else(|| {
+        DocumentError::Clipboard("Selection cannot be safely exported as HTML".into())
+    })
+}
+
+pub(crate) fn static_html_blocks(blocks: &BlockSequence) -> Result<String, DocumentError> {
+    let mut heading_ids = FxHashMap::default();
+    collect_heading_ids(blocks, &mut Anchorizer::new(), &mut heading_ids);
+    serialize_sequence_html_for(blocks, "\n", 0, HtmlTarget::Static(&heading_ids))
+}
+
+#[derive(Clone, Copy)]
+enum HtmlTarget<'a> {
+    Clipboard,
+    Static(&'a FxHashMap<NodeId, String>),
+}
+
+impl<'a> HtmlTarget<'a> {
+    fn is_static(self) -> bool {
+        matches!(self, Self::Static(_))
+    }
+
+    fn heading_id(self, node: NodeId) -> Option<&'a str> {
+        match self {
+            Self::Clipboard => None,
+            Self::Static(ids) => ids.get(&node).map(String::as_str),
+        }
+    }
+}
+
+fn collect_heading_ids(
+    blocks: &BlockSequence,
+    anchorizer: &mut Anchorizer,
+    output: &mut FxHashMap<NodeId, String>,
+) {
+    for block in blocks {
+        match block.as_ref() {
+            BlockNode::Heading(heading) => {
+                output.insert(
+                    heading.id,
+                    anchorizer.anchorize(&heading.content.as_string()),
+                );
+            }
+            BlockNode::List(list) => {
+                for item in list.items.iter() {
+                    collect_heading_ids(&item.blocks, anchorizer, output);
+                }
+            }
+            BlockNode::BlockQuote { blocks, .. }
+            | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
+            | BlockNode::FootnoteDefinition { blocks, .. } => {
+                collect_heading_ids(blocks, anchorizer, output);
+            }
+            BlockNode::Table(table) => {
+                for row in table.rows.iter() {
+                    for cell in row.cells.iter() {
+                        collect_heading_ids(&cell.blocks, anchorizer, output);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn serialize_sequence_html(
     blocks: &BlockSequence,
     newline: &str,
     indent: usize,
 ) -> Result<String, DocumentError> {
+    serialize_sequence_html_for(blocks, newline, indent, HtmlTarget::Clipboard)
+}
+
+fn serialize_sequence_html_for(
+    blocks: &BlockSequence,
+    newline: &str,
+    indent: usize,
+    target: HtmlTarget<'_>,
+) -> Result<String, DocumentError> {
     let mut output = String::new();
     for block in blocks {
         output.push_str(&" ".repeat(indent));
-        output.push_str(&serialize_block_html(block, newline, indent)?);
+        output.push_str(&serialize_block_html_for(block, newline, indent, target)?);
         output.push_str(newline);
     }
     Ok(output)
@@ -1431,54 +2337,114 @@ fn serialize_block_html(
     newline: &str,
     indent: usize,
 ) -> Result<String, DocumentError> {
+    serialize_block_html_for(block, newline, indent, HtmlTarget::Clipboard)
+}
+
+fn serialize_block_html_for(
+    block: &BlockNode,
+    newline: &str,
+    indent: usize,
+    target: HtmlTarget<'_>,
+) -> Result<String, DocumentError> {
     Ok(match block {
         BlockNode::Paragraph(paragraph) => {
-            format!("<p>{}</p>", serialize_inline_html(&paragraph.content))
+            format!(
+                "<p>{}</p>",
+                serialize_inline_html_for(&paragraph.content, target)
+            )
         }
-        BlockNode::Heading(heading) => format!(
-            "<h{level}>{}</h{level}>",
-            serialize_inline_html(&heading.content),
-            level = heading.level.clamp(1, 6)
-        ),
+        BlockNode::Heading(heading) => {
+            let id = target
+                .heading_id(heading.id)
+                .map_or_else(String::new, |id| format!(" id=\"{}\"", escape_html(id)));
+            format!(
+                "<h{level}{id}>{}</h{level}>",
+                serialize_inline_html_for(&heading.content, target),
+                level = heading.level.clamp(1, 6)
+            )
+        }
         BlockNode::CodeBlock(code) => {
             let class = code.language.as_ref().map_or_else(String::new, |language| {
                 format!(" class=\"language-{}\"", escape_html(language))
             });
+            let language = if target.is_static() {
+                code.language.as_ref().map_or_else(String::new, |language| {
+                    format!(" data-language=\"{}\"", escape_html(language))
+                })
+            } else {
+                String::new()
+            };
             format!(
-                "<pre><code{class}>{}</code></pre>",
-                escape_html(&code.content.as_string())
+                "<pre{language}><code{class}>{}</code></pre>",
+                escape_html_literal_text(&code.content.as_string())
             )
         }
-        BlockNode::Image(image) => format!(
-            "<p><img src=\"{}\" alt=\"{}\"{}></p>",
-            escape_html(&image.source),
-            escape_html(&image.alt.as_string()),
-            image.title.as_ref().map_or_else(String::new, |title| {
-                format!(" title=\"{}\"", escape_html(title))
-            })
-        ),
+        BlockNode::Image(image) => {
+            let figure = if target.is_static() && !safe_static_url(&image.source) {
+                escape_html(&image.alt.as_string())
+            } else {
+                format!(
+                    "<img src=\"{}\" alt=\"{}\"{}>",
+                    escape_html(&image.source),
+                    escape_html(&image.alt.as_string()),
+                    image.title.as_ref().map_or_else(String::new, |title| {
+                        format!(" title=\"{}\"", escape_html(title))
+                    })
+                )
+            };
+            if let Some(link) = &image.link {
+                if target.is_static() && !safe_static_url(&link.target.0) {
+                    format!("<p>{figure}</p>")
+                } else {
+                    format!(
+                        "<p><a href=\"{}\"{}>{figure}</a></p>",
+                        escape_html(&link.target.0),
+                        link.title.as_ref().map_or_else(String::new, |title| {
+                            format!(" title=\"{}\"", escape_html(title))
+                        })
+                    )
+                }
+            } else {
+                format!("<p>{figure}</p>")
+            }
+        }
         BlockNode::BlockQuote { blocks, .. } => format!(
             "<blockquote>{newline}{}</blockquote>",
-            serialize_sequence_html(blocks, newline, indent + 2)?
+            serialize_sequence_html_for(blocks, newline, indent + 2, target)?
         ),
         BlockNode::List(list) => {
+            let is_task = matches!(list.kind, ListKind::Task);
             let (tag, start) = match list.kind {
                 ListKind::Ordered { start } => ("ol", format!(" start=\"{start}\"")),
                 ListKind::Unordered | ListKind::Task => ("ul", String::new()),
             };
-            let mut list_html = format!("<{tag}{start}>{newline}");
+            let class = if target.is_static() && is_task {
+                " class=\"task-list\""
+            } else {
+                ""
+            };
+            let mut list_html = format!("<{tag}{start}{class}>{newline}");
             for item in list.items.iter() {
                 list_html.push_str(&" ".repeat(indent + 2));
-                list_html.push_str("<li>");
-                if matches!(list.kind, ListKind::Task) {
-                    list_html.push_str(if item.checked.unwrap_or(false) {
+                list_html.push_str(if target.is_static() && is_task {
+                    "<li class=\"task-item\">"
+                } else {
+                    "<li>"
+                });
+                if let Some(checked) = item.checked {
+                    list_html.push_str(if checked {
                         "<input type=\"checkbox\" checked disabled>"
                     } else {
                         "<input type=\"checkbox\" disabled>"
                     });
                 }
                 list_html.push_str(newline);
-                list_html.push_str(&serialize_sequence_html(&item.blocks, newline, indent + 4)?);
+                list_html.push_str(&serialize_sequence_html_for(
+                    &item.blocks,
+                    newline,
+                    indent + 4,
+                    target,
+                )?);
                 list_html.push_str(&" ".repeat(indent + 2));
                 list_html.push_str("</li>");
                 list_html.push_str(newline);
@@ -1486,6 +2452,17 @@ fn serialize_block_html(
             list_html.push_str(&" ".repeat(indent));
             list_html.push_str(&format!("</{tag}>"));
             list_html
+        }
+        BlockNode::Definition { kind, blocks, .. } => {
+            let tag = match kind {
+                crate::DefinitionKind::List => "dl",
+                crate::DefinitionKind::Term => "dt",
+                crate::DefinitionKind::Description => "dd",
+            };
+            format!(
+                "<{tag}>{newline}{}</{tag}>",
+                serialize_sequence_html_for(blocks, newline, indent + 2, target)?
+            )
         }
         BlockNode::Alert {
             kind,
@@ -1502,31 +2479,46 @@ fn serialize_block_html(
                 crate::AlertKind::Other(value) => value,
             };
             let title = title.as_ref().map_or_else(String::new, |title| {
-                format!("<strong>{}</strong>{newline}", serialize_inline_html(title))
+                format!(
+                    "<strong>{}</strong>{newline}",
+                    serialize_inline_html_for(title, target)
+                )
             });
             format!(
                 "<aside data-alert=\"{}\">{newline}{}{}</aside>",
                 escape_html(kind),
                 title,
-                serialize_sequence_html(blocks, newline, indent + 2)?
+                serialize_sequence_html_for(blocks, newline, indent + 2, target)?
             )
         }
         BlockNode::FootnoteDefinition { label, blocks, .. } => format!(
             "<section role=\"doc-footnote\" id=\"fn-{}\">{newline}{}</section>",
             escape_html(label),
-            serialize_sequence_html(blocks, newline, indent + 2)?
+            serialize_sequence_html_for(blocks, newline, indent + 2, target)?
         ),
         BlockNode::ThematicBreak { .. } => "<hr>".into(),
         // Serialization is source preservation, not rendering. An untouched
         // HTML fragment in a changed table must survive save/reopen with its
         // authored attributes and disclosure state. The renderer still applies
         // its independent inert/sanitized policy when displaying this source.
+        BlockNode::PreservedSource { source, .. } if target.is_static() => {
+            crate::html::clipboard_html_fragment(source).unwrap_or_else(|| {
+                format!(
+                    "<pre class=\"source-fallback\"><code>{}</code></pre>",
+                    escape_html_literal_text(source)
+                )
+            })
+        }
         BlockNode::PreservedSource { source, .. } => source.to_string(),
-        BlockNode::Table(table) => serialize_html_table(table, newline, indent)?,
+        BlockNode::Table(table) => serialize_html_table_for(table, newline, indent, target)?,
     })
 }
 
 fn serialize_inline_html(text: &RichText) -> String {
+    serialize_inline_html_for(text, HtmlTarget::Clipboard)
+}
+
+fn serialize_inline_html_for(text: &RichText, target: HtmlTarget<'_>) -> String {
     let source = text.as_string();
     let mut output = String::new();
     for run in text.runs() {
@@ -1563,8 +2555,10 @@ fn serialize_inline_html(text: &RichText) -> String {
                 InlineStyle::Italic => output.push_str("<em>"),
                 InlineStyle::Strikethrough => output.push_str("<del>"),
                 InlineStyle::Code => output.push_str("<code>"),
-                InlineStyle::Link(LinkTarget(target)) => {
-                    output.push_str(&format!("<a href=\"{}\">", escape_html(target)));
+                InlineStyle::Link(LinkTarget(link))
+                    if !target.is_static() || safe_static_url(link) =>
+                {
+                    output.push_str(&format!("<a href=\"{}\">", escape_html(link)));
                 }
                 _ => {}
             }
@@ -1574,15 +2568,26 @@ fn serialize_inline_html(text: &RichText) -> String {
             .iter()
             .find(|style| matches!(style, InlineStyle::Image { .. }))
         {
-            output.push_str(&format!(
-                "<img src=\"{}\" alt=\"{}\"{}>",
-                escape_html(source),
-                escape_html(alt),
-                title.as_ref().map_or_else(String::new, |title| format!(
-                    " title=\"{}\"",
-                    escape_html(title)
-                ))
-            ));
+            if target.is_static() && !safe_static_url(source) {
+                output.push_str(&escape_html(alt));
+            } else {
+                output.push_str(&format!(
+                    "<img src=\"{}\" alt=\"{}\"{}>",
+                    escape_html(source),
+                    escape_html(alt),
+                    title.as_ref().map_or_else(String::new, |title| format!(
+                        " title=\"{}\"",
+                        escape_html(title)
+                    ))
+                ));
+            }
+        } else if formatting
+            .iter()
+            .any(|style| matches!(style, InlineStyle::Code))
+        {
+            // Raw blank lines terminate a Markdown HTML block, and HTML
+            // parsing normalizes CRLF. Entities retain the exact code text.
+            output.push_str(&escape_html_literal_text(value));
         } else {
             output.push_str(&escape_html_inline_text(value));
         }
@@ -1592,7 +2597,12 @@ fn serialize_inline_html(text: &RichText) -> String {
                 InlineStyle::Italic => "</em>",
                 InlineStyle::Strikethrough => "</del>",
                 InlineStyle::Code => "</code>",
-                InlineStyle::Link(_) => "</a>",
+                InlineStyle::Link(LinkTarget(link))
+                    if !target.is_static() || safe_static_url(link) =>
+                {
+                    "</a>"
+                }
+                InlineStyle::Link(_) => "",
                 _ => "",
             });
         }
@@ -1608,6 +2618,26 @@ fn longest_backtick_run(value: &str) -> usize {
         .unwrap_or(0)
 }
 
+fn safe_static_url(value: &str) -> bool {
+    if value.is_empty()
+        || value.trim() != value
+        || value.chars().any(char::is_control)
+        || value.starts_with("//")
+    {
+        return false;
+    }
+    let scheme_end = value
+        .find(':')
+        .filter(|colon| !value[..*colon].contains(['/', '?', '#']));
+    let Some(scheme_end) = scheme_end else {
+        return true;
+    };
+    matches!(
+        value[..scheme_end].to_ascii_lowercase().as_str(),
+        "http" | "https" | "mailto"
+    )
+}
+
 fn escape_html(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -1616,13 +2646,71 @@ fn escape_html(value: &str) -> String {
         .replace('"', "&quot;")
 }
 
+fn escape_html_literal_text(value: &str) -> String {
+    escape_html(value)
+        .replace('\r', "&#13;")
+        .replace('\n', "&#10;")
+}
+
 fn escape_html_inline_text(value: &str) -> String {
-    escape_html(value).replace("  \n", "<br>\n")
+    let escaped = escape_html_literal_text(value);
+    if value.contains(['\r', '\n', '\t'])
+        || value.starts_with(' ')
+        || value.ends_with(' ')
+        || value.contains("  ")
+    {
+        // CSS gives significant editing whitespace its literal display
+        // semantics. Import recognizes this text-only span and avoids the
+        // intermediate Markdown parser's whitespace normalization.
+        format!("<span style=\"white-space: pre-wrap\">{escaped}</span>")
+    } else {
+        escaped
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overlapping_root_ranges_form_one_complete_source_unit() {
+        // Exercise the source-position contract directly: a partial overlap,
+        // then a contained root, followed by a separate source unit.
+        let source: Arc<str> = Arc::from("alpha\nbeta\ngamma\nomega\n");
+        let ids = [1, 2, 3, 4].map(NodeId::new_unchecked);
+        let blocks = BlockSequence::new(
+            ids.iter()
+                .map(|id| {
+                    Arc::new(BlockNode::Paragraph(Paragraph {
+                        id: *id,
+                        content: RichText::new("text"),
+                    }))
+                })
+                .collect(),
+        );
+        let positions = [
+            (ids[0], (1, 1, 2, 4).into()),
+            (ids[1], (2, 1, 3, 5).into()),
+            (ids[2], (3, 1, 3, 5).into()),
+            (ids[3], (4, 1, 4, 5).into()),
+        ];
+        let spine = build_spine(source.clone(), &positions, &blocks, &[], &[], &[], &[]);
+        assert_eq!(spine.unit(ids[0]).unwrap().source, 0..16);
+        assert_eq!(spine.order(), &[ids[0], ids[3]]);
+        assert_eq!(
+            spine.owned_roots().get(&ids[0]),
+            Some(&vec![ids[1], ids[2]])
+        );
+        assert_eq!(spine.unit(ids[3]).unwrap().prefix, 16..17);
+        let mut restored = String::new();
+        for id in spine.order() {
+            let unit = spine.unit(*id).unwrap();
+            restored.push_str(spine.slice(unit.prefix.clone()));
+            restored.push_str(spine.slice(unit.source.clone()));
+        }
+        restored.push_str(spine.tail());
+        assert_eq!(restored, source.as_ref());
+    }
 
     #[test]
     fn nested_canonical_table_export_keeps_every_cell() {
@@ -1926,6 +3014,125 @@ mod tests {
                 _ => None,
             });
         assert_eq!(link_target, Some(target));
+    }
+
+    #[test]
+    fn edited_multiline_inline_code_round_trips_without_whitespace_normalization() {
+        let value = "<tag>&\"' λ\nline 2\r\nline 3";
+        let mut document = Document::from_markdown("seed").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("paragraph").id();
+        document
+            .apply(EditCommand::ReplaceText {
+                node_id,
+                range: 0..4,
+                text: value.into(),
+                selection_after: None,
+                typing: false,
+            })
+            .expect("replace text");
+        document
+            .apply(EditCommand::ToggleInline {
+                node_id,
+                range: 0..value.len(),
+                format: InlineFormat::Code,
+            })
+            .expect("style code");
+
+        let serialized = document.snapshot().serialize().expect("serialize");
+        let reopened = Document::from_markdown(serialized).expect("reopen");
+        let snapshot = reopened.snapshot();
+        let text = snapshot
+            .blocks()
+            .get(0)
+            .and_then(|block| block.text())
+            .expect("paragraph text");
+
+        assert_eq!(text.as_string(), value);
+        assert!(
+            text.runs()
+                .iter()
+                .all(|run| run.styles.contains(&InlineStyle::Code))
+        );
+    }
+
+    #[test]
+    fn complex_inline_image_attributes_round_trip() {
+        let source = r#"https://example.test/a\b \"quoted\" 'single' (x)?q=&copy;<two>"#;
+        let alt = "[résumé] &copy; | literal";
+        let title = "quoted \"title\" with \\ slash\nand newline";
+        let value = format!("before {alt} after");
+        let image_start = "before ".len();
+        let image_end = image_start + alt.len();
+        let rich = RichText::from_runs(
+            value.as_str(),
+            vec![
+                InlineRun {
+                    range: 0..image_start,
+                    styles: smallvec::smallvec![],
+                },
+                InlineRun {
+                    range: image_start..image_end,
+                    styles: smallvec::smallvec![InlineStyle::Image {
+                        source: source.into(),
+                        alt: alt.into(),
+                        title: Some(title.into()),
+                    }],
+                },
+                InlineRun {
+                    range: image_end..value.len(),
+                    styles: smallvec::smallvec![],
+                },
+            ],
+        );
+
+        let serialized = serialize_inline(&rich);
+        let reopened = Document::from_markdown(serialized.as_str()).expect("reopen image");
+        let snapshot = reopened.snapshot();
+        let style = snapshot
+            .blocks()
+            .get(0)
+            .and_then(|block| block.text())
+            .expect("image paragraph")
+            .runs()
+            .iter()
+            .flat_map(|run| run.styles.iter())
+            .find_map(|style| match style {
+                InlineStyle::Image { source, alt, title } => Some((source, alt, title)),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("image style after {serialized:?}"));
+
+        assert_eq!(style.0, source);
+        assert_eq!(style.1, alt);
+        assert_eq!(style.2.as_deref(), Some(title));
+    }
+
+    #[test]
+    fn edited_unicode_and_hard_break_round_trip_exactly() {
+        let value = "前🙂e\u{301}  \n後";
+        let mut document = Document::from_markdown("seed").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("paragraph").id();
+        document
+            .apply(EditCommand::ReplaceText {
+                node_id,
+                range: 0..4,
+                text: value.into(),
+                selection_after: None,
+                typing: false,
+            })
+            .expect("replace text");
+
+        let serialized = document.snapshot().serialize().expect("serialize");
+        let reopened = Document::from_markdown(serialized).expect("reopen");
+        let snapshot = reopened.snapshot();
+        let text = snapshot
+            .blocks()
+            .get(0)
+            .and_then(|block| block.text())
+            .expect("paragraph text");
+
+        assert_eq!(text.as_string(), value);
+        assert!(text.runs().iter().all(|run| run.styles.is_empty()));
     }
 
     #[test]
@@ -2317,6 +3524,59 @@ mod tests {
     }
 
     #[test]
+    fn default_table_rule_and_explicit_border_units_survive_cell_edits() {
+        let body = "| Key | Value |\n| --- | --- |\n| a | b |\n";
+        for border in [
+            None,
+            Some(crate::TableBorder::PhysicalPixel),
+            Some(crate::TableBorder::LogicalPixel),
+            Some(crate::TableBorder::Dotted),
+            Some(crate::TableBorder::None),
+        ] {
+            let source = border.map_or_else(|| body.to_owned(), |border|
+                format!("<!-- mineral-table:v1 {{\"border\":{},\"widths\":[null,null]}} -->\n{body}", serde_json::to_string(&border).unwrap()));
+            let mut document = Document::from_markdown(source.clone()).unwrap();
+            let snapshot = document.snapshot();
+            let BlockNode::Table(table) = snapshot.blocks().get(0).unwrap().as_ref() else {
+                panic!("table")
+            };
+            assert_eq!(
+                table.border,
+                border.unwrap_or(crate::TableBorder::LogicalPixel)
+            );
+            assert_eq!(snapshot.serialize().unwrap(), source);
+            let node = table.rows[1].cells[0].blocks.get(0).unwrap().id();
+            document
+                .apply(EditCommand::ReplaceText {
+                    node_id: node,
+                    range: 0..1,
+                    text: "changed".into(),
+                    selection_after: None,
+                    typing: false,
+                })
+                .unwrap();
+            let serialized = document.snapshot().serialize().unwrap();
+            if border.is_none() {
+                assert!(
+                    !serialized.contains("mineral-table"),
+                    "plain Markdown needs no presentation annotation"
+                );
+            }
+            let reparsed = Document::from_markdown(serialized).unwrap();
+            let snapshot = reparsed.snapshot();
+            let BlockNode::Table(table) = snapshot.blocks().get(0).unwrap().as_ref() else {
+                panic!("table")
+            };
+            assert_eq!(
+                table.border,
+                border.unwrap_or(crate::TableBorder::LogicalPixel)
+            );
+            document.undo().unwrap();
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        }
+    }
+
+    #[test]
     fn table_metadata_round_trips_width_border_and_unknown_fields() {
         let source = concat!(
             "<!-- mineral-table:v1 {\"border\":\"PhysicalPixel\",",
@@ -2408,13 +3668,123 @@ mod tests {
     }
 
     #[test]
+    fn table_presentation_edits_preserve_complete_gfm_inline_semantics() {
+        let source = concat!(
+            "| Rich | Code and break | Empty |\r\n",
+            "| :--- | :---: | ---: |\r\n",
+            "| **bold** ~~strike~~ [link](https://example.test/a) ",
+            "![alt](image.png \"Title\") | ``tick ` value`` and `a\\|b` <br> next | |\r\n"
+        );
+        let mut document = Document::from_markdown(source).expect("table");
+        let snapshot = document.snapshot();
+        let BlockNode::Table(table) = snapshot.blocks().get(0).expect("table").as_ref() else {
+            panic!("table")
+        };
+        let table_id = table.id;
+        let before_cells = table.rows[1]
+            .cells
+            .iter()
+            .map(|cell| cell.blocks.get(0).expect("paragraph").plain_text())
+            .collect::<Vec<_>>();
+        assert!(before_cells[1].contains('\n'), "imported hard break");
+
+        document
+            .apply(EditCommand::SetTableBorder {
+                table_id,
+                border: crate::TableBorder::Dotted,
+            })
+            .expect("border");
+        document
+            .apply(EditCommand::SetTableColumnWidth {
+                table_id,
+                column: 0,
+                width: 180.0,
+            })
+            .expect("width");
+        document
+            .apply(EditCommand::SetTableColumnAlignment {
+                table_id,
+                column: 2,
+                alignment: ColumnAlignment::Center,
+            })
+            .expect("alignment");
+
+        let serialized = document.snapshot().serialize().expect("serialize");
+        assert!(
+            !serialized.contains("<table>"),
+            "inline cells remain GFM: {serialized}"
+        );
+        assert!(
+            !serialized.replace("\r\n", "").contains('\n'),
+            "generated table follows the CRLF document: {serialized:?}"
+        );
+        let reopened = Document::from_markdown(serialized).expect("reopen table");
+        let reopened_snapshot = reopened.snapshot();
+        let BlockNode::Table(table) = reopened_snapshot
+            .blocks()
+            .get(0)
+            .expect("reopened table")
+            .as_ref()
+        else {
+            panic!("reopened table")
+        };
+        assert_eq!(table.border, crate::TableBorder::Dotted);
+        assert_eq!(table.columns[0].width, Some(180.0));
+        assert_eq!(table.columns[2].alignment, ColumnAlignment::Center);
+        assert_eq!(
+            table.rows[1]
+                .cells
+                .iter()
+                .map(|cell| cell.blocks.get(0).expect("paragraph").plain_text())
+                .collect::<Vec<_>>(),
+            before_cells
+        );
+        let rich = table.rows[1].cells[0]
+            .blocks
+            .get(0)
+            .unwrap()
+            .text()
+            .unwrap();
+        assert!(
+            rich.runs()
+                .iter()
+                .any(|run| run.styles.contains(&InlineStyle::Bold))
+        );
+        assert!(
+            rich.runs()
+                .iter()
+                .any(|run| run.styles.contains(&InlineStyle::Strikethrough))
+        );
+        assert!(rich.runs().iter().any(|run| run.styles.iter().any(
+            |style| matches!(style, InlineStyle::Link(LinkTarget(target)) if target == "https://example.test/a")
+        )));
+        assert!(rich.runs().iter().any(|run| run.styles.iter().any(
+            |style| matches!(style, InlineStyle::Image { source, alt, title }
+                if source == "image.png" && alt == "alt" && title.as_deref() == Some("Title"))
+        )));
+        let code = table.rows[1].cells[1]
+            .blocks
+            .get(0)
+            .unwrap()
+            .text()
+            .unwrap();
+        assert!(
+            code.runs()
+                .iter()
+                .filter(|run| run.styles.contains(&InlineStyle::Code))
+                .count()
+                >= 2
+        );
+    }
+
+    #[test]
     fn block_rich_html_table_reopens_with_metadata_and_alignment() {
         let source = concat!(
             "<!-- mineral-table:v1 {\"border\":\"PhysicalPixel\",",
             "\"widths\":[120.0,null],\"future\":\"\\u002d\\u002d>\"} -->\n",
             "| Head | More |\n",
             "| --- | --- |\n",
-            "| alpha | beta |\n"
+            "| **alpha** | [beta](/destination) |\n"
         );
         let mut document = Document::from_markdown(source).expect("table imports");
         let snapshot = document.snapshot();
@@ -2470,6 +3840,136 @@ mod tests {
                 .preserved_metadata
                 .iter()
                 .any(|value| value.contains("future"))
+        );
+
+        assert!(document.rebase_source(document.snapshot().prepare_source_rebase().unwrap()));
+        let snapshot = document.snapshot();
+        let BlockNode::Table(table) = snapshot.node(table_id).expect("edited table") else {
+            panic!("edited table")
+        };
+        let blocks = &table.rows[1].cells[0].blocks;
+        let first = blocks.get(0).expect("left paragraph");
+        let second = blocks.get(1).expect("right paragraph");
+        let join = TextSelection {
+            anchor: DocumentPosition::new(
+                first.id(),
+                first.text().expect("left text").len(),
+                Affinity::Downstream,
+            ),
+            head: DocumentPosition::new(second.id(), 0, Affinity::Upstream),
+        };
+        document
+            .apply(EditCommand::SetSelection(Selection::Text(join)))
+            .expect("join selection");
+        document
+            .apply(EditCommand::ReplaceSelection {
+                text: String::new(),
+                typing: false,
+            })
+            .expect("remove extra block");
+        let compact = document.snapshot().serialize().expect("compact table");
+        assert!(
+            !compact.contains("<table>"),
+            "single paragraphs use GFM: {compact}"
+        );
+        assert!(document.rebase_source(document.snapshot().prepare_source_rebase().unwrap()));
+        let compact_document = Document::from_markdown(compact).expect("reopen compact table");
+        let compact_snapshot = compact_document.snapshot();
+        let BlockNode::Table(table) = compact_snapshot.blocks().get(0).unwrap().as_ref() else {
+            panic!("compact table")
+        };
+        assert_eq!(table.border, crate::TableBorder::PhysicalPixel);
+        assert_eq!(table.columns[0].width, Some(120.));
+        assert_eq!(table.columns[1].alignment, ColumnAlignment::Right);
+        assert_eq!(table.rows[1].cells[0].blocks.len(), 1);
+        assert_eq!(
+            table.rows[1].cells[0]
+                .blocks
+                .get(0)
+                .expect("compacted paragraph")
+                .plain_text(),
+            "alpha"
+        );
+        assert!(
+            table
+                .preserved_metadata
+                .iter()
+                .any(|value| value.contains("future"))
+        );
+    }
+
+    #[test]
+    fn authored_html_table_retains_header_rows_rich_blocks_and_unknown_metadata() {
+        let source = concat!(
+            "<!-- mineral-table:v1 {\"border\":\"Dotted\",",
+            "\"widths\":[140.0,null],\"future\":{\"mode\":7}} -->\n",
+            "<table>\n",
+            "<tr><th align=\"center\">Primary</th><th>Other</th></tr>\n",
+            "<tr><th>Detail</th><th>More</th></tr>\n",
+            "<tr><td><h3>Title</h3><p><strong>bold</strong> ",
+            "<a href=\"https://example.test\">link</a> ",
+            "<img src=\"image.png\" alt=\"alt\"></p>",
+            "<pre><code class=\"language-rust\">let x = 1;</code></pre>",
+            "<ul><li>one</li><li>two</li></ul></td><td><p>Side</p></td></tr>\n",
+            "</table>\n"
+        );
+        let mut document = Document::from_markdown(source).expect("HTML table");
+        let table_id = document.snapshot().blocks().get(0).expect("table").id();
+        document
+            .apply(EditCommand::SetTableColumnWidth {
+                table_id,
+                column: 1,
+                width: 220.0,
+            })
+            .expect("width-only edit");
+
+        let saved = document.snapshot().serialize().expect("serialize table");
+        assert_eq!(saved.matches("-->").count(), 1, "safe metadata: {saved}");
+        let reopened = Document::from_markdown(saved).expect("reopen table");
+        let snapshot = reopened.snapshot();
+        let BlockNode::Table(table) = snapshot.blocks().get(0).expect("table").as_ref() else {
+            panic!("table")
+        };
+        assert_eq!(table.header_rows, 2);
+        assert_eq!(table.border, crate::TableBorder::Dotted);
+        assert_eq!(table.columns[0].alignment, ColumnAlignment::Center);
+        assert_eq!(table.columns[0].width, Some(140.0));
+        assert_eq!(table.columns[1].width, Some(220.0));
+        assert!(
+            table
+                .preserved_metadata
+                .iter()
+                .any(|value| value.contains("future"))
+        );
+
+        let blocks = &table.rows[2].cells[0].blocks;
+        assert!(matches!(
+            blocks.get(0).map(Arc::as_ref),
+            Some(BlockNode::Heading(_))
+        ));
+        let paragraph = blocks
+            .get(1)
+            .and_then(|block| block.text())
+            .expect("paragraph");
+        assert!(
+            paragraph
+                .runs()
+                .iter()
+                .any(|run| run.styles.contains(&InlineStyle::Bold))
+        );
+        assert!(paragraph.runs().iter().any(|run| run.styles.iter().any(
+            |style| matches!(style, InlineStyle::Link(LinkTarget(target)) if target == "https://example.test")
+        )));
+        assert!(paragraph
+            .runs()
+            .iter()
+            .any(|run| run.styles.iter().any(|style| matches!(style, InlineStyle::Image { source, alt, .. } if source == "image.png" && alt == "alt"))));
+        assert!(
+            matches!(blocks.get(2).map(Arc::as_ref), Some(BlockNode::CodeBlock(code)) if code.language.as_deref() == Some("rust") && code.content.as_string() == "let x = 1;\n")
+        );
+        assert!(
+            matches!(blocks.get(3).map(Arc::as_ref), Some(BlockNode::List(list)) if list.items.len() == 2),
+            "rich cell blocks: {blocks:?}"
         );
     }
 
@@ -2619,16 +4119,47 @@ mod tests {
 
     #[test]
     fn malformed_table_metadata_remains_preserved_source() {
-        let source = concat!(
+        for prefix in [
             "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[-1]} -->\n",
-            "| a |\n| --- |\n| b |\n"
-        );
-        let document = Document::from_markdown(source).expect("document imports");
-        assert_eq!(document.snapshot().blocks().len(), 2);
-        assert!(matches!(
-            document.snapshot().blocks().get(0).map(Arc::as_ref),
-            Some(BlockNode::PreservedSource { .. })
-        ));
-        assert_eq!(document.snapshot().serialize().expect("serialize"), source);
+            "<!-- mineral-table:v2 {\"border\":\"Dotted\",\"widths\":[120]} -->\n",
+            "<!-- mineral-table:v1 not-json -->\n",
+            "<!-- mineral-table:v1 {\"widths\":[120]} -->\n",
+            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[]} -->\n",
+        ] {
+            for body in [
+                "| a |\n| --- |\n| b |\n",
+                "<table><tr><td><p>Body</p><p>Second</p></td></tr></table>\n",
+            ] {
+                for newline in ["\n", "\r\n"] {
+                    let prefix = prefix.replace('\n', newline);
+                    let source = format!("{prefix}{}", body.replace('\n', newline));
+                    let mut document =
+                        Document::from_markdown(source.clone()).expect("document imports");
+                    assert_eq!(document.snapshot().blocks().len(), 2);
+                    assert!(matches!(
+                        document.snapshot().blocks().get(0).map(Arc::as_ref),
+                        Some(BlockNode::PreservedSource { .. })
+                    ));
+                    assert_eq!(document.snapshot().serialize().expect("serialize"), source);
+
+                    let table_id = document.snapshot().blocks().get(1).expect("table").id();
+                    document
+                        .apply(EditCommand::SetTableBorder {
+                            table_id,
+                            border: crate::TableBorder::Dotted,
+                        })
+                        .expect("presentation edit");
+                    let saved = document.snapshot().serialize().expect("changed table");
+                    assert!(
+                        saved.starts_with(&prefix),
+                        "opaque metadata changed: {saved}"
+                    );
+                    let reopened = Document::from_markdown(saved).expect("reopen table");
+                    assert!(reopened.snapshot().blocks().iter().any(
+                |block| matches!(block.as_ref(), BlockNode::Table(table) if table.border == crate::TableBorder::Dotted)
+            ));
+                }
+            }
+        }
     }
 }

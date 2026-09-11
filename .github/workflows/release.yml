@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release tag matches the application version
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path('crates/markdown-app/Cargo.toml').read_text())['package']['version']
+          if os.environ['RELEASE_REF_TYPE'] != 'tag' or os.environ['RELEASE_TAG'] != f'v{version}':
+              raise SystemExit(f'Run this workflow on the existing tag v{version}, matching markdown-app/Cargo.toml.')
+          PY
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential clang cmake git libfontconfig-dev libglib2.0-dev \
+            libssl-dev libvulkan1 libwayland-dev libx11-xcb-dev \
+            libxkbcommon-x11-dev libzstd-dev pkg-config desktop-file-utils \
+            libxml2-utils
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - name: Check workspace
+        run: scripts/check.sh
+      - name: Build release binary
+        run: cargo build --release --locked --bin mineral-markdown
+      - name: Package Linux x86_64 installation
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          bundle="mineral-${RELEASE_TAG}-linux-x86_64"
+          mkdir -p dist
+          packaging/install.sh "$RUNNER_TEMP/$bundle"
+          install -Dm644 README.md "$RUNNER_TEMP/$bundle/share/doc/mineral/README.md"
+          install -Dm644 docs/markdown-layouts.md "$RUNNER_TEMP/$bundle/share/doc/mineral/docs/markdown-layouts.md"
+          install -Dm644 packaging/README.md "$RUNNER_TEMP/$bundle/share/doc/mineral/packaging/README.md"
+          desktop-file-validate "$RUNNER_TEMP/$bundle/share/applications/dev.mineral.Markdown.desktop"
+          xmllint --noout "$RUNNER_TEMP/$bundle/share/metainfo/dev.mineral.Markdown.metainfo.xml"
+          file "$RUNNER_TEMP/$bundle/bin/mineral-markdown"
+          ldd "$RUNNER_TEMP/$bundle/bin/mineral-markdown" > dist/runtime-libraries.txt
+          if grep -q 'not found' dist/runtime-libraries.txt; then
+            cat dist/runtime-libraries.txt
+            exit 1
+          fi
+          tar -C "$RUNNER_TEMP" -czf "dist/$bundle.tar.gz" "$bundle"
+          (cd dist && sha256sum "$bundle.tar.gz" runtime-libraries.txt > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-x86_64-release
+          path: dist
+      - name: Create or update the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft); then
+            if [ "$draft" != true ]; then
+              echo 'Refusing to replace assets on an already published release.' >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/* --verify-tag --draft \
+              --title "Mineral $RELEASE_TAG" --generate-notes
+          fi

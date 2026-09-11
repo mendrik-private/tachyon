@@ -29,6 +29,8 @@ pub(super) enum RelationshipKind {
     ProseContinuation,
     AdjacentExplanation,
     ConsecutiveImages,
+    CriticalInstruction,
+    FigureText(crate::FigureTextRole),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -69,6 +71,7 @@ pub(super) struct GroupAnalysis {
 impl GroupAnalysis {
     pub fn build(roots: &[&BlockNode]) -> Self {
         let mut analysis = Self::default();
+        let figure_roles = crate::figures::associations(roots);
         let mut ancestors: Vec<NodeId> = Vec::new();
         let mut owners = Vec::with_capacity(roots.len());
         analysis.preamble = 0..roots.len();
@@ -113,43 +116,77 @@ impl GroupAnalysis {
                 });
                 end += 1;
             }
-            // A short explanation nominates a pair; actual width/height
-            // measurement, not this byte bound, must decide its presentation.
+            // A bounded source-adjacent explanation nominates a pair. Native
+            // measurement owns fit and shaping budgets, not paragraph bytes.
             let explanation = end - 1;
-            if matches!(roots[explanation], BlockNode::Paragraph(p) if p.content.len() <= 420)
-                && let Some(content) = roots.get(end)
-                && owners[end] == owners[start]
-                // Do not extract the first figure from a consecutive gallery
-                // merely because a short introduction precedes the whole run.
-                && !(matches!(content, BlockNode::Image(_))
-                    && matches!(roots.get(end + 1), Some(BlockNode::Image(_))))
-                && matches!(
-                    content,
-                    BlockNode::CodeBlock(_) | BlockNode::Table(_) | BlockNode::Image(_)
-                )
+            if let Some(action_end) = critical_instruction_end(roots, explanation)
+                && owners[action_end - 1] == owners[start]
             {
+                // One source-order unit prevents outer row search from
+                // separating a critical condition from its following action.
+                for index in end..action_end {
+                    relationships.push(Relationship {
+                        kind: RelationshipKind::CriticalInstruction,
+                        basis: [roots[index - 1].id(), roots[index].id()],
+                    });
+                }
+                end = action_end;
+                kind = GroupKind::Quote;
+            } else if let Some((_, role)) = figure_roles.get(&roots[start].id())
+                && role.gallery_start().is_some()
+            {
+                // Shared text is a full-span band after the gallery, never
+                // the last image's private caption or a separate photo tile.
+                kind = GroupKind::Opaque;
+                relationships.push(Relationship {
+                    kind: RelationshipKind::FigureText(*role),
+                    basis: [roots[start - 1].id(), roots[start].id()],
+                });
+                if let Some(next) = roots.get(end)
+                    && let Some((_, next_role)) = figure_roles.get(&next.id())
+                    && next_role.gallery_start() == role.gallery_start()
+                {
+                    relationships.push(Relationship {
+                        kind: RelationshipKind::FigureText(*next_role),
+                        basis: [roots[start].id(), next.id()],
+                    });
+                    end += 1;
+                }
+            } else if let Some(content) = explanation_content(roots, explanation)
+                && owners[content] == owners[start]
+            {
+                for index in end..content {
+                    relationships.push(Relationship {
+                        kind: RelationshipKind::ProseContinuation,
+                        basis: [roots[index - 1].id(), roots[index].id()],
+                    });
+                }
                 relationships.push(Relationship {
                     kind: RelationshipKind::AdjacentExplanation,
-                    basis: [roots[explanation].id(), content.id()],
+                    basis: [roots[content - 1].id(), roots[content].id()],
                 });
-                end += 1;
+                end = content + 1;
+                attach_figure_text(roots, &mut end, &mut relationships);
                 kind = GroupKind::ExplanationContent;
             } else if kind == GroupKind::Prose {
                 // Bound groups structurally; a huge paragraph stays intact.
-                // Leave the final short paragraph for an adjacent example.
+                // Leave a complete bounded introduction for its adjacent example.
                 while end < roots.len()
                     && end - start < 8
                     && owners[end] == owners[start]
                     && matches!(roots[end], BlockNode::Paragraph(_))
+                    && !figure_roles
+                        .get(&roots[end].id())
+                        .is_some_and(|(_, role)| role.gallery_start().is_some())
                 {
-                    if matches!(roots[end], BlockNode::Paragraph(p) if p.content.len() <= 420)
-                        && roots.get(end + 1).is_some_and(|next| {
-                            matches!(
-                                next,
-                                BlockNode::CodeBlock(_) | BlockNode::Table(_) | BlockNode::Image(_)
-                            )
-                        })
+                    if let Some(BlockNode::BlockQuote { blocks, .. }) = roots.get(end + 1)
+                        && crate::quotes::margin_note_anchor(Some(roots[end]), blocks).is_some()
                     {
+                        // Keep an explicit note's own anchor separate. Earlier
+                        // prose must not rise into its main/rail composition.
+                        break;
+                    }
+                    if explanation_content(roots, end).is_some() {
                         break;
                     }
                     relationships.push(Relationship {
@@ -160,16 +197,22 @@ impl GroupAnalysis {
                 }
             } else if matches!(roots[end - 1], BlockNode::Image(_)) {
                 let first_figure = end - 1;
+                let mut previous_figure = first_figure;
+                let mut figure_count = 1;
+                attach_figure_text(roots, &mut end, &mut relationships);
                 while end < roots.len()
-                    && end - first_figure < 9
+                    && figure_count < 9
                     && owners[end] == owners[start]
                     && matches!(roots[end], BlockNode::Image(_))
                 {
                     relationships.push(Relationship {
                         kind: RelationshipKind::ConsecutiveImages,
-                        basis: [roots[end - 1].id(), roots[end].id()],
+                        basis: [roots[previous_figure].id(), roots[end].id()],
                     });
+                    previous_figure = end;
+                    figure_count += 1;
                     end += 1;
+                    attach_figure_text(roots, &mut end, &mut relationships);
                     kind = GroupKind::Gallery;
                 }
             }
@@ -227,8 +270,18 @@ impl GroupAnalysis {
                 }
             }
             if group.relationships.iter().any(|relationship| {
-                !group.nodes.contains(&relationship.basis[0])
-                    || !group.nodes.contains(&relationship.basis[1])
+                let adjacent_shared_caption = matches!(
+                    relationship.kind,
+                    RelationshipKind::FigureText(crate::FigureTextRole::GalleryCaption { .. })
+                ) && relationship.basis[1] == group.id
+                    && group
+                        .roots
+                        .start
+                        .checked_sub(1)
+                        .is_some_and(|previous| roots[previous].id() == relationship.basis[0]);
+                !adjacent_shared_caption
+                    && (!group.nodes.contains(&relationship.basis[0])
+                        || !group.nodes.contains(&relationship.basis[1]))
             }) {
                 return false;
             }
@@ -238,11 +291,86 @@ impl GroupAnalysis {
     }
 }
 
+fn explanation_content(roots: &[&BlockNode], start: usize) -> Option<usize> {
+    let mut content = start;
+    while content - start < 4 && matches!(roots.get(content), Some(BlockNode::Paragraph(_))) {
+        content += 1;
+    }
+    if content == start
+        || !matches!(
+            roots.get(content),
+            Some(BlockNode::CodeBlock(_) | BlockNode::Table(_) | BlockNode::Image(_))
+        )
+    {
+        return None;
+    }
+    // An introduction describes a complete adjacent gallery, not its first
+    // image in isolation. Preserve the existing gallery ownership rule.
+    if matches!(roots[content], BlockNode::Image(_))
+        && matches!(
+            roots.get(crate::figures::end(roots, content)),
+            Some(BlockNode::Image(_))
+        )
+    {
+        return None;
+    }
+    Some(content)
+}
+
+fn critical_instruction_end(roots: &[&BlockNode], warning: usize) -> Option<usize> {
+    let BlockNode::Alert {
+        kind:
+            document_core::AlertKind::Warning
+            | document_core::AlertKind::Caution
+            | document_core::AlertKind::Important,
+        blocks,
+        ..
+    } = roots[warning]
+    else {
+        return None;
+    };
+    if !(1..=2).contains(&blocks.len())
+        || !blocks.iter().all(
+            |block| matches!(block.as_ref(), BlockNode::Paragraph(p) if p.content.len() <= 480),
+        )
+    {
+        return None;
+    }
+    let mut action = warning + 1;
+    if matches!(roots.get(action), Some(BlockNode::Paragraph(p)) if p.content.len() <= 240 && p.content.as_cow().trim_end().ends_with(':'))
+    {
+        action += 1;
+    }
+    match roots.get(action)? {
+        BlockNode::CodeBlock(_) => Some(action + 1),
+        BlockNode::List(list) if matches!(list.kind, document_core::ListKind::Ordered { .. }) => {
+            Some(action + 1)
+        }
+        _ => None,
+    }
+}
+
+fn attach_figure_text(
+    roots: &[&BlockNode],
+    end: &mut usize,
+    relationships: &mut Vec<Relationship>,
+) {
+    let image = *end - 1;
+    for index in *end..crate::figures::end(roots, image) {
+        relationships.push(Relationship {
+            kind: RelationshipKind::FigureText(crate::figures::classify(roots[index]).unwrap()),
+            basis: [roots[index - 1].id(), roots[index].id()],
+        });
+        *end += 1;
+    }
+}
+
 fn block_kind(block: &BlockNode) -> GroupKind {
     match block {
         BlockNode::Heading(_) => GroupKind::Heading,
         BlockNode::Paragraph(_) => GroupKind::Prose,
         BlockNode::List(_) => GroupKind::List,
+        BlockNode::Definition { .. } => GroupKind::Opaque,
         BlockNode::Table(_) => GroupKind::Table,
         BlockNode::CodeBlock(_) => GroupKind::Code,
         BlockNode::Image(_) => GroupKind::Figure,
@@ -278,6 +406,7 @@ fn collect_nodes(block: &BlockNode, nodes: &mut Vec<NodeId>) {
         }
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => {
             for child in blocks {
                 collect_nodes(child, nodes);
@@ -289,6 +418,128 @@ fn collect_nodes(block: &BlockNode, nodes: &mut Vec<NodeId>) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn margin_note_anchor_groups_preserve_complete_source_ownership() {
+        let source = include_str!("../../../../performance/layout-fixtures/101-margin-notes.md");
+        let document = document_core::Document::from_markdown(source).unwrap();
+        let snapshot = document.snapshot();
+        let roots = snapshot
+            .blocks()
+            .iter()
+            .map(AsRef::as_ref)
+            .collect::<Vec<_>>();
+        let groups = super::GroupAnalysis::build(&roots);
+        assert!(groups.validate(&roots));
+        let mut anchored = 0;
+        for (i, root) in roots.iter().enumerate() {
+            if let document_core::BlockNode::BlockQuote { blocks, .. } = root
+                && let Some(anchor) = crate::quotes::margin_note_anchor(
+                    i.checked_sub(1).map(|previous| roots[previous]),
+                    blocks,
+                )
+            {
+                anchored += 1;
+                let group = groups.group_for_root(anchor).unwrap();
+                assert_eq!(group.roots.end, i);
+                assert!(
+                    group.roots.start == i - 1
+                        || matches!(
+                            roots[group.roots.start],
+                            document_core::BlockNode::Heading(_)
+                        ) && group.roots.len() == 2
+                );
+            }
+        }
+        assert_eq!(anchored, 2);
+        assert_eq!(snapshot.serialize().unwrap(), source);
+    }
+
+    #[test]
+    fn critical_warning_and_following_action_share_one_source_group() {
+        for action in [
+            "```sh\npwd\n```\n",
+            "1. Save the current document\n2. Verify the copy\n",
+        ] {
+            for lead in ["", "Run the following check:\n\n"] {
+                for kind in ["WARNING", "CAUTION", "IMPORTANT"] {
+                    let source = format!(
+                        "## Before the action\n\n> [!{kind}]\n> Keep the original file available.\n\n{lead}{action}\n## Next topic\n\nAfter.\n"
+                    );
+                    let document = document_core::Document::from_markdown(source.as_str()).unwrap();
+                    let snapshot = document.snapshot();
+                    let roots = snapshot
+                        .blocks()
+                        .iter()
+                        .map(AsRef::as_ref)
+                        .collect::<Vec<_>>();
+                    let plan = super::GroupAnalysis::build(&roots);
+                    assert!(plan.validate(&roots));
+                    let action = roots
+                        .iter()
+                        .find(|root| {
+                            matches!(
+                                root,
+                                document_core::BlockNode::CodeBlock(_)
+                                    | document_core::BlockNode::List(_)
+                            )
+                        })
+                        .unwrap();
+                    assert_eq!(
+                        plan.group_for_root(roots[1].id()).unwrap().id,
+                        plan.group_for_root(action.id()).unwrap().id,
+                        "warning and action must not become separate composition units: {source}"
+                    );
+                    assert_eq!(snapshot.serialize().unwrap(), source);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn shared_caption_cross_group_attachment_preserves_valid_ownership() {
+        let document = document_core::Document::from_markdown(
+            "![A](a.png)\n\n![B](b.png)\n\nGallery: The pair\n\nGallery credit: Notebook\n",
+        )
+        .unwrap();
+        let snapshot = document.snapshot();
+        let roots = snapshot
+            .blocks()
+            .iter()
+            .map(AsRef::as_ref)
+            .collect::<Vec<_>>();
+        let mut groups = super::GroupAnalysis::build(&roots);
+        assert!(
+            groups.validate(&roots),
+            "an adjacent shared-caption edge is not duplicate source ownership"
+        );
+        let caption = groups.groups.last_mut().unwrap();
+        caption.relationships[0].basis[0] = roots[0].id();
+        assert!(
+            !groups.validate(&roots),
+            "a nonadjacent attachment remains invalid"
+        );
+    }
+
+    #[test]
+    fn critical_instruction_attachment_respects_severity_and_source_boundaries() {
+        for source in [
+            "> [!NOTE]\n> Optional context.\n\n```sh\npwd\n```\n".to_owned(),
+            "> [!TIP]\n> Helpful context.\n\n1. Open the file\n".to_owned(),
+            "> [!WARNING]\n> Before another section.\n\n## Other\n\n```sh\npwd\n```\n".to_owned(),
+            "> [!WARNING]\n> Before ordinary prose.\n\nAn unrelated paragraph.\n\n```sh\npwd\n```\n".to_owned(),
+            "> [!WARNING]\n> Before unordered facts.\n\n- A fact\n- Another fact\n".to_owned(),
+            format!("> [!WARNING]\n> {}\n\n```sh\npwd\n```\n", "A long explanation. ".repeat(40)),
+        ] {
+            let document = document_core::Document::from_markdown(source.as_str()).unwrap();
+            let snapshot = document.snapshot();
+            let roots = snapshot.blocks().iter().map(AsRef::as_ref).collect::<Vec<_>>();
+            let groups = super::GroupAnalysis::build(&roots);
+            assert!(groups.validate(&roots));
+            assert!(groups.groups.iter().flat_map(|g| &g.relationships).all(|r| r.kind != super::RelationshipKind::CriticalInstruction), "{source}");
+            assert_eq!(snapshot.serialize().unwrap(), source);
+        }
+    }
+
     use super::*;
     use crate::TextProjection;
     use document_core::Document;
@@ -381,6 +632,75 @@ mod tests {
             !analysis.validate(&roots),
             "coverage must detect a missing node"
         );
+    }
+
+    #[test]
+    fn complete_bounded_explanations_keep_their_heading_and_source_partition() {
+        for heading in ["", "## Shape\n\n"] {
+            for count in 1..=4 {
+                let source = format!(
+                    "{heading}{}```json\n{{}}\n```\n",
+                    "A short explanation.\n\n".repeat(count)
+                );
+                let document = Document::from_markdown(source.as_str()).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let roots: Vec<_> = projection.roots().collect();
+                let analysis = GroupAnalysis::build(&roots);
+                assert!(analysis.validate(&roots));
+                assert_eq!(analysis.groups.len(), 1);
+                assert_eq!(analysis.groups[0].kind, GroupKind::ExplanationContent);
+                assert_eq!(analysis.groups[0].roots, 0..roots.len());
+                assert_eq!(
+                    analysis.groups[0]
+                        .relationships
+                        .iter()
+                        .filter(|r| r.kind == RelationshipKind::ProseContinuation)
+                        .count(),
+                    count - 1
+                );
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        }
+    }
+
+    #[test]
+    fn extended_explanations_are_nominated_by_structure_not_encoding_size() {
+        for text in [
+            "x".repeat(421),
+            "界".repeat(421),
+            "A complete explanation. ".repeat(240),
+        ] {
+            for heading in ["", "## Context\n\n"] {
+                let source =
+                    format!("{heading}{text}\n\nSecond paragraph.\n\n```json\n{{}}\n```\n");
+                let document = Document::from_markdown(source.as_str()).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let roots = projection.roots().collect::<Vec<_>>();
+                let analysis = GroupAnalysis::build(&roots);
+                assert!(analysis.validate(&roots));
+                assert_eq!(analysis.groups.len(), 1);
+                assert_eq!(analysis.groups[0].kind, GroupKind::ExplanationContent);
+                assert_eq!(analysis.groups[0].roots, 0..roots.len());
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        }
+    }
+
+    #[test]
+    fn explanation_nomination_respects_boundaries_and_complete_galleries() {
+        for source in [
+            "First.\n\n## Boundary\n\n```json\n{}\n```\n".to_owned(),
+            "First.\n\n---\n\n```json\n{}\n```\n".to_owned(),
+            "First.\n\n![A](a.png)\n\n![B](b.png)\n".to_owned(),
+            format!("{}```json\n{{}}\n```\n", "Paragraph.\n\n".repeat(5)),
+        ] {
+            let document = Document::from_markdown(source.as_str()).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let roots: Vec<_> = projection.roots().collect();
+            assert!(explanation_content(&roots, 0).is_none());
+            assert!(GroupAnalysis::build(&roots).validate(&roots));
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        }
     }
 
     #[test]

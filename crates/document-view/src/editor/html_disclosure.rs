@@ -53,8 +53,8 @@ impl RichDocumentEditor {
                 .anchors
                 .iter()
                 .find(|anchor| anchor.name == fragment)?;
-            let segment = segment_for_line(&self.projection, &line.range)?;
-            (heading_offset.is_none_or(|offset| segment.projection_range.start < offset))
+            let segment = segment_for_line(&self.projection, &line.projected_range())?;
+            (heading_offset.is_none_or(|offset| segment.projection_start() < offset))
                 .then(|| (segment.node_id, preview.source.clone(), anchor.clone()))
         });
         let (node, source, anchor) = target?;
@@ -109,7 +109,7 @@ impl RichDocumentEditor {
             return;
         }
         let target = self.visual_lines.iter().find_map(|line| {
-            if segment_for_line(&self.projection, &line.range)?.node_id != jump.node {
+            if segment_for_line(&self.projection, &line.projected_range())?.node_id != jump.node {
                 return None;
             }
             let preview = line.html_preview.as_ref()?;
@@ -118,7 +118,7 @@ impl RichDocumentEditor {
                 .iter()
                 .find(|anchor| anchor.name == jump.name)?;
             Some((
-                line.y + (32. + anchor.y?) * self.zoom_factor,
+                line.y + anchor.y? * self.zoom_factor,
                 preview.clone(),
                 anchor.text_byte,
             ))
@@ -239,7 +239,7 @@ impl RichDocumentEditor {
         }
         let Some((y, disclosure)) = self.visual_lines.iter().find_map(|line| {
             let preview = line.html_preview.as_ref()?;
-            (segment_for_line(&self.projection, &line.range)?.node_id == node
+            (segment_for_line(&self.projection, &line.projected_range())?.node_id == node
                 && &preview.source == source)
                 .then(|| {
                     preview
@@ -262,8 +262,7 @@ impl RichDocumentEditor {
         self.disclosure_anchor = Some(DisclosureAnchor {
             node,
             ordinal,
-            viewport_y: y + (32. + disclosure.bounds[1]) * self.zoom_factor
-                - self.scroll_metrics().0,
+            viewport_y: y + disclosure.bounds[1] * self.zoom_factor - self.scroll_metrics().0,
             jump_generation: self.jump_generation,
         });
         let states = Arc::make_mut(&mut self.projection.html_disclosures);
@@ -299,7 +298,7 @@ impl RichDocumentEditor {
             return None;
         }
         let y = self.visual_lines.iter().find_map(|line| {
-            if segment_for_line(&self.projection, &line.range)?.node_id != anchor.node {
+            if segment_for_line(&self.projection, &line.projected_range())?.node_id != anchor.node {
                 return None;
             }
             let summary = line
@@ -308,7 +307,7 @@ impl RichDocumentEditor {
                 .disclosures
                 .iter()
                 .find(|d| d.ordinal == anchor.ordinal)?;
-            Some(line.y + (32. + summary.bounds[1]) * self.zoom_factor)
+            Some(line.y + summary.bounds[1] * self.zoom_factor)
         })?;
         let x = self.scroll_handle.offset().x;
         self.scroll_handle
@@ -375,9 +374,7 @@ mod tests {
                 .unwrap()
                 .y
                 .unwrap();
-            assert!(
-                (editor.scroll_metrics().0 - line.y - (32. + y) * editor.zoom_factor).abs() < 1.
-            );
+            assert!((editor.scroll_metrics().0 - line.y - y * editor.zoom_factor).abs() < 1.);
             assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
         });
     }
@@ -423,7 +420,6 @@ mod tests {
                         assert!(
                             (editor.scroll_metrics().0
                                 - editor.visual_lines[0].y
-                                - 32.
                                 - preview.anchors[0].y.unwrap())
                             .abs()
                                 < 1.
@@ -484,7 +480,7 @@ mod tests {
         });
     }
 
-    const SOURCE: &str = "# Before\n\n<details><summary>Read more</summary><p>Body text that is initially closed.</p></details>\n\nAfter.\n";
+    const SOURCE: &str = "# Before\n\n<details><summary>Read more</summary><p>Body text that is initially closed.</p></details>\n\nAfter.\n\n<details><summary>Next disclosure</summary><p>Another body.</p></details>\n";
 
     #[gpui::test]
     fn disclosure_pointer_and_keyboard_actions_do_not_edit_source(cx: &mut gpui::TestAppContext) {
@@ -496,7 +492,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         assert_disclosure_actions_preserve_source(
-            "# Before\n\n<details>Direct text.<p>Body text that is initially closed.</p></details>\n\nAfter.\n",
+            "# Before\n\n<details>Direct text.<p>Body text that is initially closed.</p></details>\n\nAfter.\n\n<details><summary>Next disclosure</summary><p>Another body.</p></details>\n",
             cx,
         );
     }
@@ -524,7 +520,7 @@ mod tests {
             let d = &line.html_preview.as_ref().unwrap().disclosures[0];
             point(
                 bounds.left() + px(line.inset + d.bounds[0] + 12.),
-                bounds.top() + px(line.y + 32. + (d.bounds[1] + d.bounds[3]) * 0.5),
+                bounds.top() + px(line.y + (d.bounds[1] + d.bounds[3]) * 0.5),
             )
         });
         let revision = editor.read_with(cx, |editor, _| editor.document.snapshot().revision());
@@ -548,6 +544,7 @@ mod tests {
                 editor.document.snapshot().serialize().unwrap()
             )
         });
+        // Tab traverses real disclosure controls now that HTML toolbars are gone.
         let summary_focus = cx.update(|window, cx| window.focused(cx).unwrap());
         cx.simulate_keystrokes("tab");
         cx.update(|window, cx| {
@@ -609,7 +606,8 @@ mod tests {
                         width: 760.,
                         height: 1000.,
                         zoom: 1.,
-                        math_edit_node: None,
+                        preview_edit_node: None,
+                        expanded_code_tail: None,
                         editing_node: None,
                         table_layout_lock: None,
                         html_disclosures: editor.projection.html_disclosures.clone(),

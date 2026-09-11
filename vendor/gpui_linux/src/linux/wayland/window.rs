@@ -3,7 +3,10 @@ use std::{
     ffi::c_void,
     ptr::NonNull,
     rc::Rc,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use collections::{FxHashMap, HashMap};
@@ -29,7 +32,9 @@ use wayland_protocols::{
 use wayland_protocols_plasma::blur::client::org_kde_kwin_blur;
 use wayland_protocols_wlr::layer_shell::v1::client::zwlr_layer_surface_v1;
 
-use crate::linux::wayland::{display::WaylandDisplay, serial::SerialKind};
+use crate::linux::wayland::{
+    a11y_updates::TreePublication, display::WaylandDisplay, serial::SerialKind,
+};
 use crate::linux::{Globals, Output, WaylandClientStatePtr, get_window};
 use gpui::{
     AnyWindowHandle, Bounds, Capslock, Decorations, DevicePixels, ExternalDragPayload, GpuSpecs,
@@ -130,6 +135,8 @@ pub struct WaylandWindowState {
     window_controls: WindowControls,
     client_inset: Option<Pixels>,
     accesskit_adapter: Option<accesskit_unix::Adapter>,
+    accesskit_publication: TreePublication,
+    accesskit_full_update: Arc<AtomicBool>,
 }
 
 pub enum WaylandSurfaceState {
@@ -626,6 +633,8 @@ impl WaylandWindowState {
             window_controls: WindowControls::default(),
             client_inset: None,
             accesskit_adapter: None,
+            accesskit_publication: TreePublication::default(),
+            accesskit_full_update: Arc::new(AtomicBool::new(true)),
         })
     }
 
@@ -1188,8 +1197,12 @@ impl WaylandWindowStatePtr {
                 let scale = state.primary_output_scale();
                 state.update_subpixel_layout();
 
-                // We use `PreferredBufferScale` instead to set the scale if it's available
-                if state.surface.version() < wl_surface::EVT_PREFERRED_BUFFER_SCALE_SINCE {
+                // Fractional preference remains authoritative even on older
+                // wl_surface versions. Otherwise a late output enter/leave can
+                // replace it with the output's integer scale.
+                if state.globals.fractional_scale_manager.is_none()
+                    && state.surface.version() < wl_surface::EVT_PREFERRED_BUFFER_SCALE_SINCE
+                {
                     state.surface.set_buffer_scale(scale);
                     drop(state);
                     self.rescale(scale as f32);
@@ -1201,8 +1214,12 @@ impl WaylandWindowStatePtr {
                 let scale = state.primary_output_scale();
                 state.update_subpixel_layout();
 
-                // We use `PreferredBufferScale` instead to set the scale if it's available
-                if state.surface.version() < wl_surface::EVT_PREFERRED_BUFFER_SCALE_SINCE {
+                // Fractional preference remains authoritative even on older
+                // wl_surface versions. Otherwise a late output enter/leave can
+                // replace it with the output's integer scale.
+                if state.globals.fractional_scale_manager.is_none()
+                    && state.surface.version() < wl_surface::EVT_PREFERRED_BUFFER_SCALE_SINCE
+                {
                     state.surface.set_buffer_scale(scale);
                     drop(state);
                     self.rescale(scale as f32);
@@ -1914,8 +1931,10 @@ impl PlatformWindow for WaylandWindow {
     }
 
     fn a11y_init(&self, callbacks: gpui::A11yCallbacks) {
+        let full_update = Arc::new(AtomicBool::new(true));
         let activation_handler = TrivialActivationHandler {
             callback: callbacks.activation,
+            full_update: full_update.clone(),
         };
         let action_handler = TrivialActionHandler(callbacks.action);
         let deactivation_handler = TrivialDeactivationHandler {
@@ -1925,13 +1944,31 @@ impl PlatformWindow for WaylandWindow {
         let adapter =
             accesskit_unix::Adapter::new(activation_handler, action_handler, deactivation_handler);
 
-        self.borrow_mut().accesskit_adapter = Some(adapter);
+        let mut state = self.borrow_mut();
+        state.accesskit_adapter = Some(adapter);
+        state.accesskit_publication = TreePublication::default();
+        state.accesskit_full_update = full_update;
     }
 
     fn a11y_tree_update(&self, tree_update: accesskit::TreeUpdate) {
         let mut state = self.borrow_mut();
-        if let Some(adapter) = state.accesskit_adapter.as_mut() {
-            adapter.update_if_active(|| tree_update);
+        let WaylandWindowState {
+            accesskit_adapter,
+            accesskit_publication,
+            accesskit_full_update,
+            ..
+        } = &mut *state;
+        if let Some(adapter) = accesskit_adapter.as_mut() {
+            // AccessKit holds its adapter-state lock while invoking this factory
+            // and the activation handler. Reset/consume inside those callbacks:
+            // reconnect cannot interleave a delta with a fresh consumer tree.
+            // An inactive adapter never advances our publication baseline.
+            adapter.update_if_active(|| {
+                accesskit_publication.update(
+                    tree_update,
+                    accesskit_full_update.swap(false, Ordering::AcqRel),
+                )
+            });
         }
     }
 
@@ -1942,10 +1979,12 @@ impl PlatformWindow for WaylandWindow {
 
 struct TrivialActivationHandler {
     callback: Box<dyn Fn() -> Option<accesskit::TreeUpdate> + Send + 'static>,
+    full_update: Arc<AtomicBool>,
 }
 
 impl accesskit::ActivationHandler for TrivialActivationHandler {
     fn request_initial_tree(&mut self) -> Option<accesskit::TreeUpdate> {
+        self.full_update.store(true, Ordering::Release);
         (self.callback)()
     }
 }

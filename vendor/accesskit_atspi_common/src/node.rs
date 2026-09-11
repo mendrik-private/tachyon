@@ -20,19 +20,19 @@ use atspi_common::{
     Role as AtspiRole, ScrollType, State, StateSet,
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     iter::FusedIterator,
     sync::{Arc, RwLock, RwLockReadGuard, Weak},
 };
 
 use crate::{
-    Action as AtspiAction, Error, ObjectEvent, Property, Rect as AtspiRect, Result,
     adapter::Adapter,
     context::{AppContext, Context},
     filters::filter,
     text_attributes::ATTRIBUTE_GETTERS,
     util::*,
+    Action as AtspiAction, Error, ObjectEvent, Property, Rect as AtspiRect, Result,
 };
 
 pub(crate) struct NodeWrapper<'a>(pub(crate) &'a Node<'a>);
@@ -358,7 +358,7 @@ impl NodeWrapper<'_> {
 
         if state.is_read_only_supported() && state.is_read_only_or_disabled() {
             atspi_state.insert(State::ReadOnly);
-        } else {
+        } else if !state.is_disabled() {
             atspi_state.insert(State::Enabled | State::Sensitive);
         }
 
@@ -437,8 +437,15 @@ impl NodeWrapper<'_> {
         self.0.is_container_with_selectable_children()
     }
 
-    fn supports_text(&self) -> bool {
-        self.0.supports_text_ranges()
+    pub(crate) fn supports_text(&self) -> bool {
+        fn has_text_run(node: Node<'_>) -> bool {
+            node.role() == Role::TextRun || node.children().any(has_text_run)
+        }
+
+        (self.0.is_text_input() && has_text_run(*self.0))
+            || (matches!(self.0.role(), Role::Document | Role::Terminal)
+                && has_text_run(*self.0))
+            || (self.0.role() == Role::Label && has_text_run(*self.0))
     }
 
     fn supports_value(&self) -> bool {
@@ -478,7 +485,11 @@ impl NodeWrapper<'_> {
     }
 
     fn n_actions(&self) -> i32 {
-        if self.0.is_clickable(&filter) { 1 } else { 0 }
+        if self.0.is_clickable(&filter) {
+            1
+        } else {
+            0
+        }
     }
 
     fn get_action_name(&self, index: i32) -> String {
@@ -618,16 +629,37 @@ impl NodeWrapper<'_> {
         }
     }
 
+    pub(crate) fn notify_ancestor_bounds_change(
+        &self,
+        window_bounds: &WindowBounds,
+        adapter: &Adapter,
+    ) {
+        if let Some(extents) = self.extents(window_bounds, CoordType::Window) {
+            adapter.emit_object_event(self.id(), ObjectEvent::BoundsChanged(extents.into()));
+        }
+    }
+
     fn notify_children_changes(&self, adapter: &Adapter, old: &NodeWrapper<'_>) {
         let old_filtered_children = old.filtered_child_ids().collect::<Vec<NodeId>>();
         let new_filtered_children = self.filtered_child_ids().collect::<Vec<NodeId>>();
+        if old_filtered_children == new_filtered_children {
+            return;
+        }
+        let old_members = old_filtered_children
+            .iter()
+            .copied()
+            .collect::<HashSet<_>>();
+        let new_members = new_filtered_children
+            .iter()
+            .copied()
+            .collect::<HashSet<_>>();
         for (index, child) in new_filtered_children.iter().enumerate() {
-            if !old_filtered_children.contains(child) {
+            if !old_members.contains(child) {
                 adapter.emit_object_event(self.id(), ObjectEvent::ChildAdded(index, *child));
             }
         }
         for child in old_filtered_children.into_iter() {
-            if !new_filtered_children.contains(&child) {
+            if !new_members.contains(&child) {
                 adapter.emit_object_event(self.id(), ObjectEvent::ChildRemoved(child));
             }
         }
@@ -1773,15 +1805,21 @@ mod mineral_tests {
         let id = accesskit::NodeId(1);
         let mut data = accesskit::Node::new(Role::Math);
         data.set_html_tag("math");
-        let tree = Tree::new(accesskit::TreeUpdate {
-            nodes: vec![(id, data)],
-            tree: Some(accesskit::Tree::new(id)),
-            focus: id,
-            tree_id: TreeId::ROOT,
-        }, false);
+        let tree = Tree::new(
+            accesskit::TreeUpdate {
+                nodes: vec![(id, data)],
+                tree: Some(accesskit::Tree::new(id)),
+                focus: id,
+                tree_id: TreeId::ROOT,
+            },
+            false,
+        );
         let node = tree.state().root();
         assert_eq!(
-            NodeWrapper(&node).attributes().get("tag").map(String::as_str),
+            NodeWrapper(&node)
+                .attributes()
+                .get("tag")
+                .map(String::as_str),
             Some("math")
         );
     }
@@ -1796,17 +1834,48 @@ mod mineral_tests {
             if let Some(value) = expanded {
                 data.set_expanded(value);
             }
-            let tree = Tree::new(accesskit::TreeUpdate {
-                nodes: vec![(id, data)],
-                tree: Some(accesskit::Tree::new(id)),
-                tree_id: TreeId::ROOT,
-                focus: id,
-            }, true);
+            let tree = Tree::new(
+                accesskit::TreeUpdate {
+                    nodes: vec![(id, data)],
+                    tree: Some(accesskit::Tree::new(id)),
+                    tree_id: TreeId::ROOT,
+                    focus: id,
+                },
+                true,
+            );
             let node = tree.state().root();
             let native = NodeWrapper(&node).state(true);
             assert_eq!(native.contains(State::Expandable), expanded.is_some());
             assert_eq!(native.contains(State::Expanded), expanded == Some(true));
             assert!(!native.intersects(State::Checked | State::Pressed));
         }
+    }
+
+    #[test]
+    fn pending_text_input_with_empty_run_has_a_safe_native_text_range() {
+        let input_id = LocalNodeId(1);
+        let run_id = LocalNodeId(2);
+        let mut input = accesskit::Node::new(Role::MultilineTextInput);
+        input.set_children(vec![run_id]);
+        let mut run = accesskit::Node::new(Role::TextRun);
+        run.set_value("");
+        run.set_character_lengths(Vec::<u8>::new());
+        let tree = Tree::new(
+            accesskit::TreeUpdate {
+                nodes: vec![(input_id, input), (run_id, run)],
+                tree: Some(accesskit::Tree::new(input_id)),
+                tree_id: TreeId::ROOT,
+                focus: input_id,
+            },
+            true,
+        );
+        let node = tree.state().root();
+        let wrapper = NodeWrapper(&node);
+
+        assert!(wrapper.supports_text());
+        assert!(wrapper.interfaces().contains(Interface::Text));
+        let range = node.document_range();
+        assert!(range.is_degenerate());
+        assert_eq!(range.text(), "");
     }
 }

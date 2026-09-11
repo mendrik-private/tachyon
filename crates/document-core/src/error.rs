@@ -30,6 +30,8 @@ pub enum DocumentError {
     NotImage(NodeId),
     #[error("table coordinate row={row}, column={column} is out of bounds")]
     TableCoordinate { row: usize, column: usize },
+    #[error("block index {0} is out of bounds")]
+    BlockIndex(usize),
     #[error("a table must retain at least one row and one column")]
     EmptyTable,
     #[error("column width must be finite and positive")]

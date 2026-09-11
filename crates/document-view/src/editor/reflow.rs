@@ -1,5 +1,6 @@
 //! One owned reflow per editor, including across document switches. Failure
 //! suppresses the same request rather than starting a new worker every frame.
+use crate::DocumentSessionId;
 use document_core::NodeId;
 use std::{
     sync::{
@@ -106,6 +107,7 @@ impl Deadline {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Key {
+    pub session: DocumentSessionId,
     pub document: u64,
     pub geometry: u64,
     pub width: u32,
@@ -143,8 +145,15 @@ pub(super) struct State {
 }
 
 impl State {
-    pub fn error(&self, document: u64, geometry: u64) -> Option<&'static str> {
-        self.failed.filter(|(key, _)| key.document == document && key.geometry == geometry)
+    pub fn error(
+        &self,
+        session: DocumentSessionId,
+        document: u64,
+        geometry: u64,
+    ) -> Option<&'static str> {
+        self.failed.filter(|(key, _)| {
+            key.session == session && key.document == document && key.geometry == geometry
+        })
             .map(|(_, failure)| match failure {
                 Failed::Panicked => "Layout update failed. The previous view is still available; edit the document or resize to retry.",
                 Failed::TimedOut => "Layout update timed out. The previous view is still available.",
@@ -233,9 +242,17 @@ pub(super) fn prepare<T>(work: impl FnOnce() -> Result<T, Failed>) -> Result<T, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SharedDocumentSession;
+
+    thread_local! {
+        static TEST_SESSION: DocumentSessionId = SharedDocumentSession::new(
+            document_core::Document::from_markdown("test").expect("document"),
+        ).id();
+    }
 
     fn key() -> Key {
         Key {
+            session: TEST_SESSION.with(|session| *session),
             document: 0,
             geometry: 1,
             width: 900_f32.to_bits(),
@@ -300,6 +317,20 @@ mod tests {
         assert!(!state.finish(old, None));
         assert!(state.is_active());
         assert!(state.finish(next, None));
+    }
+
+    #[test]
+    fn equal_generations_from_different_sessions_have_distinct_keys() {
+        let old = key();
+        let replacement = SharedDocumentSession::new(
+            document_core::Document::from_markdown("test").expect("document"),
+        );
+        let new = Key {
+            session: replacement.id(),
+            ..old
+        };
+
+        assert_ne!(old, new);
     }
 
     #[test]

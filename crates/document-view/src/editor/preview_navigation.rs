@@ -11,7 +11,11 @@ impl RichDocumentEditor {
             return None;
         }
         self.visual_lines.iter().find_map(|line| {
-            (self.projection.segment_for_range(&line.range)?.node_id == segment.node_id)
+            (self
+                .projection
+                .segment_for_range(&line.projected_range())?
+                .node_id
+                == segment.node_id)
                 .then_some(line.html_preview.as_ref())
                 .flatten()
                 .filter(|preview| preview.can_convert)
@@ -93,7 +97,7 @@ impl RichDocumentEditor {
             }
         };
         let text = preview.as_ref().map_or_else(
-            || &self.projection.text()[segment.projection_range.clone()],
+            || &self.projection.text()[segment.projection_range()],
             |preview| preview.editable_text.as_str(),
         );
         let at_edge = if direction < 0 {
@@ -116,7 +120,7 @@ impl RichDocumentEditor {
                 return true;
             }
             let text = preview.as_ref().map_or_else(
-                || &self.projection.text()[neighbor.projection_range.clone()],
+                || &self.projection.text()[neighbor.projection_range()],
                 |preview| preview.editable_text.as_str(),
             );
             let edge = if direction < 0 { text.len() } else { 0 };
@@ -192,11 +196,11 @@ impl RichDocumentEditor {
                 let offset = self.projection.offset_of(*position)?;
                 self.visual_lines
                     .iter()
-                    .position(|line| line.range.contains(&offset))
+                    .position(|line| line.projected_range().contains(&offset))
                     .or_else(|| {
                         self.visual_lines
                             .iter()
-                            .position(|line| line.range.end == offset)
+                            .position(|line| line.projected_end() == offset)
                     })
             }
             PreviewPosition::Html {
@@ -209,7 +213,7 @@ impl RichDocumentEditor {
                     .is_some_and(|preview| preview.source == *expected_source)
                     && self
                         .projection
-                        .segment_for_range(&line.range)
+                        .segment_for_range(&line.projected_range())
                         .is_some_and(|s| s.node_id == *node_id)
             }),
         }
@@ -217,7 +221,7 @@ impl RichDocumentEditor {
 
     fn navigation_line_left(&self, line: &VisualLineSpec) -> Option<Pixels> {
         let bounds = self.element_bounds?;
-        let scroll = segment_for_line(&self.projection, &line.range)
+        let scroll = segment_for_line(&self.projection, &line.projected_range())
             .and_then(|segment| horizontal_scroll_owner(&self.projection, segment))
             .and_then(|owner| self.horizontal_scrolls.get(&owner).copied())
             .unwrap_or(0.);
@@ -264,7 +268,11 @@ impl RichDocumentEditor {
                 position,
             } => {
                 let Some(preview) = self.visual_lines.iter().find_map(|line| {
-                    (self.projection.segment_for_range(&line.range)?.node_id == node_id)
+                    (self
+                        .projection
+                        .segment_for_range(&line.projected_range())?
+                        .node_id
+                        == node_id)
                         .then_some(line.html_preview.as_ref())
                         .flatten()
                         .filter(|preview| preview.source == expected_source && preview.can_convert)
@@ -329,10 +337,11 @@ impl RichDocumentEditor {
                 self.projection.offset_of(*position).and_then(|offset| {
                     self.painted_lines
                         .iter()
-                        .find(|painted| painted.range == line.range)
+                        .find(|painted| painted.range == line.projected_range())
                         .map(|painted| {
                             aligned_text_left(painted.bounds, &painted.layout, painted.alignment)
-                                + painted.layout.x_for_index(
+                                + shaped_x_for_index(
+                                    &painted.layout,
                                     offset
                                         .saturating_sub(painted.range.start)
                                         .min(painted.range.len()),
@@ -383,7 +392,7 @@ impl RichDocumentEditor {
             else {
                 return true;
             };
-            let Some(segment) = self.projection.segment_for_range(&target.range) else {
+            let Some(segment) = self.projection.segment_for_range(&target.projected_range()) else {
                 return true;
             };
             PreviewPosition::Html {
@@ -395,19 +404,14 @@ impl RichDocumentEditor {
             let offset = if let Some(painted) = self
                 .painted_lines
                 .iter()
-                .find(|line| line.range == target.range)
+                .find(|line| line.range == target.projected_range())
             {
-                target.range.start
-                    + painted
-                        .layout
-                        .closest_index_for_x(
-                            x - aligned_text_left(
-                                painted.bounds,
-                                &painted.layout,
-                                painted.alignment,
-                            ),
-                        )
-                        .min(target.range.len())
+                target.projected_start()
+                    + shaped_index_for_x(
+                        &painted.layout,
+                        x - aligned_text_left(painted.bounds, &painted.layout, painted.alignment),
+                    )
+                    .min(target.projected_range().len())
             } else {
                 // Match the existing offscreen Markdown navigation fallback;
                 // the next paint supplies exact shaping after caret reveal.
@@ -416,8 +420,9 @@ impl RichDocumentEditor {
                 let ratio = (f32::from(x - left) / width).clamp(0., 1.);
                 snap_offset_to_grapheme(
                     self.projection.text(),
-                    target.range.clone(),
-                    target.range.start + (ratio * target.range.len() as f32).round() as usize,
+                    target.projected_range(),
+                    target.projected_start()
+                        + (ratio * target.projected_range().len() as f32).round() as usize,
                 )
             };
             let Some(position) = self.projection.position_at(offset, Affinity::Downstream) else {

@@ -239,9 +239,12 @@ impl Default for ColumnSpec {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableBorder {
     None,
-    #[default]
     Dotted,
+    /// One device pixel, independent of document zoom and display density.
     PhysicalPixel,
+    /// One document pixel, scaled with text like the other grammar tokens.
+    #[default]
+    LogicalPixel,
 }
 
 #[derive(Clone, Debug)]
@@ -273,6 +276,14 @@ pub enum BlockNode {
     Paragraph(Paragraph),
     Heading(Heading),
     List(ListBlock),
+    /// Authored definition relationships, separate from list markers/tables.
+    /// List children retain the source order of term and description groups;
+    /// groups retain ordinary editable blocks and their canonical identities.
+    Definition {
+        id: NodeId,
+        kind: DefinitionKind,
+        blocks: BlockSequence,
+    },
     BlockQuote {
         id: NodeId,
         blocks: BlockSequence,
@@ -310,6 +321,7 @@ impl BlockNode {
             Self::Heading(node) => node.id,
             Self::List(node) => node.id,
             Self::BlockQuote { id, .. }
+            | Self::Definition { id, .. }
             | Self::Alert { id, .. }
             | Self::FootnoteDefinition { id, .. }
             | Self::ThematicBreak { id }
@@ -355,6 +367,7 @@ impl BlockNode {
                 .join("\n"),
             Self::BlockQuote { blocks, .. }
             | Self::Alert { blocks, .. }
+            | Self::Definition { blocks, .. }
             | Self::FootnoteDefinition { blocks, .. } => blocks
                 .iter()
                 .map(|block| block.plain_text())
@@ -384,6 +397,13 @@ impl BlockNode {
             Self::PreservedSource { description, .. } => description.clone(),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DefinitionKind {
+    List,
+    Term,
+    Description,
 }
 
 const BLOCK_SEQUENCE_CHUNK_SIZE: usize = 256;
@@ -525,7 +545,9 @@ impl BlockSequence {
     }
 
     #[must_use]
-    pub(crate) fn contains_node(&self, node_id: NodeId) -> bool {
+    /// Whether a canonical node belongs to this sequence or any descendant.
+    /// Uses the sequence's persistent descendant index, not a tree scan.
+    pub fn contains_node(&self, node_id: NodeId) -> bool {
         self.top_index_containing(node_id).is_some()
     }
 }
@@ -574,6 +596,7 @@ fn index_block_and_descendants(
         }
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => {
             for child in blocks {
                 index_block_and_descendants(child, top_index, output);

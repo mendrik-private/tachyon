@@ -1,0 +1,78 @@
+# Code with room to read
+
+Line numbers are a reading aid, not part of the source. Light configuration panes and dark executable examples share the same spacing, baseline and copy behavior.
+
+## Example: Typed configuration
+
+```typescript
+export const config = {
+  name: 'mineral',
+  version: '1.0.0',
+  environment: 'production',
+  port: 8080,
+  enabled: true,
+  editor: {
+    autosave: true,
+    theme: 'light',
+    outline: true,
+  },
+};
+```
+
+## Example: Deployment settings
+
+```yaml
+app:
+  name: mineral
+  version: 1.0.0
+  environment: production
+  enabled: true
+
+server:
+  host: 127.0.0.1
+  port: 8080
+  log_level: info
+```
+
+## Short commands stay compact
+
+```sh
+cargo test --workspace --locked
+```
+
+## An exchange
+
+### Request: Create
+
+`POST /v1/documents`
+
+```json
+{
+  "title": "Field notes",
+  "format": "markdown"
+}
+```
+
+### Response: Created
+
+`201 Created`
+
+```json
+{
+  "id": "doc_field_notes",
+  "title": "Field notes"
+}
+```
+
+## Horizontal overflow
+
+Scroll the source sideways. Its number rail stays in place and the last character remains reachable without losing the trailing inset.
+
+```http
+GET /v1/documents/doc_field_notes?include=revision,author,attachments,source,history,permissions&format=markdown&encoding=utf-8&view=complete HTTP/1.1
+Host: localhost:8080
+Accept: application/json
+
+X-Document-Title: Field notes
+X-Request-Id: request_0042
+```

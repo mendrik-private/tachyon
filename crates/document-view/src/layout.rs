@@ -374,6 +374,9 @@ impl LayoutBuilder<'_> {
                 {
                     return false;
                 }
+                BlockNode::Definition { blocks, .. } if !self.flatten(blocks, width, output) => {
+                    return false;
+                }
                 _ => {}
             }
         }
@@ -451,6 +454,9 @@ fn layout_block(
             estimated: image.intrinsic_size.is_none(),
         }),
         BlockNode::List(_) => fragments.push(chrome(FragmentKind::ListItem, 4.0 * scale)),
+        // Definition containers contribute no painted chrome; their editable
+        // term and description descendants supply the complete geometry.
+        BlockNode::Definition { .. } => {}
         BlockNode::BlockQuote { .. } => {
             fragments.push(chrome(FragmentKind::BlockQuote, 4.0 * scale));
         }

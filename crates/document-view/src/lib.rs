@@ -5,24 +5,35 @@
 //! behavior independently testable.
 
 mod adaptive;
+mod bibliography;
+mod controls;
+mod diagram;
 mod editor;
+mod figures;
+mod footnotes;
 mod geometry;
 mod height_tree;
 mod html;
 mod layout;
 mod math;
+mod metrics;
 mod minimap;
 mod outline;
 mod projection;
+mod quotes;
 mod responsive;
+mod schema;
 mod session;
+mod signals;
 mod theme;
 mod viewport;
 
+pub use controls::ButtonAccessibilityExt;
 pub use editor::{
     EditorEvent, EditorScrollAnchor, EditorViewState, LayoutDiagnosticsReport, LayoutTraceMode,
     PreparedDocumentView, RichDocumentEditor, SharedImageDimensions, init as init_editor,
 };
+pub use figures::FigureTextRole;
 pub use geometry::{Point, Rect, Size};
 pub use height_tree::{HeightTree, HeightTreeError};
 pub use layout::{
@@ -36,6 +47,6 @@ pub use minimap::{
 pub use outline::{OutlineEntry, project_outline};
 pub use projection::{ProjectionContext, ProjectionSegment, TextProjection};
 pub use responsive::{ResponsiveLayout, WindowClass};
-pub use session::SharedDocumentSession;
+pub use session::{DocumentSessionId, SharedDocumentSession};
 pub use theme::MineralPalette;
 pub use viewport::{ScrollAnchor, Viewport, VisibleRange};

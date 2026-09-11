@@ -8,7 +8,9 @@ pub(super) fn register_outside_pointer(editor: &Entity<RichDocumentEditor>, wind
             return;
         }
         _ = editor.update(cx, |editor, cx| {
-            if editor.is_selecting && !editor.scroll_handle.bounds().contains(&event.position) {
+            if (editor.is_selecting || editor.table_resize_drag.is_some())
+                && !editor.scroll_handle.bounds().contains(&event.position)
+            {
                 editor.on_mouse_move(event, window, cx);
             }
         });

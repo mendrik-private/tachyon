@@ -1,6 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use document_core::{
@@ -12,8 +13,27 @@ use document_core::{
 /// GPUI entities are single-threaded, so `Rc<RefCell<_>>` keeps mutation and undo
 /// centralized without adding a misleading cross-thread synchronization boundary.
 struct SessionState {
+    id: DocumentSessionId,
     document: RefCell<Document>,
     generation: Cell<u64>,
+}
+
+/// Process-local identity for one document session.
+///
+/// Revisions and generations can repeat after switching files. Background
+/// completion tickets use this identity to distinguish those sessions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DocumentSessionId(u64);
+
+static NEXT_DOCUMENT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+
+fn next_document_session_id() -> DocumentSessionId {
+    let id = NEXT_DOCUMENT_SESSION_ID
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |next| {
+            next.checked_add(1)
+        })
+        .expect("document session identity space exhausted");
+    DocumentSessionId(id)
 }
 
 #[derive(Clone)]
@@ -23,9 +43,15 @@ impl SharedDocumentSession {
     #[must_use]
     pub fn new(document: Document) -> Self {
         Self(Rc::new(SessionState {
+            id: next_document_session_id(),
             document: RefCell::new(document),
             generation: Cell::new(0),
         }))
+    }
+
+    #[must_use]
+    pub fn id(&self) -> DocumentSessionId {
+        self.0.id
     }
 
     #[must_use]
@@ -36,6 +62,11 @@ impl SharedDocumentSession {
     #[must_use]
     pub fn generation(&self) -> u64 {
         self.0.generation.get()
+    }
+
+    /// Saved-source metadata does not invalidate published content geometry.
+    pub fn rebase_source(&self, prepared: document_core::SourceRebase) -> bool {
+        self.0.document.borrow_mut().rebase_source(prepared)
     }
 
     pub fn replace(&self, document: Document) {
@@ -143,6 +174,7 @@ mod tests {
         let session = SharedDocumentSession::new(Document::from_markdown("one").expect("document"));
         let second_view = session.clone();
         assert!(session.ptr_eq(&second_view));
+        assert_eq!(session.id(), second_view.id());
         let node_id = session.snapshot().blocks().get(0).expect("paragraph").id();
         session
             .apply(EditCommand::SetSelection(Selection::Text(
@@ -161,6 +193,16 @@ mod tests {
         );
         second_view.undo().expect("shared undo");
         assert_eq!(session.snapshot().serialize().expect("serialize"), "one");
+    }
+
+    #[test]
+    fn separate_sessions_have_distinct_ids_when_revisions_and_generations_match() {
+        let first = SharedDocumentSession::new(Document::from_markdown("same").expect("document"));
+        let second = SharedDocumentSession::new(Document::from_markdown("same").expect("document"));
+
+        assert_eq!(first.snapshot().revision(), second.snapshot().revision());
+        assert_eq!(first.generation(), second.generation());
+        assert_ne!(first.id(), second.id());
     }
 
     #[test]

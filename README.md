@@ -1,15 +1,53 @@
 # Mineral
 
-Mineral is a native, Wayland-only Markdown editor written in Rust with GPUI. It
-keeps Markdown rendered while it is edited: there is no source pane, preview
-mode, account, or cloud service.
+**A native Markdown editor for Linux. Written in Rust. No Electron.**
 
-The current implementation includes a native title bar, file and folder
-choosers, a resizable file/outline navigator, adaptive document layouts, rich
-tables and lists, links and images, undo/redo, atomic autosave, external-change
-handling, and crash recovery. The current design uses a warm light theme, green
-accents, and serif headings. Bundled Fraunces, Spline Sans, Spline Sans Mono, and Noto Sans
-fonts make rendering independent of the host font set.
+Mineral keeps your Markdown rendered while you edit it. Headings, lists, tables,
+code and figures share one editable document, with automatic layouts that adapt
+to the space available. Your work lives in local Markdown files.
+
+## Highlights
+
+- **Native Wayland app.** Rust and GPUI with GPU rendering, native window
+  controls and file dialogs. No Electron, Chromium shell, account or required
+  cloud service.
+- **Edit the document you read.** Rich text, links, task checkboxes and table
+  editing, with undo/redo and source-preserving Markdown serialization.
+- **Documents that compose themselves.** Feature grids, dated timelines,
+  decision panels, prose columns, explanation/example pairs, galleries and
+  compact records emerge from your document's structure.
+- **Technical writing built in.** Syntax-highlighted code with Copy actions,
+  mathematical formulas, Mermaid previews and explicit JSON Schema trees.
+- **Find your place.** File browser, document outline, minimap, in-document
+  search and local-file/heading links.
+- **Keep your work.** Atomic autosave, recoverable untitled drafts, crash
+  recovery and explicit handling of changes made outside the app.
+- **Comfortable reading.** Light and dark appearance, serif headings, bundled
+  typography, text zoom and responsive reflow.
+
+Start with the [Markdown layout cookbook](docs/markdown-layouts.md), or open the
+[complete example document](example/reference.md) in Mineral to explore the
+layouts at different window sizes.
+
+## Install a release
+
+Release archives target **Linux x86_64 with Wayland**. They are built on Ubuntu
+24.04 and require compatible system libraries and a Vulkan-capable graphics
+stack; they are not static binaries. Each release includes `SHA256SUMS` and a
+`runtime-libraries.txt` build-host dependency inventory.
+
+Download the archive and checksum files from this repository's **Releases**
+page. For a release tagged `v0.1.0`, verify and run it with:
+
+```sh
+sha256sum --check SHA256SUMS
+tar -xzf mineral-v0.1.0-linux-x86_64.tar.gz
+./mineral-v0.1.0-linux-x86_64/bin/mineral-markdown path/to/document.md
+```
+
+Download `runtime-libraries.txt` too: the checksum file covers both assets.
+For desktop integration and release instructions, see
+[Linux packaging](packaging/README.md).
 
 ## Build and run
 
@@ -82,9 +120,13 @@ the old motion. Reduced-motion mode uses immediate scrolling without a coast.
 
 ## Adaptive layouts
 
-Short independent lists can use two or three columns in row order. Once the
+For copyable source examples and recognition rules, see the
+[Markdown layout cookbook](docs/markdown-layouts.md).
+
+
+Short independent lists can use two, three or four columns in row order. Once the
 actual canvas is available, the editor measures candidate layouts using its
-paint fonts: automatic grids require 3–9 flat items, at most five rendered
+paint fonts: automatic grids consider 2–12 flat items, at most five rendered
 lines per item, balanced item heights, and no text overflow. Small changes retain
 the previous legal choice. Instructions and explicit cross-step references
 use steps; tasks, nested outlines and long uneven items retain a vertical flow.
@@ -97,8 +139,8 @@ loading does not lock in a fragmented arrangement. Narrow windows and galleries
 with unavailable dimensions retain source-order stacks. Images remain complete;
 authored alt text and enclosing links survive editing, copying, and undo.
 
-Prose uses a wider measure (up to 960 logical pixels); tables, code, figures and
-grids can use a 1280-pixel canvas. Soft source line breaks reflow, while explicit
+Prose retains a readable measure; tables, code, figures and grids can use more
+of the available document canvas. Soft source line breaks reflow, while explicit
 hard breaks remain. Tables fit their columns where possible, retaining readable
 minimum widths and contained overflow. Layout stays fixed during typing and
 reflows after resizing settles; selection, undo and saved Markdown stay independent.
@@ -133,8 +175,9 @@ composition can start directly within one verified HTML text leaf. Conversion
 and preedit remain provisional until commit; cancellation restores the HTML,
 and one undo reverses conversion plus the committed text. Selections spanning
 multiple converted text blocks are not supported for composition; use **Edit
-text** and choose a position within one block. Native dead-key composition is verified;
-full CJK input-method/candidate-window validation remains open.
+text** and choose a position within one block. Native dead-key composition and
+one isolated Sway/Fcitx5 CJK candidate-window path are verified. The complete
+compositor, input-method, scale, script and transformed-family matrix remains open.
 
 Links in source-verified HTML text show their destination on hover. Ctrl-click
 opens the link; Alt+Enter opens the link at the HTML caret. Ordinary

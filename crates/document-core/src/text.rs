@@ -440,7 +440,16 @@ impl RichText {
                     || (offset == self.len() && run.range.end == self.len())
                     || (offset > 0 && run.range.end == offset)
             })
-            .map_or_else(SmallVec::new, |run| run.styles.clone())
+            .map_or_else(SmallVec::new, |run| {
+                let mut styles = run.styles.clone();
+                // A note reference is an inline object, not a text format.
+                // Typing beside it must not extend a run whose serializer emits
+                // only the reference label (which would discard the new text).
+                if offset == run.range.start || offset == run.range.end {
+                    styles.retain(|style| !matches!(style, InlineStyle::FootnoteReference(_)));
+                }
+                styles
+            })
     }
 
     pub(crate) fn slice(&self, range: Range<usize>) -> Self {
@@ -515,6 +524,10 @@ fn normalize_runs(runs: &mut Vec<InlineRun>, text_len: usize) {
         if let Some(previous) = normalized.last_mut()
             && previous.range.end == run.range.start
             && previous.styles == run.styles
+            && !run
+                .styles
+                .iter()
+                .any(|style| matches!(style, InlineStyle::FootnoteReference(_)))
         {
             previous.range.end = run.range.end;
         } else {
@@ -556,6 +569,32 @@ mod tests {
     use super::*;
 
     const NODE: NodeId = NodeId::new_unchecked(1);
+
+    #[test]
+    fn adjacent_footnotes_remain_distinct_and_edge_typing_is_not_reference_formatting() {
+        let mut text = RichText::from_runs(
+            "[^n][^n]",
+            vec![
+                InlineRun {
+                    range: 0..4,
+                    styles: smallvec![InlineStyle::FootnoteReference("n".into())],
+                },
+                InlineRun {
+                    range: 4..8,
+                    styles: smallvec![InlineStyle::FootnoteReference("n".into())],
+                },
+            ],
+        );
+        assert_eq!(text.runs().len(), 2);
+        text.replace(NODE, 8..8, " next").unwrap();
+        assert!(text.runs().last().unwrap().styles.is_empty());
+        assert_eq!(crate::markdown::serialize_inline(&text), "[^n][^n] next");
+        text.replace(NODE, 0..0, "Before ").unwrap();
+        assert_eq!(
+            crate::markdown::serialize_inline(&text),
+            "Before [^n][^n] next"
+        );
+    }
 
     #[test]
     fn short_imported_text_is_shared_then_promoted_before_mutation() {

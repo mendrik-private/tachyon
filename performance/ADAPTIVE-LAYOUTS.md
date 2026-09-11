@@ -1,5 +1,11 @@
 # Adaptive document layout
 
+Current style authority: [Document design grammar](../designs/document-design-grammar.md).
+The [September 8 native implementation and visual evidence](DESIGN-GRAMMAR-IMPLEMENTATION.md)
+supersede conflicting historical palette, spacing, card and shadow descriptions below.
+
+Next milestone: [Editorial layout grammar](LAYOUT-GRAMMAR-PLAN.md) (planned September 8, 2026) expands the vocabulary to measured section composition, bounded prose columns, and text flow around components. It supersedes conflicting layout scope and spacing rules here. The implementation notes and measurements below remain historical evidence, not validation of that new milestone.
+
 ## Implementation plan
 
 1. Translate all eight `designs/` references into shared warm-paper, ink, green,

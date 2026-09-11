@@ -1,12 +1,14 @@
 # Native Markdown viewer and rich editor
 
+Layout follow-up (September 8, 2026): [Editorial layout grammar plan](performance/LAYOUT-GRAMMAR-PLAN.md) specifies the next, not-yet-implemented composition milestone. Its grammar, spacing, bounded prose columns, and component text wrapping supersede conflicting layout prescriptions below; the editing and source-preservation contract remains unchanged.
+
 ## 1. Product contract
 
 Build a native Rust/GPUI application for **Linux Wayland**, with one continuously rendered, always-editable Markdown surface. Clicking places the caret; selecting text reveals formatting tools. Raw Markdown is never exposed.
 
 The first release includes local file navigation, an outline, adaptive document layouts, rich tables, lists, links, images, code examples, undo, and autosave. The September 6 redesign targets **scrolling above 60 fps through 10 MB**, with 120 Hz as a stretch target. Startup preparation may take longer. See [the adaptive layout plan and validation](performance/ADAPTIVE-LAYOUTS.md).
 
-Confirmed decisions:
+Confirmed decisions\:&#32;
 
 - Full rich content inside table cells.
 - Code blocks remain rendered and editable document content.
@@ -38,9 +40,10 @@ Bundle fonts locally with their licenses. Generate static Fraunces instances dur
 
 The following light palette is an adaptation for this application:
 
+<!-- mineral-table:v1 {"border":"Dotted","widths":[380.078125,230.203125]} -->
 | Token | Value |
 | --- | --- |
-| Page / navigation background | `#FCFBF8` / `#F3F2ED` |
+| Page \/ navigation background | `#FCFBF8` \/ `#F3F2ED` |
 | Primary text | `#1B2430` |
 | Secondary text | `#59636F` |
 | Hover surface | `#E7ECDF` |
@@ -58,22 +61,28 @@ Use a 4 px spacing scale. Paragraph spacing is 16 px; ordinary headings have 20 
 - **Left navigation:** 224 px initially, resizable from 180-320 px. The upper 60% contains folders and sibling Markdown files; the lower 40% contains the outline. Both scroll independently. A draggable gap separates them without a visible rule.
 - **Document:** horizontally centered within the remaining workspace, with a wider reading measure and 28 px horizontal padding. Reflow source soft breaks; preserve explicit hard breaks. Place the document scrollbar on the outer window edge. Wheel scrolling eases to rest; precise trackpad input and reduced-motion preferences retain direct behavior.
 - **Responsive behavior:** below 800 px, collapse navigation into a temporary overlay. Preserve access through the menu and shortcuts. Minimum window size: 480 x 360 px. The canvas grows to 1280 px while ordinary prose stays within 960 px.
-- **Automatic composition:** no layout selectors or saved overrides. Match short independent lists, explicit arrow sequences, adjacent figures, and repeated bounded sibling sections to appropriate arrangements. Keep source order and typing stability; retain vertical fallbacks for complex content. Fit table columns above readable minimums, preserving explicit widths and contained overflow.
-- Tables and images may use the full central workspace width. Prose retains its reading measure. Wide tables scroll horizontally within their own area.
+- **Automatic composition:** no layout selectors or saved overrides. Match short independent lists, explicit arrow sequences, adjacent figures, and repeated bounded sibling sections to appropriate arrangements. Keep source order and typing stability; retain vertical fallbacks for complex content. Fit automatically sized table columns above readable minimums and align near-width tables to the reading edge. Preserve explicitly saved column widths exactly, including when the table is close to the prose width, and contain any resulting overflow.
+- Tables and images may use the full central workspace width\. Prose retains its reading measure\. Wide tables scroll horizontally within their own area\.
+
+<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[293.83984375,347.54296875]} -->
+| Hallo | This is a test |
+| --- | --- |
+| abc | def |
 
 ### Rendered components and editing
 
+<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[241.33203125,401.553955078125]} -->
 | Component | Appearance and behavior |
 | --- | --- |
-| Paragraphs and headings | One shared text engine. Formatting changes preserve the selection and scroll anchor. Heading changes immediately update the outline. |
-| Bold, italic, strikethrough, inline code | Available through selection toolbar, context menu, and shortcuts. Mixed selections show mixed formatting state. |
-| Lists | Hanging markers and 24 px indentation per level. Enter splits items; Enter on an empty item exits or outdents. Tab/Shift+Tab indent/outdent. Backspace at an item's start outdents before merging. |
-| Task lists | Small native-style checkboxes aligned to the first text line. Toggling is one undoable edit. |
-| Links | Underlined green text. Ordinary click positions the caret; Ctrl+click follows the link. A local popover edits label and destination. |
-| Blockquotes | Indented text with a faint background tint and a narrow content-level rule. No surrounding box. |
-| Code blocks | Quiet tinted background, monospace text, preserved whitespace, and local horizontal scrolling. No line numbers or editor chrome. |
-| Images | Preserve aspect ratio, reserve space, and expose source/alt-text controls on selection. Loading and failure states occupy the same reserved area. |
-| Tables | Body typography, semibold header, 12 px horizontal and 8 px vertical cell padding. Border modes: none, dotted, or one physical pixel; default dotted. No zebra striping. |
+| Paragraphs and headings | One shared text engine\. Formatting changes preserve the selection and scroll anchor\. Heading changes immediately update the outline\. |
+| Bold\, italic\, strikethrough\, inline code | Available through selection toolbar\, context menu\, and shortcuts\. Mixed selections show mixed formatting state\. |
+| Lists | Hanging markers and 24 px indentation per level\. Enter splits items\; Enter on an empty item exits or outdents\. Tab\/Shift\+Tab indent\/outdent\. Backspace at an item\'s start outdents before merging\. |
+| Task lists | Small native\-style checkboxes aligned to the first text line\. Toggling is one undoable edit\. |
+| Links | Underlined green text\. Ordinary click positions the caret\; Ctrl\+click follows the link\. A local popover edits label and destination\. |
+| Blockquotes | Indented text with a faint background tint and a narrow content\-level rule\. No surrounding box\. |
+| Code blocks | Quiet tinted background\, monospace text\, preserved whitespace\, and local horizontal scrolling\. No line numbers or editor chrome\. |
+| Images | Preserve aspect ratio\, reserve space\, and expose source\/alt\-text controls on selection\. Loading and failure states occupy the same reserved area\. |
+| Tables | Body typography\, semibold header\, 12 px horizontal and 8 px vertical cell padding\. Border modes\: none\, dotted\, or one physical pixel\; default dotted\. No zebra striping\. |
 
 ### Floating tools
 
@@ -196,15 +205,16 @@ Measure startup both with warm caches and with cold filesystem/application cache
 
 ## 5. Delivery sequence and validation
 
-1. **Native foundation and performance harness:** pinned build, Wayland window, bundled typography, editable paragraph, IME, selection, and measured scrolling. Establish presentation timing before building the remaining shell.
-2. **Document core:** source-preserving import/export, transactions, cross-block editing, clipboard, undo, autosave, recovery, and external-change handling.
-3. **Components:** lists, links, images, code, alerts, footnotes, and rich tables using the shared editing engine.
-4. **Navigation:** filesystem tree, outline, selection toolbar, context insertion, and responsive layout.
-5. **Release qualification:** performance, visual fidelity, accessibility, packaging, and clean-machine startup.
+1. **Native foundation and performance harness\:** pinned build\, Wayland window\, bundled typography\, editable paragraph\, IME\, selection\, and measured scrolling\. Establish presentation timing before building the remaining shell\.
+2. **Document core\:** source\-preserving import\/export\, transactions\, cross\-block editing\, clipboard\, undo\, autosave\, recovery\, and external\-change handling\.
+3. **Components\:** lists\, links\, images\, code\, alerts\, footnotes\, and rich tables using the shared editing engine\.
+4. **Navigation\:** filesystem tree\, outline\, selection toolbar\, context insertion\, and responsive layout\.
+5. **Release qualification\:** performance\, visual fidelity\, accessibility\, packaging\, and clean\-machine startup\.
+6. Hallo\: friends
 
-Required validation:
+Required validation\:
 
-- GFM fixtures and semantic round trips; byte-identical unchanged regions; CRLF, Unicode, references, front matter, comments, and unknown HTML preservation.
+- GFM fixtures and semantic *round* trips\; byte\-identical unchanged regions\; CRLF\, Unicode\, references\, front matter\, comments\, and unknown HTML preservation\.
 - Editing properties: undo restores document and selection; arbitrary operations preserve tree invariants; stale worker results cannot replace newer content.
 - Pointer and keyboard workflows across paragraphs, lists, images, and cells, including dragging beyond the viewport.
 - Combining marks, emoji, RTL/CJK text, dead keys, and Fcitx5/IBus composition on Wayland.

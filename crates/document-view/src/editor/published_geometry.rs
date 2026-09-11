@@ -60,7 +60,13 @@ impl PublishedGeometry {
         scale_visual_lines(&mut lines, input.zoom);
         let paint_order = visual_line_paint_order(&lines);
         let height = visual_document_height(&lines);
-        let components = component_geometry(input.projection, &lines, input.width, &paint_order);
+        let components = component_geometry(
+            input.projection,
+            &lines,
+            input.width,
+            input.zoom,
+            &paint_order,
+        );
         Self {
             stack: None,
             projection: input.projection.geometry_key(),
@@ -105,7 +111,7 @@ mod tests {
             assert_eq!(counts.take_stage().retained_extension_hits, 2);
             let fresh = PublishedGeometry::build(input);
             arrangement::tests::assert_same_geometry(&reused.lines, &fresh.lines);
-            let html = |geometry: &PublishedGeometry| geometry.lines.iter().find(|l| l.html_preview.is_some()).unwrap().range.clone();
+            let html = |geometry: &PublishedGeometry| geometry.lines.iter().find(|l| l.html_preview.is_some()).unwrap().projected_range();
             assert!(html(&reused).start > html(&baseline).start);
             assert_eq!(reused.paint_order, fresh.paint_order);
             assert_eq!(reused.height, fresh.height);
@@ -197,7 +203,7 @@ mod tests {
                     &document.snapshot(), &HashMap::new(), None,
                     ReflowViewport {
                         published_geometry: previous.published_geometry.clone(),
-                        width: 900., height: 600., zoom: 1., math_edit_node: None,
+                        width: 900., height: 600., zoom: 1., preview_edit_node: None, expanded_code_tail: None,
                         editing_node: None, table_layout_lock: None,
                         html_disclosures: Arc::default(), html_loaded_images: Arc::default(),
                         trace_mode: LayoutTraceMode::Off, visible_roots: scope, resource_generation: 0,
@@ -255,7 +261,8 @@ mod tests {
                         width: 640.,
                         height: 600.,
                         zoom: 1.,
-                        math_edit_node: None,
+                        preview_edit_node: None,
+                        expanded_code_tail: None,
                         editing_node: None,
                         table_layout_lock: None,
                         html_disclosures: Arc::default(),
@@ -299,7 +306,7 @@ mod tests {
             let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
             let other_font = FontMeasurement::new(cx.text_system().clone(), "monospace".into(), 1.);
             let mut projection = TextProjection::from_snapshot(&snapshot);
-            projection.math_edit_node = None;
+            projection.preview_edit_node = None;
             measurement.measure_tables(&mut projection);
             let images = projection.image_segments().map(|segment| (segment.node_id, (segment.context.image_source.clone().unwrap(), (640, 400)))).collect::<NodeImageDimensions>();
             let plan = build_measured_adaptive_plan(&projection, 1280., 1000., None, false, &measurement);
@@ -317,7 +324,7 @@ mod tests {
                 let mut font = &measurement;
                 match case {
                     0 => {},
-                    1 => changed_projection.math_edit_node = projection.segments().iter().find(|s| inline_math::has_math(&projection, s.node_id)).map(|s| s.node_id),
+                    1 => changed_projection.preview_edit_node = projection.segments().iter().find(|s| inline_math::has_math(&projection, s.node_id)).map(|s| s.node_id),
                     2 => {
                         let cell = projection.segments().iter().find(|s| s.context.table_cell.is_some()).unwrap();
                         changed_projection.lock_table_for_node(Some(cell.node_id));
@@ -337,13 +344,18 @@ mod tests {
                     6 => zoom = 2.,
                     7 => font = &other_font,
                     8 => changed_images.values_mut().next().unwrap().1 = (640, 800),
-                    9 => changed_plan.slots.values_mut().next().unwrap().span = 3,
+                    9 => {
+                        let slot = changed_plan.slots.values_mut().next().unwrap();
+                        // Three tracks is now a valid baseline (four columns).
+                        // Always mutate geometry, regardless of HashMap order.
+                        slot.span = if slot.span == 3 { 2 } else { 3 };
+                    },
                     10 => changed_plan.lists.values_mut().next().unwrap().layout = ListLayout::Outline,
                     11 => changed_plan.lead = None,
                     12 => {
                         let changed = Document::from_markdown(source.replace("café", "café edited")).unwrap();
                         changed_projection = TextProjection::from_snapshot(&changed.snapshot());
-                        changed_projection.math_edit_node = None;
+                        changed_projection.preview_edit_node = None;
                         measurement.measure_tables(&mut changed_projection);
                     },
                     // Diagnostics/planner bookkeeping isn't a renderer input.

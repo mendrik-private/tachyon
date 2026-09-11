@@ -163,6 +163,7 @@ pub(crate) fn conversion_text_blocks(blocks: &crate::BlockSequence) -> Vec<&crat
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
                 for block in blocks.iter() {
                     visit(block, output);
@@ -194,6 +195,7 @@ pub struct InertHtmlFragment {
     html: String,
     text: String,
     images: Vec<InertHtmlImage>,
+    link_targets: Vec<String>,
 }
 
 /// A source-order local image reference, never a renderer fetch instruction.
@@ -219,6 +221,14 @@ impl InertHtmlFragment {
     pub fn images(&self) -> &[InertHtmlImage] {
         &self.images
     }
+
+    /// Authored link destinations retained outside the temporary renderer DOM.
+    /// The HTML contains only generated numeric descriptors, so the inert
+    /// renderer can measure links without gaining navigation or fetch access.
+    #[must_use]
+    pub fn link_targets(&self) -> &[String] {
+        &self.link_targets
+    }
 }
 
 /// Prepare a static fragment for an inert renderer. Local image references are
@@ -229,17 +239,41 @@ impl InertHtmlFragment {
 /// Inline CSS is retained, but the renderer MUST use a denying resource provider.
 #[must_use]
 pub fn inert_html_fragment(source: &str) -> Option<InertHtmlFragment> {
+    bounded_html_fragment(source, false)
+}
+
+/// Export the complete owning root, without renderer-private descriptors,
+/// active attributes, or CSS that relies on a denying renderer resource host.
+pub(crate) fn clipboard_html_fragment(source: &str) -> Option<String> {
+    Some(bounded_html_fragment(source, true)?.html)
+}
+
+/// The input is serialized from an already selected canonical tree. Unlike a
+/// single preview, a clipboard selection may span many bounded HTML owners.
+pub(crate) fn clipboard_html_document(source: &str) -> Option<String> {
+    Some(html_fragment_with_budget(source, true, source.len().saturating_add(1))?.html)
+}
+
+fn bounded_html_fragment(source: &str, clipboard: bool) -> Option<InertHtmlFragment> {
     if source.len() > 32 * 1024 {
         return None;
     }
+    html_fragment_with_budget(source, clipboard, 512)
+}
+
+fn html_fragment_with_budget(
+    source: &str,
+    clipboard: bool,
+    mut budget: usize,
+) -> Option<InertHtmlFragment> {
     let dom = parse_document(RcDom::default(), ParseOpts::default()).one(source);
     let mut fragment = InertHtmlFragment {
         html: String::new(),
         text: String::new(),
         images: Vec::new(),
+        link_targets: Vec::new(),
     };
-    let mut budget = 512;
-    inert_node(&dom.document, &mut fragment, 0, &mut budget)?;
+    inert_node(&dom.document, &mut fragment, 0, &mut budget, clipboard)?;
     Some(fragment)
 }
 
@@ -287,6 +321,7 @@ fn inert_node(
     fragment: &mut InertHtmlFragment,
     depth: usize,
     budget: &mut usize,
+    clipboard: bool,
 ) -> Option<()> {
     if depth > 32 || *budget == 0 {
         return None;
@@ -308,9 +343,23 @@ fn inert_node(
             if name.ns.as_ref() != "http://www.w3.org/1999/xhtml" {
                 return None;
             }
+            if clipboard && tag == "input" {
+                if !attribute(attrs, "type")
+                    .is_some_and(|kind| kind.eq_ignore_ascii_case("checkbox"))
+                    || attribute(attrs, "disabled").is_none()
+                {
+                    return None;
+                }
+                fragment.html.push_str("<input type=\"checkbox\" disabled");
+                if attribute(attrs, "checked").is_some() {
+                    fragment.html.push_str(" checked");
+                }
+                fragment.html.push('>');
+                return Some(());
+            }
             if matches!(tag, "html" | "head" | "body") {
                 for child in handle.children.borrow().iter() {
-                    inert_node(child, fragment, depth + 1, budget)?;
+                    inert_node(child, fragment, depth + 1, budget, clipboard)?;
                 }
                 return Some(());
             }
@@ -362,11 +411,34 @@ fn inert_node(
                     | "td"
                     | "caption"
                     | "img"
-            ) {
+            ) && !(clipboard && tag == "aside")
+            {
                 return None;
             }
             fragment.html.push('<');
             fragment.html.push_str(tag);
+            if tag == "a"
+                && let Some(target) = attribute(attrs, "href")
+                && !target.is_empty()
+            {
+                if clipboard {
+                    if matches!(
+                        crate::resolve_link(&target, None),
+                        Ok(_) | Err(crate::LinkError::NoDirectory)
+                    ) {
+                        fragment.html.push_str(" href=\"");
+                        html_escape(&target, &mut fragment.html);
+                        fragment.html.push('"');
+                    }
+                } else {
+                    fragment.html.push_str(" data-mineral-link=\"");
+                    fragment
+                        .html
+                        .push_str(&fragment.link_targets.len().to_string());
+                    fragment.html.push('"');
+                    fragment.link_targets.push(target);
+                }
+            }
             if tag == "img" {
                 // URLs remain outside the inert DOM. In particular, no srcset,
                 // remote/file/data URL or base-element resolution is introduced.
@@ -376,18 +448,34 @@ fn inert_node(
                     return None;
                 }
                 let source = attribute(attrs, "src")?;
-                if source.is_empty()
-                    || source.starts_with('/')
-                    || source
+                let local = !source.is_empty()
+                    && !source.starts_with('/')
+                    && !source
                         .chars()
-                        .any(|ch| ch.is_control() || matches!(ch, ':' | '\\' | '?' | '#'))
-                {
+                        .any(|ch| ch.is_control() || matches!(ch, ':' | '\\' | '?' | '#'));
+                let web = clipboard
+                    && source.trim() == source
+                    && !source.chars().any(char::is_control)
+                    && !source.contains('\\')
+                    && url::Url::parse(&source).is_ok_and(|url| {
+                        matches!(url.scheme(), "http" | "https") && url.host_str().is_some()
+                    });
+                if !clipboard && !local {
                     return None;
                 }
                 let alt = attribute(attrs, "alt").unwrap_or_default();
-                fragment.html.push_str(" data-mineral-image=\"");
-                fragment.html.push_str(&fragment.images.len().to_string());
-                fragment.html.push_str("\" alt=\"");
+                if clipboard {
+                    if local || web {
+                        fragment.html.push_str(" src=\"");
+                        html_escape(&source, &mut fragment.html);
+                        fragment.html.push('"');
+                    }
+                } else {
+                    fragment.html.push_str(" data-mineral-image=\"");
+                    fragment.html.push_str(&fragment.images.len().to_string());
+                    fragment.html.push('"');
+                }
+                fragment.html.push_str(" alt=\"");
                 html_escape(&alt, &mut fragment.html);
                 fragment.html.push('"');
                 fragment.text.push_str(&alt);
@@ -395,6 +483,9 @@ fn inert_node(
             }
             for attr in attrs.borrow().iter() {
                 let key = attr.name.local.as_ref();
+                if clipboard && key == "style" {
+                    continue;
+                }
                 if tag == "img"
                     && attr.name.ns.as_ref().is_empty()
                     && matches!(key, "width" | "height")
@@ -414,7 +505,11 @@ fn inert_node(
                 // Never install them as DOM/native IDs, and never accept a
                 // caller-supplied data-mineral-anchor attribute as authority.
                 if attr.name.ns.as_ref().is_empty() && key == "id" {
-                    fragment.html.push_str(" data-mineral-anchor=\"");
+                    fragment.html.push_str(if clipboard {
+                        " id=\""
+                    } else {
+                        " data-mineral-anchor=\""
+                    });
                     html_escape(&attr.value, &mut fragment.html);
                     fragment.html.push('"');
                     continue;
@@ -449,7 +544,7 @@ fn inert_node(
             }
             fragment.html.push('>');
             for child in handle.children.borrow().iter() {
-                inert_node(child, fragment, depth + 1, budget)?;
+                inert_node(child, fragment, depth + 1, budget, clipboard)?;
             }
             if !matches!(tag, "br" | "hr" | "img") {
                 fragment.html.push_str("</");
@@ -479,7 +574,7 @@ fn inert_node(
         }
         NodeData::Document => {
             for child in handle.children.borrow().iter() {
-                inert_node(child, fragment, depth + 1, budget)?;
+                inert_node(child, fragment, depth + 1, budget, clipboard)?;
             }
         }
         _ => {}
@@ -490,6 +585,34 @@ fn inert_node(
 #[cfg(test)]
 mod inert_tests {
     use super::*;
+
+    #[test]
+    fn clipboard_containers_retain_read_only_tasks_and_safe_images() {
+        let source = "<aside><input type='checkbox' checked disabled onclick='run()'><img src='https://example.test/p.png' alt='Web'><img src='javascript:run()' alt='Unsafe'></aside>";
+        assert_eq!(
+            clipboard_html_document(source).unwrap(),
+            "<aside><input type=\"checkbox\" disabled checked><img src=\"https://example.test/p.png\" alt=\"Web\"><img alt=\"Unsafe\"></aside>"
+        );
+        assert!(inert_html_fragment(source).is_none());
+        assert!(clipboard_html_document("<input type='text' disabled>").is_none());
+        assert!(clipboard_html_document("<input type='checkbox'>").is_none());
+    }
+
+    #[test]
+    fn clipboard_export_has_real_safe_links_without_renderer_or_active_attributes() {
+        let source = "<div id='root' style='background:url(https://remote.test/image)' onclick='run()'><a href='https://example.test/?a=1&amp;b=2'>Web</a><a href='javascript:run()'>Unsafe</a><a href='notes.md#next'>Local</a><img src='photo.png' alt='Photo'><script>run()</script></div>";
+        let html = clipboard_html_fragment(source).unwrap();
+        assert_eq!(
+            html,
+            "<div id=\"root\"><a href=\"https://example.test/?a=1&amp;b=2\">Web</a><a>Unsafe</a><a href=\"notes.md#next\">Local</a><img src=\"photo.png\" alt=\"Photo\"></div>"
+        );
+        assert!(!html.contains("data-mineral"));
+        let preview = inert_html_fragment(source).unwrap();
+        assert!(preview.html().contains("data-mineral-link"));
+        assert!(preview.html().contains("style="));
+        assert!(!preview.html().contains("href="));
+        assert!(clipboard_html_fragment(&"x".repeat(32 * 1024 + 1)).is_none());
+    }
 
     #[test]
     fn explicit_html_conversion_is_editable_and_undo_restores_original_bytes() {
@@ -734,9 +857,14 @@ mod inert_tests {
 
     #[test]
     fn active_resources_and_unsupported_structures_do_not_enter_the_renderer() {
-        let source = "<script>secret()</script><iframe src='https://example.test'>hidden</iframe><p onclick='bad()' tabindex='0'><a href='javascript:bad()'>Visible</a></p>";
+        let source = "<script>secret()</script><iframe src='https://example.test'>hidden</iframe><p onclick='bad()' tabindex='0'><a href='javascript:bad()' data-mineral-link='99'>Visible</a></p>";
         let fragment = inert_html_fragment(source).unwrap();
-        assert_eq!(fragment.html(), "<p><a>Visible</a></p>");
+        assert_eq!(
+            fragment.html(),
+            "<p><a data-mineral-link=\"0\">Visible</a></p>"
+        );
+        assert_eq!(fragment.link_targets(), &["javascript:bad()"]);
+        assert!(!fragment.html().contains("javascript:"));
         assert_eq!(fragment.text(), "Visible\n");
         for unsupported in [
             "<img src='file:///etc/passwd'>",
@@ -764,6 +892,91 @@ pub(crate) struct HtmlTableData {
     pub rows: Vec<Vec<String>>,
     pub header_rows: usize,
     pub alignments: Vec<crate::ColumnAlignment>,
+}
+
+/// A complete semantic HTML glossary, including separate empty authored
+/// paragraphs. Native import is conservative: unfamiliar wrappers, attributes
+/// or children remain in the lossless inert-HTML path.
+pub(crate) fn html_definition_data(
+    source: &str,
+) -> Option<Vec<(crate::DefinitionKind, Vec<String>)>> {
+    inert_html_fragment(source)?;
+    let dom = parse_document(RcDom::default(), ParseOpts::default()).one(source);
+    let body = descendants_named(&dom.document, "body")
+        .into_iter()
+        .next()?;
+    let meaningful = |child: &&Handle| {
+        !matches!(&child.data,
+        NodeData::Text { contents } if contents.borrow().trim().is_empty())
+    };
+    let body_children = body.children.borrow();
+    let mut content = body_children.iter().filter(meaningful);
+    let list = content.next()?;
+    if element_name(list) != Some("dl") || content.next().is_some() {
+        return None;
+    }
+    let no_attributes = |node: &Handle| matches!(&node.data, NodeData::Element { attrs, .. } if attrs.borrow().is_empty());
+    if !no_attributes(list) {
+        return None;
+    }
+    let mut groups = Vec::new();
+    for group in list.children.borrow().iter().filter(meaningful) {
+        let kind = match element_name(group) {
+            Some("dt") => crate::DefinitionKind::Term,
+            Some("dd") => crate::DefinitionKind::Description,
+            _ => return None,
+        };
+        if !no_attributes(group) {
+            return None;
+        }
+        let mut blocks = Vec::new();
+        let mut inline = String::new();
+        for child in group.children.borrow().iter() {
+            let block = matches!(
+                element_name(child),
+                Some(
+                    "p" | "h1"
+                        | "h2"
+                        | "h3"
+                        | "h4"
+                        | "h5"
+                        | "h6"
+                        | "pre"
+                        | "blockquote"
+                        | "ul"
+                        | "ol"
+                        | "dl"
+                        | "table"
+                        | "hr"
+                        | "div"
+                        | "details"
+                )
+            );
+            if block {
+                if !inline.trim().is_empty() {
+                    blocks.push(inline.trim_matches('\n').to_owned());
+                }
+                inline.clear();
+                let mut markdown = String::new();
+                if matches!(element_name(child), Some("div" | "details")) {
+                    render_preserved_element(child, &mut markdown);
+                } else {
+                    render_node(child, &mut markdown, 0, true);
+                }
+                blocks.push(markdown.trim_matches('\n').to_owned());
+            } else {
+                render_node(child, &mut inline, 0, true);
+            }
+        }
+        if !inline.trim().is_empty() {
+            blocks.push(inline.trim_matches('\n').to_owned());
+        }
+        if blocks.iter().any(|s| s.contains("<!-- Unsupported")) {
+            return None;
+        }
+        groups.push((kind, blocks));
+    }
+    Some(groups)
 }
 
 pub(crate) fn html_table_data(source: &str) -> Option<HtmlTableData> {
@@ -997,12 +1210,40 @@ fn render_node(handle: &Handle, output: &mut String, depth: usize, tables_allowe
                     )));
                 }
                 "pre" => {
-                    output.push_str("```\n");
-                    output.push_str(&descendant_text(handle));
+                    let code =
+                        element_children(handle).find(|child| element_name(child) == Some("code"));
+                    let language = code
+                        .as_ref()
+                        .and_then(|code| attribute_for_handle(code, "class"))
+                        .and_then(|class| {
+                            class
+                                .split_whitespace()
+                                .find_map(|c| c.strip_prefix("language-").map(str::to_owned))
+                        })
+                        .filter(|language| {
+                            language.chars().all(|c| {
+                                c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '+' | '.')
+                            })
+                        });
+                    let source = descendant_text(handle);
+                    let fence = "`".repeat(
+                        source
+                            .split(|c| c != '`')
+                            .map(str::len)
+                            .max()
+                            .unwrap_or(0)
+                            .max(2)
+                            + 1,
+                    );
+                    output.push_str(&fence);
+                    output.push_str(language.as_deref().unwrap_or_default());
+                    output.push('\n');
+                    output.push_str(&source);
                     if !output.ends_with('\n') {
                         output.push('\n');
                     }
-                    output.push_str("```\n\n");
+                    output.push_str(&fence);
+                    output.push_str("\n\n");
                 }
                 "a" => {
                     output.push('[');
@@ -1011,6 +1252,10 @@ fn render_node(handle: &Handle, output: &mut String, depth: usize, tables_allowe
                     output.push_str(&crate::markdown::serialize_destination(
                         &attribute(attrs, "href").unwrap_or_default(),
                     ));
+                    if let Some(title) = attribute(attrs, "title") {
+                        output.push(' ');
+                        output.push_str(&crate::markdown::serialize_title(&title));
+                    }
                     output.push(')');
                 }
                 "img" => {
@@ -1029,6 +1274,30 @@ fn render_node(handle: &Handle, output: &mut String, depth: usize, tables_allowe
                     output.push(')');
                 }
                 "br" => output.push_str("  \n"),
+                "span"
+                    if attribute(attrs, "style")
+                        .is_some_and(|style| style.trim() == "white-space: pre-wrap")
+                        && handle
+                            .children
+                            .borrow()
+                            .iter()
+                            .all(|child| matches!(&child.data, NodeData::Text { .. })) =>
+                {
+                    for child in handle.children.borrow().iter() {
+                        if let NodeData::Text { contents } = &child.data {
+                            let escaped = crate::markdown::escape_inline(&contents.borrow());
+                            for character in escaped.chars() {
+                                match character {
+                                    ' ' => output.push_str("&#32;"),
+                                    '\t' => output.push_str("&#9;"),
+                                    '\n' => output.push_str("&#10;"),
+                                    '\r' => output.push_str("&#13;"),
+                                    _ => output.push(character),
+                                }
+                            }
+                        }
+                    }
+                }
                 "blockquote" => {
                     let mut inner = String::new();
                     render_children(handle, &mut inner, depth + 1, tables_allowed);
@@ -1039,9 +1308,10 @@ fn render_node(handle: &Handle, output: &mut String, depth: usize, tables_allowe
                     }
                     output.push('\n');
                 }
-                "ul" => render_list(handle, output, depth, false, tables_allowed),
-                "ol" => render_list(handle, output, depth, true, tables_allowed),
+                "ul" => render_list(handle, output, false, tables_allowed),
+                "ol" => render_list(handle, output, true, tables_allowed),
                 "li" => render_children(handle, output, depth, tables_allowed),
+                "dl" => render_preserved_element(handle, output),
                 "hr" => output.push_str("---\n\n"),
                 "table" if tables_allowed => render_preserved_element(handle, output),
                 "table" => output.push_str("<!-- Unsupported nested table -->"),
@@ -1097,13 +1367,13 @@ fn block_wrap(
     output.push_str(close);
 }
 
-fn render_list(
-    handle: &Handle,
-    output: &mut String,
-    depth: usize,
-    ordered: bool,
-    tables_allowed: bool,
-) {
+fn render_list(handle: &Handle, output: &mut String, ordered: bool, tables_allowed: bool) {
+    // A nested list can follow an item's inline text without an intervening
+    // paragraph element. Its marker must start a new line before the parent
+    // adds continuation indentation.
+    if !output.is_empty() && !output.ends_with('\n') {
+        output.push('\n');
+    }
     let mut ordinal = if ordered {
         let Some(start) = markdown_list_start(handle) else {
             render_preserved_element(handle, output);
@@ -1114,15 +1384,65 @@ fn render_list(
         1
     };
     for child in element_children(handle).filter(|child| element_name(child) == Some("li")) {
-        output.push_str(&"    ".repeat(depth));
-        if ordered {
-            output.push_str(&format!("{ordinal}. "));
-            ordinal += 1;
-        } else {
-            output.push_str("- ");
+        // Render item content independently: paragraph boundaries must not
+        // separate the marker from its first paragraph. This item owns all
+        // continuation indentation, including nested lists and code fences.
+        let mut content = String::new();
+        let mut checked = None;
+        for node in child.children.borrow().iter() {
+            if matches!(&node.data, NodeData::Text { contents } if contents.borrow().trim().is_empty() && contents.borrow().contains('\n'))
+            {
+                continue;
+            }
+            // Canonical task controls precede the item's first block. Keep
+            // their state separate from paragraph-boundary generation.
+            if content.trim().is_empty()
+                && checked.is_none()
+                && element_name(node) == Some("input")
+                && attribute_for_handle(node, "type")
+                    .is_some_and(|kind| kind.eq_ignore_ascii_case("checkbox"))
+            {
+                checked = Some(attribute_for_handle(node, "checked").is_some());
+                continue;
+            }
+            if content.trim().is_empty() && checked.is_none() && element_name(node) == Some("p") {
+                let children = node.children.borrow();
+                let mut meaningful = children.iter().skip_while(|child| {
+                    matches!(&child.data, NodeData::Text { contents } if contents.borrow().trim().is_empty())
+                });
+                if let Some(first) = meaningful.next()
+                    && element_name(first) == Some("input")
+                    && attribute_for_handle(first, "type")
+                        .is_some_and(|kind| kind.eq_ignore_ascii_case("checkbox"))
+                {
+                    checked = Some(attribute_for_handle(first, "checked").is_some());
+                    for child in meaningful {
+                        render_node(child, &mut content, 0, tables_allowed);
+                    }
+                    content.push_str("\n\n");
+                    continue;
+                }
+            }
+            render_node(node, &mut content, 0, tables_allowed);
         }
-        render_children(&child, output, depth + 1, tables_allowed);
-        if !output.ends_with('\n') {
+        let marker = if ordered {
+            let marker = format!("{ordinal}. ");
+            ordinal += 1;
+            marker
+        } else {
+            "- ".to_owned()
+        };
+        output.push_str(&marker);
+        if let Some(checked) = checked {
+            output.push_str(if checked { "[x] " } else { "[ ] " });
+        }
+        let continuation = " ".repeat(marker.len());
+        let content = content.trim_matches('\n');
+        for (index, line) in content.split('\n').enumerate() {
+            if index > 0 {
+                output.push_str(&continuation);
+            }
+            output.push_str(line);
             output.push('\n');
         }
     }

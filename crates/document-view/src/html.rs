@@ -80,7 +80,10 @@ pub(crate) struct HtmlDisclosure {
 
 #[derive(Debug)]
 pub(crate) struct HtmlLink {
-    pub range: std::ops::Range<usize>,
+    /// Present only when the complete link text has exact conversion/caret
+    /// correspondence. Opaque Blitz geometry remains clickable but never
+    /// becomes an inferred editable range.
+    pub range: Option<std::ops::Range<usize>>,
     pub target: String,
     pub bounds: Vec<[f32; 4]>,
 }
@@ -110,9 +113,11 @@ impl HtmlPreview {
     }
 
     pub fn link_at_byte(&self, byte: usize) -> Option<&HtmlLink> {
-        self.links
-            .iter()
-            .find(|link| link.range.contains(&byte) || link.range.end == byte)
+        self.links.iter().find(|link| {
+            link.range
+                .as_ref()
+                .is_some_and(|range| range.contains(&byte) || range.end == byte)
+        })
     }
 
     pub fn byte_for_position(&self, position: document_core::HtmlTextPosition) -> Option<usize> {
@@ -586,7 +591,7 @@ fn render_at_width(
     let palette = MineralPalette::LIGHT;
     let fonts = fonts::context();
     let css = format!(
-        "html {{ background: #{:06x} !important; color: #{:06x}; font: 18px/1.6 sans-serif; }}\n\
+        "html {{ background: #{:06x} !important; color: #{:06x}; font: 16px/1.5 'Spline Sans Mineral', sans-serif; }}\n\
          body {{ margin: 0; padding: 0; }}\n\
          p {{ margin: 0 0 16px; }}\n\
          table {{ border-collapse: separate; border-spacing: 0; margin: 0 0 16px; border: solid #{:06x}; border-width: 1px 0 0 1px; }}\n\
@@ -597,7 +602,7 @@ fn render_at_width(
          [align='right' i] {{ text-align: right; }}\n\
          th > :last-child, td > :last-child, body > table:last-child {{ margin-bottom: 0; }}\n\
          img {{ max-width: 100%; height: auto; }}\n\
-         details {{ padding: 12px 16px; border: 1px solid #{:06x}; border-radius: 8px; }}\n\
+         details {{ padding: 16px 24px; border: 1px solid #{:06x}; border-radius: 4px; }}\n\
          details + details {{ margin-top: 16px; }}\n\
          summary {{ font-weight: bold; min-height: 1.6em; }}\n\
          details[open] > summary {{ margin-bottom: 8px; }}\n\
@@ -638,6 +643,7 @@ fn render_at_width(
     let mut stack = vec![doc.root_node().id];
     let mut authored = Vec::new();
     let mut authored_anchors = Vec::new();
+    let mut authored_links = Vec::new();
     while let Some(id) = stack.pop() {
         let node = doc.get_node(id).ok_or(HtmlError::Unsupported)?;
         stack.extend(node.children.iter().rev().copied());
@@ -645,6 +651,14 @@ fn render_at_width(
             && !name.is_empty()
         {
             authored_anchors.push((id, name.to_owned()));
+        }
+        if let Some(ordinal) = node
+            .attr("data-mineral-link".into())
+            .and_then(|ordinal| ordinal.parse::<usize>().ok())
+            && let Some(target) = fragment.link_targets().get(ordinal)
+            && !target.is_empty()
+        {
+            authored_links.push((id, target.to_owned()));
         }
         if node
             .element_data()
@@ -718,12 +732,15 @@ fn render_at_width(
     }
     doc.resolve(0.);
     let body = doc.find_body_node().ok_or(HtmlError::Unsupported)?;
-    let height = body
-        .final_layout()
-        .size
-        .height
-        .max(body.final_layout().scrollable_overflow_rect.bottom)
-        .ceil();
+    // Collapsed child margins can move the body away from the document
+    // origin. Raster painting uses document coordinates, not body-local ones.
+    let height = (body.absolute_position(0., 0.).y
+        + body
+            .final_layout()
+            .size
+            .height
+            .max(body.final_layout().scrollable_overflow_rect.bottom))
+    .ceil();
     let content_width = body
         .final_layout()
         .size
@@ -753,12 +770,13 @@ fn render_at_width(
         ColorScheme::Light,
     ));
     doc.resolve(0.);
-    let resolved_height = doc
-        .find_body_node()
-        .ok_or(HtmlError::Unsupported)?
-        .final_layout()
-        .size
-        .height;
+    let body = doc.find_body_node().ok_or(HtmlError::Unsupported)?;
+    let resolved_height = body.absolute_position(0., 0.).y
+        + body
+            .final_layout()
+            .size
+            .height
+            .max(body.final_layout().scrollable_overflow_rect.bottom);
     if (resolved_height.ceil() - height).abs() > 1. {
         return Err(HtmlError::Unsupported);
     }
@@ -1001,7 +1019,7 @@ fn render_at_width(
         });
     }
     // Only the already verified, complete source-to-glyph correspondence may
-    // create clickable regions. Never infer links by matching repeated labels.
+    // create editable link ranges. Never infer links by matching repeated labels.
     for (ordinal, leaf) in leaves.unwrap_or_default().iter().enumerate() {
         let leaf = &leaf.text;
         let Some(range) = preview.text_ranges.get(ordinal) else {
@@ -1031,17 +1049,91 @@ fn render_at_width(
             let absolute = range.start + run.range.start..range.start + run.range.end;
             if let Some(last) = preview.links.last_mut()
                 && last.target == *target
-                && last.range.end == absolute.start
+                && last
+                    .range
+                    .as_ref()
+                    .is_some_and(|range| range.end == absolute.start)
             {
-                last.range.end = absolute.end;
+                last.range.as_mut().unwrap().end = absolute.end;
                 last.bounds.extend(bounds);
             } else {
                 preview.links.push(HtmlLink {
-                    range: absolute,
+                    range: Some(absolute),
                     target: target.clone(),
                     bounds,
                 });
             }
+        }
+    }
+    // An otherwise opaque fragment may still expose exact, inert Blitz link
+    // boxes (for example, a spanning HTML table). Retain those pointer regions
+    // without inventing text offsets or making the fragment convertible. A
+    // transformed, hidden or occluded anchor has no trustworthy native box.
+    for (id, target) in authored_links {
+        let represented_by_text = preview.text_hits.iter().any(|hit| {
+            let mut current = Some(hit.dom_node);
+            while let Some(node) = current {
+                if node == id {
+                    return true;
+                }
+                current = doc.get_node(node).and_then(|node| node.parent);
+            }
+            false
+        });
+        if represented_by_text {
+            continue;
+        }
+        let mut current = Some(id);
+        let mut transformed = false;
+        while let Some(node_id) = current {
+            let Some(node) = doc.get_node(node_id) else {
+                transformed = true;
+                break;
+            };
+            transformed |= node.transform().is_some();
+            current = node.parent;
+        }
+        if transformed {
+            continue;
+        }
+        let bounds = doc
+            .node_client_rects(id)
+            .into_iter()
+            .filter_map(|rect| {
+                let values = [
+                    rect.x as f32,
+                    rect.y as f32,
+                    (rect.x + rect.width) as f32,
+                    (rect.y + rect.height) as f32,
+                ];
+                if values.iter().any(|value| !value.is_finite())
+                    || rect.width <= 0.
+                    || rect.height <= 0.
+                    || values[0] < 0.
+                    || values[1] < 0.
+                    || values[2] > width as f32 + 1.
+                    || values[3] > height + 1.
+                {
+                    return None;
+                }
+                let mut hit = doc
+                    .hit((values[0] + values[2]) * 0.5, (values[1] + values[3]) * 0.5)
+                    .map(|hit| hit.node_id);
+                while let Some(node_id) = hit {
+                    if node_id == id {
+                        return Some(values);
+                    }
+                    hit = doc.get_node(node_id).and_then(|node| node.parent);
+                }
+                None
+            })
+            .collect::<Vec<_>>();
+        if !bounds.is_empty() {
+            preview.links.push(HtmlLink {
+                range: None,
+                target,
+                bounds,
+            });
         }
     }
     for link in &mut preview.links {
@@ -1067,6 +1159,33 @@ fn render_at_width(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn collapsed_top_margin_keeps_final_text_inside_the_raster() {
+        for source in [
+            "<ul><li>Other</li></ul>",
+            "<div><ul><li>One<ul><li>Nested</li></ul></li><li>Other</li></ul></div>",
+            "<div style='margin-top:48px'><p>Other</p></div>",
+            "<div style='margin-top:0'><p>Other</p></div>",
+        ] {
+            for width in [200, 600] {
+                let preview = render(source, width).unwrap();
+                let byte = preview.editable_text.find("Other").unwrap();
+                let position = preview.position_for_byte(byte).unwrap();
+                let bounds = preview
+                    .caret_stops
+                    .iter()
+                    .find(|stop| stop.position == position)
+                    .expect("final item needs its own visible caret geometry")
+                    .bounds;
+                assert!(
+                    bounds[3] <= preview.height,
+                    "final item {bounds:?} exceeds raster height {} for {source}",
+                    preview.height
+                );
+            }
+        }
+    }
 
     #[test]
     fn keyboard_rows_preserve_legal_grapheme_edges_and_measured_wrapping() {
@@ -1169,7 +1288,7 @@ mod tests {
             "authored CSS must override the presentational hint"
         );
         assert!(
-            left.height >= 48.,
+            left.height >= 44.,
             "padding must contribute to measured height"
         );
         for preview in [&left, &right, &styled] {
@@ -1345,7 +1464,10 @@ mod tests {
             assert_eq!(preview.links[1].target, "mailto:person@example.test");
             assert!(preview.link_at(1., 1.).is_none());
             for link in &preview.links {
-                assert_eq!(&preview.editable_text[link.range.clone()], "café link");
+                assert_eq!(
+                    &preview.editable_text[link.range.clone().unwrap()],
+                    "café link"
+                );
                 for b in &link.bounds {
                     assert_eq!(
                         preview
@@ -1385,6 +1507,29 @@ mod tests {
         ] {
             assert!(document_core::resolve_link(target, None).is_ok());
         }
+    }
+
+    #[test]
+    fn opaque_links_use_exact_blitz_boxes_without_inventing_editable_ranges() {
+        let source = "<table><tr><th colspan='2'><a href='https://example.test/spec'>Opaque link</a></th></tr><tr><td>A</td><td>B</td></tr></table>";
+        let preview = render(source, 420).unwrap();
+        assert!(!preview.can_convert);
+        assert!(preview.text_hits.is_empty());
+        assert_eq!(preview.links.len(), 1);
+        let link = &preview.links[0];
+        assert_eq!(link.target, "https://example.test/spec");
+        assert_eq!(link.range, None);
+        assert!(!link.bounds.is_empty());
+        for bounds in &link.bounds {
+            assert_eq!(
+                preview
+                    .link_at((bounds[0] + bounds[2]) * 0.5, (bounds[1] + bounds[3]) * 0.5)
+                    .map(|link| link.target.as_str()),
+                Some("https://example.test/spec")
+            );
+        }
+        assert!(preview.link_at_byte(0).is_none());
+        assert_eq!(preview.source.as_ref(), source);
     }
 
     #[test]

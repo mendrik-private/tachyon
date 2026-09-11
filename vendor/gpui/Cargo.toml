@@ -1,0 +1,518 @@
+# Exact GPUI 0.2.2 / Zed 8b1497dbd22fb06f5838a7c0b84a1e54fafa71bc.
+# Workspace inheritance normalized; dependency revisions remain in Cargo.lock.
+
+["package"]
+"name" = "gpui"
+"version" = "0.2.2"
+"edition" = "2024"
+"authors" = ["Nathan Sobo <nathan@zed.dev>"]
+"description" = "Zed's GPU-accelerated UI framework"
+"repository" = "https://github.com/zed-industries/zed"
+"publish" = true
+"license" = "Apache-2.0"
+"homepage" = "https://gpui.rs"
+"readme" = "README.md"
+"keywords" = ["desktop", "gui", "immediate"]
+"categories" = ["gui"]
+
+["package"."metadata"]
+
+["package"."metadata"."cargo-machete"]
+"ignored" = ["tracing"]
+
+["lints"]
+
+["lints"."rust"]
+
+["lints"."rust"."unexpected_cfgs"]
+"level" = "allow"
+
+["lints"."clippy"]
+"dbg_macro" = "deny"
+"todo" = "deny"
+"declare_interior_mutable_const" = "deny"
+"redundant_clone" = "deny"
+"disallowed_methods" = "deny"
+"type_complexity" = "allow"
+"let_underscore_future" = "allow"
+"single_range_in_vec_init" = "allow"
+"too_many_arguments" = "allow"
+"large_enum_variant" = "allow"
+"nonminimal_bool" = "allow"
+
+["lints"."clippy"."style"]
+"level" = "allow"
+"priority" = -1
+
+["features"]
+"default" = ["font-kit", "wayland", "x11", "windows-manifest"]
+"test-support" = ["leak-detection", "collections/test-support", "http_client/test-support", "wayland", "x11", "proptest"]
+"bench" = ["test-support", "profiler", "dep:criterion"]
+"inspector" = ["gpui_macros/inspector"]
+"leak-detection" = ["backtrace"]
+"wayland" = []
+"x11" = ["scap?/x11"]
+"screen-capture" = ["scap"]
+"windows-manifest" = ["dep:embed-resource"]
+"profiler" = ["dep:hdrhistogram"]
+
+["lib"]
+"path" = "src/gpui.rs"
+"doctest" = false
+
+["dependencies"]
+"num_cpus" = "1.13"
+"parking" = "2.0.0"
+"ttf-parser" = "0.25"
+"seahash" = "4.1"
+"taffy" = "=0.13.0"
+"waker-fn" = "1.2.0"
+"lyon" = "1.0"
+"pin-project" = "1.1.10"
+"spin" = "0.10.0"
+
+["dependencies"."accesskit"]
+"version" = "0.24.0"
+"features" = ["enumn"]
+
+["dependencies"."anyhow"]
+"version" = "1.0.86"
+
+["dependencies"."async-task"]
+"version" = "4.7"
+
+["dependencies"."backtrace"]
+"version" = "0.3"
+"optional" = true
+
+["dependencies"."bitflags"]
+"version" = "2.6.0"
+
+["dependencies"."collections"]
+"version" = "0.1.0"
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."criterion"]
+"version" = "0.5"
+"features" = ["html_reports"]
+"optional" = true
+
+["dependencies"."ctor"]
+"version" = "1.0.12"
+
+["dependencies"."derive_more"]
+"version" = "2.1.1"
+"features" = ["add", "add_assign", "deref", "deref_mut", "display", "from_str", "mul", "mul_assign", "not"]
+
+["dependencies"."etagere"]
+"version" = "0.2"
+
+["dependencies"."futures"]
+"version" = "0.3.32"
+
+["dependencies"."futures-concurrency"]
+"version" = "7.7.1"
+
+["dependencies"."gpui_macros"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."gpui_shared_string"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."http_client"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."image"]
+"version" = "0.25.1"
+"default-features" = false
+"features" = ["bmp", "dds", "exr", "ff", "gif", "hdr", "ico", "jpeg", "png", "pnm", "qoi", "rayon", "tga", "tiff", "webp"]
+
+["dependencies"."inventory"]
+"version" = "0.3.19"
+
+["dependencies"."itertools"]
+"version" = "0.14.0"
+
+["dependencies"."log"]
+"version" = "0.4.16"
+"features" = ["kv_unstable_serde", "serde"]
+
+["dependencies"."parking_lot"]
+"version" = "0.12.1"
+
+["dependencies"."postage"]
+"version" = "0.5"
+"features" = ["futures-traits"]
+
+["dependencies"."proptest"]
+"git" = "https://github.com/proptest-rs/proptest"
+"rev" = "3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b"
+"features" = ["attr-macro"]
+"optional" = true
+
+["dependencies"."chrono"]
+"version" = "0.4"
+"features" = ["serde"]
+
+["dependencies"."profiling"]
+"version" = "1"
+
+["dependencies"."rand"]
+"version" = "0.9"
+
+["dependencies"."raw-window-handle"]
+"version" = "0.6"
+
+["dependencies"."regex"]
+"version" = "1.5"
+
+["dependencies"."refineable"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."scheduler"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."resvg"]
+"version" = "0.46.0"
+"default-features" = false
+"features" = ["text", "system-fonts", "memmap-fonts", "raster-images"]
+
+["dependencies"."usvg"]
+"version" = "0.46.0"
+"default-features" = false
+
+["dependencies"."util_macros"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."schemars"]
+"version" = "1.0"
+"features" = ["indexmap2"]
+
+["dependencies"."serde"]
+"version" = "1.0.221"
+"features" = ["derive", "rc"]
+
+["dependencies"."serde_json"]
+"version" = "1.0.144"
+"features" = ["preserve_order", "raw_value"]
+
+["dependencies"."slotmap"]
+"version" = "1.0.6"
+
+["dependencies"."smallvec"]
+"version" = "1.6"
+"features" = ["union", "const_new"]
+
+["dependencies"."async-channel"]
+"version" = "2.5.0"
+
+["dependencies"."stacksafe"]
+"version" = "1.0"
+
+["dependencies"."strum"]
+"version" = "0.27.2"
+"features" = ["derive"]
+
+["dependencies"."sum_tree"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."thiserror"]
+"version" = "2.0.12"
+
+["dependencies"."tracing"]
+"version" = "0.1.40"
+
+["dependencies"."gpui_util"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dependencies"."hdrhistogram"]
+"version" = "7"
+"optional" = true
+
+["dependencies"."pollster"]
+"version" = "0.4.0"
+
+["dependencies"."url"]
+"version" = "2.2"
+
+["dependencies"."uuid"]
+"version" = "1.1.2"
+"features" = ["v4", "v5", "v7", "serde"]
+
+["dependencies"."web-time"]
+"version" = "1.1.0"
+
+["dependencies"."heapless"]
+"version" = "0.9.2"
+
+["dependencies"."ztracing"]
+"git" = "https://github.com/zed-industries/zed"
+
+["target"]
+
+["target"."cfg(target_family = \"wasm\")"]
+
+["target"."cfg(target_family = \"wasm\")"."dependencies"]
+
+["target"."cfg(target_family = \"wasm\")"."dependencies"."getrandom"]
+"version" = "0.3.4"
+"features" = ["wasm_js"]
+
+["target"."cfg(target_family = \"wasm\")"."dependencies"."uuid"]
+"version" = "1.1.2"
+"features" = ["v4", "v5", "v7", "serde", "js"]
+
+["target"."cfg(target_family = \"wasm\")"."dev-dependencies"]
+
+["target"."cfg(target_family = \"wasm\")"."dev-dependencies"."wasm-bindgen"]
+"version" = "0.2.120"
+
+["target"."cfg(target_family = \"wasm\")"."dev-dependencies"."gpui_web"]
+"git" = "https://github.com/zed-industries/zed"
+
+["target"."cfg(target_os = \"macos\")"]
+
+["target"."cfg(target_os = \"macos\")"."dependencies"]
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."block"]
+"version" = "0.1"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."cocoa"]
+"version" = "=0.26.0"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."cocoa-foundation"]
+"version" = "=0.2.0"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."core-foundation"]
+"version" = "0.10"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."core-foundation-sys"]
+"version" = "0.8.6"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."core-graphics"]
+"version" = "0.24"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."core-video"]
+"version" = "0.5.2"
+"features" = ["metal"]
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."core-text"]
+"version" = "21"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."font-kit"]
+"git" = "https://github.com/zed-industries/font-kit"
+"rev" = "94b0f28166665e8fd2f53ff6d268a14955c82269"
+"package" = "zed-font-kit"
+"version" = "0.14.1-zed"
+"optional" = true
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."foreign-types"]
+"version" = "0.5"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."log"]
+"version" = "0.4.16"
+"features" = ["kv_unstable_serde", "serde"]
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."media"]
+"git" = "https://github.com/zed-industries/zed"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."objc"]
+"version" = "0.2"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."objc2"]
+"version" = "0.6"
+"optional" = true
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."objc2-metal"]
+"version" = "0.3"
+"optional" = true
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."mach2"]
+"version" = "0.5"
+
+["target"."cfg(target_os = \"macos\")"."dependencies"."metal"]
+"version" = "0.33"
+
+["target"."cfg(target_os = \"macos\")"."build-dependencies"]
+"bindgen" = "0.71"
+
+["target"."cfg(target_os = \"macos\")"."build-dependencies"."cbindgen"]
+"version" = "0.28.0"
+"default-features" = false
+
+["target"."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"macos\"))"]
+
+["target"."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"macos\"))"."dependencies"]
+
+["target"."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"macos\"))"."dependencies"."pathfinder_geometry"]
+"version" = "0.5"
+
+["target"."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"windows\"))"]
+
+["target"."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"windows\"))"."dependencies"]
+
+["target"."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"windows\"))"."dependencies"."scap"]
+"git" = "https://github.com/zed-industries/scap"
+"rev" = "4afea48c3b002197176fb19cd0f9b180dd36eaac"
+"default-features" = false
+"package" = "zed-scap"
+"version" = "0.0.8-zed"
+"optional" = true
+
+["target"."cfg(target_os = \"windows\")"]
+
+["target"."cfg(target_os = \"windows\")"."dependencies"]
+
+["target"."cfg(target_os = \"windows\")"."dependencies"."windows"]
+"version" = "0.61"
+"features" = ["Data_Xml_Dom", "Foundation_Numerics", "Globalization_DateTimeFormatting", "Storage_Search", "Storage_Streams", "System_Threading", "UI_Notifications", "UI_ViewManagement", "Wdk_System_SystemServices", "Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D_Fxc", "Win32_Graphics_DirectComposition", "Win32_Graphics_DirectWrite", "Win32_Graphics_DirectManipulation", "Win32_Graphics_Dwm", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Graphics_Gdi", "Win32_Graphics_Imaging", "Win32_Graphics_Hlsl", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_Storage_Packaging_Appx", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Console", "Win32_System_Diagnostics_Debug", "Win32_System_DataExchange", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_Ole", "Win32_System_Performance", "Win32_System_Pipes", "Win32_System_RestartManager", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_System_Variant", "Win32_System_WinRT", "Win32_UI_Controls", "Win32_UI_HiDpi", "Win32_UI_Input_Ime", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Input_Pointer", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_Shell_PropertiesSystem", "Win32_UI_WindowsAndMessaging", "Win32_Media", "Win32_System_Power"]
+
+["target"."cfg(not(target_family = \"wasm\"))"]
+
+["target"."cfg(not(target_family = \"wasm\"))"."dev-dependencies"]
+
+["target"."cfg(not(target_family = \"wasm\"))"."dev-dependencies"."http_client"]
+"features" = ["test-support"]
+"git" = "https://github.com/zed-industries/zed"
+
+["target"."cfg(not(target_family = \"wasm\"))"."dev-dependencies"."proptest"]
+"git" = "https://github.com/proptest-rs/proptest"
+"rev" = "3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b"
+"features" = ["attr-macro"]
+
+["target"."cfg(not(target_family = \"wasm\"))"."dev-dependencies"."reqwest_client"]
+"features" = ["test-support"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dev-dependencies"]
+
+["dev-dependencies"."backtrace"]
+"version" = "0.3"
+
+["dev-dependencies"."collections"]
+"version" = "0.1.0"
+"features" = ["test-support"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dev-dependencies"."env_logger"]
+"version" = "0.11"
+
+["dev-dependencies"."gpui_platform"]
+"default-features" = false
+"features" = ["font-kit", "wayland", "x11"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dev-dependencies"."gpui_util"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dev-dependencies"."lyon"]
+"version" = "1.0"
+"features" = ["extra"]
+
+["dev-dependencies"."rand"]
+"version" = "0.9"
+
+["dev-dependencies"."scheduler"]
+"features" = ["test-support"]
+"git" = "https://github.com/zed-industries/zed"
+
+["dev-dependencies"."unicode-segmentation"]
+"version" = "1.10"
+
+["build-dependencies"]
+
+["build-dependencies"."embed-resource"]
+"version" = "3.0"
+"optional" = true
+
+[["example"]]
+"name" = "hello_world"
+"path" = "examples/hello_world.rs"
+
+[["example"]]
+"name" = "move_entity_between_windows"
+"path" = "examples/move_entity_between_windows.rs"
+
+[["example"]]
+"name" = "image"
+"path" = "examples/image/image.rs"
+
+[["example"]]
+"name" = "input"
+"path" = "examples/input.rs"
+
+[["example"]]
+"name" = "on_window_close_quit"
+"path" = "examples/on_window_close_quit.rs"
+
+[["example"]]
+"name" = "window_movable"
+"path" = "examples/window_movable.rs"
+
+[["example"]]
+"name" = "opacity"
+"path" = "examples/opacity.rs"
+
+[["example"]]
+"name" = "pattern"
+"path" = "examples/pattern.rs"
+
+[["example"]]
+"name" = "set_menus"
+"path" = "examples/set_menus.rs"
+
+[["example"]]
+"name" = "system_notifications"
+"path" = "examples/system_notifications.rs"
+
+[["example"]]
+"name" = "shadow"
+"path" = "examples/shadow.rs"
+
+[["example"]]
+"name" = "svg"
+"path" = "examples/svg/svg.rs"
+
+[["example"]]
+"name" = "tab_stop"
+"path" = "examples/tab_stop.rs"
+
+[["example"]]
+"name" = "text"
+"path" = "examples/text.rs"
+
+[["example"]]
+"name" = "text_wrapper"
+"path" = "examples/text_wrapper.rs"
+
+[["example"]]
+"name" = "tree"
+"path" = "examples/tree.rs"
+
+[["example"]]
+"name" = "uniform_list"
+"path" = "examples/uniform_list.rs"
+
+[["example"]]
+"name" = "window_shadow"
+"path" = "examples/window_shadow.rs"
+
+[["example"]]
+"name" = "grid_layout"
+"path" = "examples/grid_layout.rs"
+
+[["example"]]
+"name" = "list_example"
+"path" = "examples/list_example.rs"
+
+[["example"]]
+"name" = "mouse_pressure"
+"path" = "examples/mouse_pressure.rs"
+
+[["example"]]
+"name" = "a11y"
+"path" = "examples/a11y.rs"
+
+[["example"]]
+"name" = "view_example"
+"path" = "examples/view_example/view_example_main.rs"

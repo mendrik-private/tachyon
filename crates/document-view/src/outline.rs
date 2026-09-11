@@ -29,6 +29,7 @@ fn append_outline(blocks: &BlockSequence, output: &mut Vec<OutlineEntry>) {
             }
             BlockNode::BlockQuote { blocks, .. }
             | BlockNode::Alert { blocks, .. }
+            | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => append_outline(blocks, output),
             BlockNode::Table(table) => {
                 for row in table.rows.iter() {

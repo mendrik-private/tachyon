@@ -1,4 +1,7 @@
 /target/
+**/target/
+/dist/
+/performance/layout-previews/
 /performance/wayland-harness/build/
 /performance/generated/
 /performance/results/

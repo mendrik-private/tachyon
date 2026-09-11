@@ -5,6 +5,8 @@ pub struct Assets;
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
         let icon: &'static [u8] = match path {
+            "mineral/lightbulb.svg" => include_bytes!("../assets/icons/lightbulb.svg"),
+            "mineral/flag.svg" => include_bytes!("../assets/icons/flag.svg"),
             "mineral/bold.svg" => include_bytes!("../assets/icons/bold.svg"),
             "mineral/italic.svg" => include_bytes!("../assets/icons/italic.svg"),
             "mineral/link.svg" => include_bytes!("../assets/icons/link.svg"),
@@ -26,6 +28,11 @@ impl AssetSource for Assets {
     }
     fn list(&self, path: &str) -> gpui::Result<Vec<SharedString>> {
         let mut result = gpui_component_assets::Assets.list(path)?;
+        for icon in ["mineral/lightbulb.svg", "mineral/flag.svg"] {
+            if icon.starts_with(path) {
+                result.push(icon.into());
+            }
+        }
         if "mineral/bold.svg".starts_with(path) {
             result.push("mineral/bold.svg".into());
         }

@@ -30,6 +30,7 @@ struct MeasureKey {
     width: u32,
     font_size: u32,
     runs: u64,
+    refine_ending: bool,
     // IDs/revisions can repeat in another document. Retaining the exact input
     // also makes cache hits collision-safe without a second editable store.
     text: Arc<str>,
@@ -49,6 +50,8 @@ struct ListItemMeasureKey {
     width: u32,
     cards: bool,
     math_edit: bool,
+    metadata: bool,
+    footnotes: crate::footnotes::Numbering,
 }
 
 pub(super) struct FontMeasurement {
@@ -57,9 +60,16 @@ pub(super) struct FontMeasurement {
     fonts: Arc<gpui::TextSystem>,
     style: gpui::TextStyle,
     zoom: f32,
+    prose_measures: [f32; 2],
+    pub(super) code_digit_width: f32,
     cache: Mutex<BoundedLru<MeasureKey, Vec<Range<usize>>>>,
     intrinsic_cache: Mutex<BoundedLru<IntrinsicKey, f32>>,
-    table_cache: Mutex<BoundedLru<ContentIdentity, crate::projection::TableMeasurements>>,
+    table_cache: Mutex<
+        BoundedLru<
+            (ContentIdentity, crate::footnotes::Numbering),
+            crate::projection::TableMeasurements,
+        >,
+    >,
     item_cache: Mutex<BoundedLru<ListItemMeasureKey, crate::adaptive::candidates::ItemMeasurement>>,
     group_cache: Mutex<
         BoundedLru<super::arrangement::GroupMeasureKey, crate::adaptive::rows::GroupMeasurement>,
@@ -67,6 +77,43 @@ pub(super) struct FontMeasurement {
 }
 
 impl FontMeasurement {
+    pub(super) fn command_language_width(&self, value: &str) -> f32 {
+        let mut font = gpui::font("Spline Sans Mono Mineral");
+        font.weight = FontWeight::SEMIBOLD;
+        let run = TextRun {
+            len: value.len(),
+            font,
+            color: rgb(MineralPalette::LIGHT.text).into(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let line = gpui::WindowTextSystem::new(self.fonts.clone()).shape_line(
+            value.to_owned().into(),
+            px(DocumentStyle::CAPTION_SIZE * self.zoom),
+            &[run],
+            None,
+        );
+        f32::from(line.width) / self.zoom
+    }
+    pub(super) fn footnote_advance(&self, number: usize, font_size: f32) -> f32 {
+        let text = number.to_string();
+        let run = TextRun {
+            len: text.len(),
+            font: gpui::font("Spline Sans Mineral"),
+            color: rgb(MineralPalette::LIGHT.accent).into(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let line = gpui::WindowTextSystem::new(self.fonts.clone()).shape_line(
+            text.into(),
+            px(font_size * 0.7 * self.zoom),
+            &[run],
+            None,
+        );
+        f32::from(line.width) / self.zoom + font_size * 0.15
+    }
     pub(super) fn cached_list_item(
         &self,
         projection: &TextProjection,
@@ -83,7 +130,9 @@ impl FontMeasurement {
             node,
             width: width.to_bits(),
             cards,
-            math_edit: projection.math_edit_node == Some(node),
+            math_edit: projection.preview_edit_node == Some(node),
+            metadata: segment.context.metadata,
+            footnotes: projection.footnotes.numbering.clone(),
         };
         diagnostics::count(|counts| counts.item_requests += 1);
         if let Some(value) = self
@@ -184,7 +233,10 @@ impl FontMeasurement {
         let measured = tables
             .into_iter()
             .filter_map(|(id, indexes)| {
-                let key = ContentIdentity(projection.block_handle(id)?.clone());
+                let key = (
+                    ContentIdentity(projection.block_handle(id)?.clone()),
+                    projection.footnotes.numbering.clone(),
+                );
                 if let Some(value) = self
                     .table_cache
                     .lock()
@@ -205,7 +257,7 @@ impl FontMeasurement {
                 }
                 let bytes = indexes
                     .iter()
-                    .map(|i| projection.segments()[*i].projection_range.len())
+                    .map(|i| projection.segments()[*i].projection_len())
                     .sum::<usize>();
                 if bytes > 64 * 1024 {
                     return None;
@@ -213,13 +265,15 @@ impl FontMeasurement {
                 let mut result = TableMeasurements {
                     minimum: vec![64.; table.columns.len()],
                     preferred: vec![64.; table.columns.len()],
+                    reading_width: self.prose_measures().fit_width(f32::INFINITY, false, false),
+                    record_headers: table_records::headers(projection, table, self),
                 };
                 for index in indexes {
                     let segment = &projection.segments()[index];
-                    let (_, _, column) = segment.context.table_cell?;
+                    let (_, row, column) = segment.context.table_cell?;
                     let block = projection.block(segment.node_id)?;
                     if column >= table.columns.len()
-                        || segment.projection_range.len() > 4096
+                        || segment.projection_len() > 4096
                         || !matches!(
                             block,
                             BlockNode::Paragraph(_)
@@ -233,29 +287,40 @@ impl FontMeasurement {
                         projection,
                         block,
                         segment,
-                        &segment.projection_range,
+                        &segment.projection_range(),
                         None,
                     )
                     .font_size;
+                    let minimum_font_size = if row > 0
+                        && column == 0
+                        && result.record_headers.as_ref().is_some_and(|h| h.len() > 2)
+                    {
+                        table_records::TITLE_SIZE
+                    } else {
+                        font_size
+                    };
                     // Container indentation is applied once to the table's
                     // origin/viewport; intrinsic columns own only cell padding.
                     let code = matches!(block, BlockNode::CodeBlock(_));
+                    let text = &projection.text()[segment.projection_range()];
                     let inset = 24.
                         + table_insets(segment, projection).1
-                        + if code { CODE_BLOCK_PADDING * 2. } else { 0. };
-                    let text = &projection.text()[segment.projection_range.clone()];
+                        + if code { CODE_BLOCK_PADDING * 2. } else { 0. }
+                        + code_gutter::width(block, text, Some(self)).unwrap_or(0.);
                     let mut valid = true;
                     for_each_display_line_range(text, |range| {
-                        let range = segment.projection_range.start + range.start
-                            ..segment.projection_range.start + range.end;
+                        let range = segment.projection_start() + range.start
+                            ..segment.projection_start() + range.end;
                         match self.line_width(projection, range, font_size) {
                             Some(width) => {
                                 result.preferred[column] = result.preferred[column]
                                     .max(table_constraint_width(width, inset));
-                                if code {
-                                    // Unwrapped code needs its complete line,
-                                    // not merely the longest word. Any excess
-                                    // belongs to contained table scrolling.
+                                if code || segment.context.badge.is_some() {
+                                    // Code lines and source-recognized short
+                                    // status badges need their complete text,
+                                    // not merely the longest word. Ordinary
+                                    // prose stays flexible. Explicit widths
+                                    // below still take precedence.
                                     result.minimum[column] = result.minimum[column]
                                         .max(table_constraint_width(width, inset));
                                 }
@@ -270,10 +335,14 @@ impl FontMeasurement {
                         .split_word_bound_indices()
                         .filter(|(_, s)| !s.trim().is_empty())
                     {
-                        let start = segment.projection_range.start + offset;
+                        let start = segment.projection_start() + offset;
                         result.minimum[column] =
                             result.minimum[column].max(table_constraint_width(
-                                self.line_width(projection, start..start + word.len(), font_size)?,
+                                self.line_width(
+                                    projection,
+                                    start..start + word.len(),
+                                    minimum_font_size,
+                                )?,
                                 inset,
                             ));
                     }
@@ -315,7 +384,7 @@ impl FontMeasurement {
     ) -> Option<f32> {
         diagnostics::count(|counts| counts.intrinsic_requests += 1);
         if let Some(segment) = projection.segment_for_range(&range)
-            && inline_math::has_math(projection, segment.node_id)
+            && inline_math::has_attachments(projection, segment.node_id)
             && let Some(lines) = inline_math::layout(
                 projection,
                 segment,
@@ -389,6 +458,50 @@ impl FontMeasurement {
     }
 
     pub fn new(fonts: Arc<gpui::TextSystem>, family: gpui::SharedString, zoom: f32) -> Self {
+        // Shape a fixed, ordinary-language calibration sample once per loaded
+        // font environment, not once per paragraph. That keeps section width
+        // stable while typing and avoids data-dependent width oscillation.
+        const SAMPLE: &str = "Good writing gives ideas a clear shape and enough room for the reader to follow the argument.";
+        let system = gpui::WindowTextSystem::new(fonts.clone());
+        let prose_measures = [
+            (family.clone(), DocumentStyle::REFERENCE_SIZE),
+            ("Liberation Serif".into(), DocumentStyle::READING_SIZE),
+        ]
+        .map(|(family, size)| {
+            let run = TextRun {
+                len: SAMPLE.len(),
+                font: gpui::font(family),
+                color: rgb(MineralPalette::LIGHT.text).into(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            let line = system.shape_line(SAMPLE.into(), px(size * zoom), &[run], None);
+            f32::from(line.width) / zoom / SAMPLE.chars().count() as f32
+                * DocumentStyle::PROSE_CHARACTERS
+        });
+        let code_digit_width = ('0'..='9')
+            .map(|digit| {
+                let run = TextRun {
+                    len: 1,
+                    font: gpui::font("Spline Sans Mono Mineral"),
+                    color: rgb(MineralPalette::LIGHT.secondary).into(),
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                f32::from(
+                    system
+                        .shape_line(
+                            digit.to_string().into(),
+                            px(DocumentStyle::CODE_SIZE * zoom),
+                            &[run],
+                            None,
+                        )
+                        .width,
+                ) / zoom
+            })
+            .fold(0., f32::max);
         Self {
             identity: Arc::new(()),
             geometry: Mutex::new(super::geometry_cache::GeometryCache::new()),
@@ -398,11 +511,30 @@ impl FontMeasurement {
                 ..Default::default()
             },
             zoom,
+            prose_measures,
+            code_digit_width,
             cache: Mutex::new(BoundedLru::new(256)),
             intrinsic_cache: Mutex::new(BoundedLru::new(256)),
             table_cache: Mutex::new(BoundedLru::new(128)),
             item_cache: Mutex::new(BoundedLru::new(512)),
             group_cache: Mutex::new(BoundedLru::new(512)),
+        }
+    }
+
+    pub fn prose_width(&self, narrative: bool, font_size: f32) -> f32 {
+        let base_size = if narrative {
+            DocumentStyle::READING_SIZE
+        } else {
+            DocumentStyle::REFERENCE_SIZE
+        };
+        self.prose_measures[usize::from(narrative)] * font_size / base_size
+    }
+
+    pub fn prose_measures(&self) -> crate::adaptive::ProseMeasures {
+        crate::adaptive::ProseMeasures {
+            reference: self.prose_width(false, DocumentStyle::REFERENCE_SIZE),
+            narrative: self.prose_width(true, DocumentStyle::READING_SIZE),
+            lead: self.prose_width(false, DocumentStyle::LEAD_SIZE),
         }
     }
 
@@ -415,7 +547,7 @@ impl FontMeasurement {
         font_size: f32,
     ) -> Option<Vec<Range<usize>>> {
         diagnostics::count(|counts| counts.wrap_requests += 1);
-        if inline_math::has_math(projection, segment.node_id)
+        if inline_math::has_attachments(projection, segment.node_id)
             && let Some(lines) =
                 inline_math::layout(projection, segment, range.clone(), width, font_size, self)
         {
@@ -441,12 +573,13 @@ impl FontMeasurement {
         let key = MeasureKey {
             node: segment.node_id,
             revision: projection.node_revision(segment.node_id),
-            local_range: range.start - segment.projection_range.start
-                ..range.end - segment.projection_range.start,
+            local_range: range.start - segment.projection_start()
+                ..range.end - segment.projection_start(),
             width: (width * self.zoom).to_bits(),
             font_size: (font_size * self.zoom).to_bits(),
             runs: hasher.finish(),
             text: text.clone(),
+            refine_ending: paragraph_endings::eligible(projection, segment, &range),
         };
         if let Some(cached) = self.cache.lock().ok().and_then(|mut cache| cache.get(&key)) {
             diagnostics::count(|counts| counts.wrap_cache_hits += 1);
@@ -459,10 +592,23 @@ impl FontMeasurement {
         }
         // A short-lived layout cache prevents cold long-document measurement
         // from retaining every glyph in GPUI's per-window frame cache.
-        diagnostics::count(|counts| {
-            counts.wrap_cache_misses += 1;
-            counts.shaping_calls += 1;
-        });
+        diagnostics::count(|counts| counts.wrap_cache_misses += 1);
+        if contains_strong_rtl(&text) {
+            let local =
+                self.wrap_bidi_source_order(projection, range.clone(), &text, width, font_size)?;
+            if text.len() <= 16 * 1024
+                && let Ok(mut cache) = self.cache.lock()
+            {
+                cache.insert(key, local.clone());
+            }
+            return Some(
+                local
+                    .into_iter()
+                    .map(|local| range.start + local.start..range.start + local.end)
+                    .collect(),
+            );
+        }
+        diagnostics::count(|counts| counts.shaping_calls += 1);
         let system = gpui::WindowTextSystem::new(self.fonts.clone());
         let shaped = system
             .shape_text(
@@ -499,10 +645,36 @@ impl FontMeasurement {
             }
         }
         starts.push(text.len());
-        let local = starts
+        let mut local = starts
             .windows(2)
             .map(|pair| pair[0]..pair[1])
             .collect::<Vec<_>>();
+        if let Some(repaired) = line_breaks::repair(
+            &text,
+            &local,
+            &graphemes,
+            &line.unwrapped_layout,
+            width,
+            self.zoom,
+            |local| {
+                self.line_width(
+                    projection,
+                    range.start + local.start..range.start + local.end,
+                    font_size,
+                )
+            },
+        ) {
+            local = repaired;
+        }
+        if key.refine_ending {
+            paragraph_endings::refine(&text, &mut local, &graphemes, width, |local| {
+                self.line_width(
+                    projection,
+                    range.start + local.start..range.start + local.end,
+                    font_size,
+                )
+            });
+        }
         if text.len() <= 16 * 1024
             && let Ok(mut cache) = self.cache.lock()
         {
@@ -515,6 +687,68 @@ impl FontMeasurement {
                 .collect(),
         )
     }
+
+    /// GPUI's exposed wrap-boundary representation follows visual glyph order
+    /// and therefore cannot be consumed as monotonically increasing source
+    /// offsets for RTL paragraphs. Measure bounded logical candidates instead:
+    /// source ranges stay canonical while every candidate is shaped by the
+    /// same font/run path used for painting.
+    fn wrap_bidi_source_order(
+        &self,
+        projection: &TextProjection,
+        range: Range<usize>,
+        text: &str,
+        width: f32,
+        font_size: f32,
+    ) -> Option<Vec<Range<usize>>> {
+        let grapheme_ends = text
+            .grapheme_indices(true)
+            .skip(1)
+            .map(|(offset, _)| offset)
+            .chain(std::iter::once(text.len()))
+            .collect::<Vec<_>>();
+        let preferred_ends = line_breaks::opportunities(text, &grapheme_ends);
+        let mut lines = Vec::new();
+        let mut start = 0;
+        while start < text.len() {
+            let mut best = start;
+            let first = preferred_ends.partition_point(|end| *end <= start);
+            for end in preferred_ends[first..].iter().copied() {
+                let candidate = range.start + start..range.start + end;
+                if self.line_width(projection, candidate, font_size)? <= width.max(1.) {
+                    best = end;
+                } else {
+                    break;
+                }
+            }
+            if best == start {
+                let first = grapheme_ends.partition_point(|end| *end <= start);
+                for end in grapheme_ends[first..].iter().copied() {
+                    let candidate = range.start + start..range.start + end;
+                    if self.line_width(projection, candidate, font_size)? <= width.max(1.) {
+                        best = end;
+                    } else {
+                        break;
+                    }
+                }
+                if best == start {
+                    best = grapheme_ends.iter().copied().find(|end| *end > start)?;
+                }
+            }
+            lines.push(start..best);
+            start = best;
+        }
+        Some(lines)
+    }
+}
+
+pub(super) fn contains_strong_rtl(text: &str) -> bool {
+    text.chars().any(|character| {
+        matches!(
+            unicode_bidi::bidi_class(character),
+            unicode_bidi::BidiClass::R | unicode_bidi::BidiClass::AL
+        )
+    })
 }
 
 // Round outward, leaving a subpixel guard for padding/track/zoom round trips.
@@ -530,6 +764,173 @@ mod tests {
     use super::*;
 
     #[gpui::test]
+    fn punctuation_wrap_does_not_start_a_line_with_compound_slash(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "A undo/redo";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            for width in 90..140 {
+                let lines = fonts
+                    .wrap(
+                        &projection,
+                        segment,
+                        segment.projection_range(),
+                        width as f32,
+                        18.,
+                    )
+                    .unwrap();
+                assert!(
+                    lines
+                        .iter()
+                        .all(|r| !projection.text()[r.clone()].starts_with('/')),
+                    "width {width}: {:?}",
+                    lines
+                        .iter()
+                        .map(|r| &projection.text()[r.clone()])
+                        .collect::<Vec<_>>()
+                );
+            }
+        });
+    }
+
+    #[gpui::test]
+    fn punctuation_wraps_fit_preserve_graphemes_styles_and_logical_source(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            for source in [
+                "A undo/redo follows. Another read/write operation.",
+                "A **stop!** Then (go) and [read](https://example.com).",
+                "A `path/to/file` and 06/07/99 then more text.",
+                "A no\u{a0}break and no\u{2060}break phrase.",
+                "A e\u{301}/é and 👨‍👩‍👧‍👦/👩‍👩‍👧 family.",
+                "文字（短い）文章、句読点。次の説明。",
+                "مرحبا undo/redo عالم جديد ونص آخر.",
+            ] {
+                let document = Document::from_markdown(source).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let segment = &projection.segments()[0];
+                let text = &projection.text()[segment.projection_range()];
+                let graphemes = text
+                    .grapheme_indices(true)
+                    .map(|(i, _)| i)
+                    .collect::<Vec<_>>();
+                let legal = line_breaks::opportunities(text, &graphemes);
+                for zoom in [1., 1.5, 2.] {
+                    let fonts = FontMeasurement::new(
+                        cx.text_system().clone(),
+                        "Spline Sans Mineral".into(),
+                        zoom,
+                    );
+                    // Every legal unit fits by itself, so an emergency break
+                    // cannot justify violating a punctuation/glue boundary.
+                    let mut start = 0;
+                    let mut minimum = 90_f32;
+                    for &end in &legal {
+                        minimum = minimum.max(
+                            fonts
+                                .line_width(
+                                    &projection,
+                                    segment.projection_start() + start
+                                        ..segment.projection_start() + end,
+                                    18.,
+                                )
+                                .unwrap()
+                                .ceil()
+                                + 1.,
+                        );
+                        start = end;
+                    }
+                    for width in [minimum, minimum + 17., minimum + 53.] {
+                        let lines = fonts
+                            .wrap(&projection, segment, segment.projection_range(), width, 18.)
+                            .unwrap();
+                        assert_eq!(
+                            lines
+                                .iter()
+                                .map(|r| &projection.text()[r.clone()])
+                                .collect::<String>(),
+                            text
+                        );
+                        for line in &lines {
+                            assert!(
+                                legal.contains(&(line.end - segment.projection_start())),
+                                "illegal break in {source:?}: {line:?} at {width}"
+                            );
+                            assert!(graphemes.contains(&(line.start - segment.projection_start())));
+                            assert!(
+                                fonts.line_width(&projection, line.clone(), 18.).unwrap()
+                                    <= width + 0.01,
+                                "overflow in {source:?} at {width}: {line:?} {:?}, measured {:?}",
+                                &projection.text()[line.clone()],
+                                fonts.line_width(&projection, line.clone(), 18.)
+                            );
+                        }
+                        let scope = diagnostics::MeasurementScope::new();
+                        assert_eq!(
+                            fonts
+                                .wrap(&projection, segment, segment.projection_range(), width, 18.)
+                                .unwrap(),
+                            lines
+                        );
+                        let warm = scope.take_stage();
+                        assert_eq!(warm.shaping_calls, 0);
+                        assert_eq!(warm.wrap_cache_hits, 1);
+                    }
+                }
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        });
+    }
+
+    #[gpui::test]
+    fn punctuation_emergency_wraps_preserve_oversized_graphemes_and_range_offsets(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let source = format!("# Prefix\n\n{}\n", "é/👩‍👩‍👧".repeat(64));
+            let document = Document::from_markdown(source.as_str()).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[1];
+            let text = &projection.text()[segment.projection_range()];
+            assert!(segment.projection_start() > 0);
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            for width in [1., 18., 90.] {
+                let lines = fonts
+                    .wrap(&projection, segment, segment.projection_range(), width, 18.)
+                    .unwrap();
+                assert_eq!(
+                    lines
+                        .iter()
+                        .map(|r| &projection.text()[r.clone()])
+                        .collect::<String>(),
+                    text
+                );
+                assert_eq!(lines.first().unwrap().start, segment.projection_start());
+                assert_eq!(lines.last().unwrap().end, segment.projection_end());
+                assert!(lines.windows(2).all(|pair| pair[0].end == pair[1].start));
+                for line in &lines {
+                    let part = &projection.text()[line.clone()];
+                    assert!(!part.is_empty());
+                    assert!(
+                        text.grapheme_indices(true)
+                            .any(|(i, _)| i + segment.projection_start() == line.start)
+                    );
+                    assert!(
+                        fonts.line_width(&projection, line.clone(), 18.).unwrap() <= width + 0.01
+                            || part.graphemes(true).count() == 1
+                    );
+                }
+            }
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
     fn diagnostic_counters_distinguish_cold_shapes_from_warm_cache_hits(
         cx: &mut gpui::TestAppContext,
     ) {
@@ -542,16 +943,10 @@ mod tests {
                 FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
             let scope = diagnostics::MeasurementScope::new();
             let cold_width = measurement
-                .line_width(&projection, segment.projection_range.clone(), 18.)
+                .line_width(&projection, segment.projection_range(), 18.)
                 .unwrap();
             let cold_wrap = measurement
-                .wrap(
-                    &projection,
-                    segment,
-                    segment.projection_range.clone(),
-                    220.,
-                    18.,
-                )
+                .wrap(&projection, segment, segment.projection_range(), 220., 18.)
                 .unwrap();
             let cold = scope.take_stage();
             assert_eq!(cold.shaping_calls, 2);
@@ -560,30 +955,18 @@ mod tests {
                 (1, 1)
             );
             assert_eq!(
-                measurement.line_width(&projection, segment.projection_range.clone(), 18.),
+                measurement.line_width(&projection, segment.projection_range(), 18.),
                 Some(cold_width)
             );
             assert_eq!(
-                measurement.wrap(
-                    &projection,
-                    segment,
-                    segment.projection_range.clone(),
-                    220.,
-                    18.
-                ),
+                measurement.wrap(&projection, segment, segment.projection_range(), 220., 18.),
                 Some(cold_wrap)
             );
             let warm = scope.take_stage();
             assert_eq!(warm.shaping_calls, 0);
             assert_eq!((warm.wrap_cache_hits, warm.intrinsic_cache_hits), (1, 1));
             measurement
-                .wrap(
-                    &projection,
-                    segment,
-                    segment.projection_range.clone(),
-                    221.,
-                    18.,
-                )
+                .wrap(&projection, segment, segment.projection_range(), 221., 18.)
                 .unwrap();
             assert_eq!(
                 scope.take_stage().wrap_cache_misses,
@@ -628,18 +1011,184 @@ mod tests {
                     .wrap(
                         &projection,
                         segment,
-                        segment.projection_range.clone(),
+                        segment.projection_range(),
                         width,
-                        15.5,
+                        DocumentStyle::TABLE_SIZE,
                     )
                     .unwrap();
                 assert_eq!(
                     wraps.len(),
                     1,
                     "intrinsic cell width must fit {:?}: {width}",
-                    &projection.text()[segment.projection_range.clone()]
+                    &projection.text()[segment.projection_range()]
                 );
             }
+        });
+    }
+
+    #[gpui::test]
+    fn measured_table_short_status_keeps_its_complete_badge(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source =
+                include_str!("../../../../performance/layout-fixtures/76-entity-records.md");
+            let document = Document::from_markdown(source).unwrap();
+            for zoom in [1., 1.5, 2.] {
+                let mut projection = TextProjection::from_snapshot(&document.snapshot());
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), zoom);
+                fonts.measure_tables(&mut projection);
+                for width in [260., 420., 560., 641., 760., 1280.] {
+                    let plan = build_measured_adaptive_plan(&projection, width, 1200., None, false, &fonts);
+                    let lines = build_measured_visual_lines(&projection, &HashMap::new(), width, &plan, Some(&fonts));
+                    for segment in projection.segments() {
+                        let own = lines.iter().filter(|line| projection.segment_for_range(&line.projected_range()).unwrap().node_id == segment.node_id).collect::<Vec<_>>();
+                        assert_eq!(own.iter().map(|l| &projection.text()[l.projected_range()]).collect::<String>(), projection.text()[segment.projection_range()]);
+                        if &projection.text()[segment.projection_range()] == "In review" {
+                            assert_eq!(own.len(), 1, "a short status must fit when its table can give it its natural width: {width}/{zoom}");
+                            assert!(badge_range(segment, segment.context.badge.unwrap(), &own[0].projected_range()).is_some());
+                        }
+                    }
+                    for root in projection.roots().filter(|r| matches!(r, BlockNode::Table(_))) {
+                        let measured = projection.table_measurements(root.id()).unwrap();
+                        let fitted = projection.fitted_table_widths(root.id(), width).unwrap();
+                        for ((fit, low), high) in fitted.iter().zip(&measured.minimum).zip(&measured.preferred) {
+                            assert!(fit >= low && fit <= high);
+                        }
+                    }
+                }
+            }
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
+    fn table_badge_growth_keeps_locked_widths_and_row_local_geometry(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let source =
+                include_str!("../../../../performance/layout-fixtures/76-entity-records.md");
+            for width in [641., 760., 1280.] {
+                let mut document = Document::from_markdown(source).unwrap();
+                let fonts = FontMeasurement::new(
+                    cx.text_system().clone(),
+                    "Spline Sans Mineral".into(),
+                    1.,
+                );
+                let mut projection = TextProjection::from_snapshot(&document.snapshot());
+                fonts.measure_tables(&mut projection);
+                let segment = projection
+                    .segments()
+                    .iter()
+                    .find(|s| &projection.text()[s.projection_range()] == "In review")
+                    .unwrap();
+                let node = segment.node_id;
+                let table = segment.context.table_cell.unwrap().0;
+                projection.lock_table_for_node(Some(node));
+                let widths = projection.fitted_table_widths(table, width).unwrap();
+                let plan =
+                    build_measured_adaptive_plan(&projection, width, 1200., None, false, &fonts);
+                let mut lines = build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                let mut order = visual_line_paint_order(&lines);
+                let inserted = "Awaiting the complete review of all attached source material ";
+                document
+                    .apply(EditCommand::ReplaceText {
+                        node_id: node,
+                        range: 0..0,
+                        text: inserted.into(),
+                        typing: true,
+                        selection_after: None,
+                    })
+                    .unwrap();
+                assert_eq!(
+                    document.snapshot().serialize().unwrap(),
+                    source.replace("| In review |", &format!("| {inserted}In review |"))
+                );
+                refresh_arranged_text_node_geometry(
+                    &mut projection,
+                    &mut lines,
+                    &mut order,
+                    &plan,
+                    TextRefreshRequest {
+                        snapshot: &document.snapshot(),
+                        node_id: node,
+                        image_dimensions: &HashMap::new(),
+                        layout_width: width,
+                        zoom_factor: 1.,
+                        measurement: Some(&fonts),
+                    },
+                )
+                .expect("status growth retains the existing row-local edit path");
+                assert_eq!(
+                    projection.fitted_table_widths(table, width).unwrap(),
+                    widths
+                );
+                let full = build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                assert_eq!(lines.len(), full.len());
+                for (local, rebuilt) in lines.iter().zip(&full) {
+                    assert_eq!(local.projected_range(), rebuilt.projected_range());
+                    assert!((local.y - rebuilt.y).abs() < 0.01);
+                    assert_eq!(local.x_fraction, rebuilt.x_fraction);
+                    assert_eq!(local.width_fraction, rebuilt.width_fraction);
+                    assert_eq!(local.table_row_height, rebuilt.table_row_height);
+                }
+                document.undo().unwrap();
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        });
+    }
+
+    #[gpui::test]
+    fn table_badge_constraints_require_semantics_and_honor_explicit_widths(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            for (header, value, atomic) in [
+                ("Status", "In review", true),
+                ("State", "**In review**", true),
+                ("Classification", "Internal use only", true),
+                ("Outcome", "In review", false),
+                ("Status", "This status is described in a complete sentence rather than a short label.", false),
+            ] {
+                let source = format!("| {header} | Description |\n| --- | --- |\n| {value} | A longer description can wrap into the remaining table width without breaking a short semantic label. |\n");
+                let document = Document::from_markdown(source.as_str()).unwrap();
+                let mut projection = TextProjection::from_snapshot(&document.snapshot());
+                fonts.measure_tables(&mut projection);
+                let table = projection.roots().next().unwrap().id();
+                let measured = projection.table_measurements(table).unwrap();
+                let segment = projection.segments().iter().find(|s| s.context.table_cell == Some((table, 1, 0))).unwrap();
+                assert_eq!(segment.context.badge.is_some(), atomic);
+                if atomic {
+                    let complete = fonts.line_width(&projection, segment.projection_range(), DocumentStyle::TABLE_SIZE).unwrap();
+                    assert!(measured.minimum[0] >= complete + 24.);
+                } else {
+                    assert!(measured.minimum[0] < measured.preferred[0], "ordinary multiword text must remain flexible");
+                }
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+            let explicit = concat!("<!-- mineral-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[64.0,300.0]} -->\n",
+                "| Status | Description |\n| --- | --- |\n| In review | Explicit author widths take precedence. |\n");
+            let document = Document::from_markdown(explicit).unwrap();
+            let mut projection = TextProjection::from_snapshot(&document.snapshot());
+            fonts.measure_tables(&mut projection);
+            let table = projection.roots().next().unwrap().id();
+            assert_eq!(projection.fitted_table_widths(table, 1000.).unwrap(), vec![64., 300.]);
+            let segment = projection.segments().iter().find(|s| s.context.table_cell == Some((table, 1, 0))).unwrap();
+            let width = segment_text_width(segment, &projection, 1000.);
+            assert!(fonts.wrap(&projection, segment, segment.projection_range(), width, DocumentStyle::TABLE_SIZE).unwrap().len() > 1, "an explicitly narrow cell must still wrap readable source text");
+            assert_eq!(document.snapshot().serialize().unwrap(), explicit);
         });
     }
 
@@ -655,8 +1204,8 @@ mod tests {
             let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
             measurement.measure_tables(&mut projection);
             let measured = projection.table_measurements(id).unwrap();
-            let last = projection.segments().iter().find(|s| &projection.text()[s.projection_range.clone()] == "configuration_schema_revision_identifier").unwrap();
-            let required = measurement.line_width(&projection, last.projection_range.clone(), 15.5).unwrap() + 24.;
+            let last = projection.segments().iter().find(|s| &projection.text()[s.projection_range()] == "configuration_schema_revision_identifier").unwrap();
+            let required = measurement.line_width(&projection, last.projection_range(), DocumentStyle::TABLE_SIZE).unwrap() + 24.;
             assert!(measured.minimum[0] >= required - 0.01);
             assert!(measured.minimum[0] > measured.minimum[1] * 2.);
             let fitted = projection.fitted_table_widths(id, 240.).unwrap();
@@ -702,7 +1251,7 @@ mod tests {
             let ranges = projection
                 .segments()
                 .iter()
-                .map(|s| s.projection_range.clone())
+                .map(|s| s.projection_range())
                 .collect::<Vec<_>>();
             let thin = measurement
                 .line_width(&projection, ranges[0].clone(), 18.)
@@ -744,20 +1293,50 @@ mod tests {
             for segment in projection.segments() {
                 let mut previous = None;
                 for width in [70., 70.25, 320., 760.] {
-                    let ranges = measurement.wrap(&projection, segment, segment.projection_range.clone(), width, 18.).unwrap();
-                    assert_eq!(ranges.first().unwrap().start, segment.projection_range.start);
-                    assert_eq!(ranges.last().unwrap().end, segment.projection_range.end);
+                    let ranges = measurement.wrap(&projection, segment, segment.projection_range(), width, 18.).unwrap();
+                    assert_eq!(ranges.first().unwrap().start, segment.projection_start());
+                    assert_eq!(ranges.last().unwrap().end, segment.projection_end());
                     assert!(ranges.windows(2).all(|pair| pair[0].end == pair[1].start));
                     for range in &ranges {
-                        assert!(projection.text()[segment.projection_range.clone()].grapheme_indices(true)
-                            .any(|(offset, _)| segment.projection_range.start + offset == range.start));
+                        assert!(projection.text()[segment.projection_range()].grapheme_indices(true)
+                            .any(|(offset, _)| segment.projection_start() + offset == range.start));
                     }
-                    assert_eq!(ranges, measurement.wrap(&projection, segment, segment.projection_range.clone(), width, 18.).unwrap());
+                    assert_eq!(ranges, measurement.wrap(&projection, segment, segment.projection_range(), width, 18.).unwrap());
                     if let Some(count) = previous { assert!(ranges.len() <= count); }
                     previous = Some(ranges.len());
                 }
             }
             assert_eq!(measurement.cache.lock().unwrap().entries.len(), 8);
+        });
+    }
+
+    #[gpui::test]
+    fn rtl_wraps_remain_logical_contiguous_and_fit_the_measured_width(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let source = "مرحبا بالعالم يحافظ التخطيط التلقائي على ترتيب المصدر وموضع القراءة";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let ranges = measurement
+                .wrap(&projection, segment, segment.projection_range(), 180., 18.)
+                .unwrap();
+            assert!(ranges.len() > 1);
+            assert_eq!(ranges.first().unwrap().start, segment.projection_start());
+            assert_eq!(ranges.last().unwrap().end, segment.projection_end());
+            assert!(ranges.windows(2).all(|pair| pair[0].end == pair[1].start));
+            assert!(ranges.iter().all(|range| {
+                projection.text().is_char_boundary(range.start)
+                    && projection.text().is_char_boundary(range.end)
+                    && measurement
+                        .line_width(&projection, range.clone(), 18.)
+                        .unwrap()
+                        <= 180.01
+            }));
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }
 
@@ -771,7 +1350,7 @@ mod tests {
                 FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
             let runs = styled_projection_runs(
                 &projection,
-                &segment.projection_range,
+                &segment.projection_range(),
                 projection.text().len(),
                 &measurement.style,
                 false,
@@ -779,7 +1358,7 @@ mod tests {
             );
             let native = gpui::WindowTextSystem::new(cx.text_system().clone()).shape_line(
                 projection.text().to_owned().into(),
-                px(44.),
+                px(DocumentStyle::heading(1).0),
                 &runs,
                 None,
             );
@@ -797,7 +1376,7 @@ mod tests {
                 1,
                 "a word fitting at the actual font width must stay whole"
             );
-            assert_eq!(lines[0].range, segment.projection_range);
+            assert_eq!(lines[0].projected_range(), segment.projection_range());
         });
     }
 }

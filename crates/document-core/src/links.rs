@@ -109,6 +109,7 @@ pub fn heading_node(blocks: &BlockSequence, fragment: &str) -> Option<NodeId> {
                     .find_map(|item| visit(&item.blocks, fragment, anchors)),
                 BlockNode::BlockQuote { blocks, .. }
                 | BlockNode::Alert { blocks, .. }
+                | BlockNode::Definition { blocks, .. }
                 | BlockNode::FootnoteDefinition { blocks, .. } => visit(blocks, fragment, anchors),
                 BlockNode::Table(table) => table.rows.iter().find_map(|row| {
                     row.cells

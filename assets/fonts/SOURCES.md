@@ -1,6 +1,15 @@
 # Bundled fonts
 
-The font binaries in this directory are generated from Google Fonts commit
+The document grammar's narrative role uses the unmodified Liberation Serif
+2.1 family (regular, italic, bold, and bold italic), imported from the local
+`fonts-liberation` distribution. Unlike a system-font fallback, these embedded
+faces give reading sections identical metrics on every installation.
+Upstream: <https://github.com/liberationfonts/liberation-fonts>.
+`LIBERATION-SHA256SUMS` pins these binaries; `OFL-Liberation-Serif.txt` retains
+their copyright and SIL Open Font License. `prepare-fonts.sh` does not regenerate
+these unmodified upstream assets.
+
+The other font binaries in this directory are generated from Google Fonts commit
 `5e35378e6bda803962ee6fd257e444a7d459660d` with FontTools `4.64.0` by
 `scripts/prepare-fonts.sh`. Re-run that script to reproduce the static assets;
 `SHA256SUMS` records the expected result.

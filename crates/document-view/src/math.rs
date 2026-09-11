@@ -28,11 +28,17 @@ pub(crate) struct Formula {
 pub(crate) struct BlockFormula {
     pub light: Arc<Formula>,
     pub dark: Arc<Formula>,
+    /// View-local source editing; never persisted in Markdown or the image cache.
+    pub source_visible: bool,
 }
 
 impl BlockFormula {
     pub fn extent(&self) -> f32 {
-        self.light.height + PREVIEW_GAP
+        if self.source_visible {
+            self.light.height + PREVIEW_GAP
+        } else {
+            0.
+        }
     }
 
     pub fn for_dark(&self, dark: bool) -> &Arc<Formula> {
@@ -40,10 +46,11 @@ impl BlockFormula {
     }
 }
 
-pub(crate) fn prepare_block(block: &BlockNode) -> Option<Arc<BlockFormula>> {
+pub(crate) fn prepare_block(block: &BlockNode, source_visible: bool) -> Option<Arc<BlockFormula>> {
     Some(Arc::new(BlockFormula {
         light: block_preview(block, crate::MineralPalette::LIGHT.text)?,
         dark: block_preview(block, crate::MineralPalette::for_dark(true).text)?,
+        source_visible,
     }))
 }
 

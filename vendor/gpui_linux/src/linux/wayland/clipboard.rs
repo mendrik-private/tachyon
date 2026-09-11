@@ -19,6 +19,7 @@ use gpui::{ClipboardEntry, ClipboardItem, Image, ImageFormat, hash};
 /// Text mime types that we'll offer to other programs.
 pub(crate) const TEXT_MIME_TYPES: [&str; 3] =
     ["text/plain;charset=utf-8", "UTF8_STRING", "text/plain"];
+pub(crate) const HTML_MIME_TYPE: &str = "text/html";
 pub(crate) const FILE_LIST_MIME_TYPE: &str = "text/uri-list";
 
 /// Text mime types that we'll accept from other programs.
@@ -180,9 +181,19 @@ impl Clipboard {
         self.self_mime.clone()
     }
 
-    pub fn send(&self, _mime_type: String, fd: OwnedFd) {
-        if let Some(text) = self.contents.as_ref().and_then(|contents| contents.text()) {
-            self.send_bytes(fd, text.as_bytes().to_owned());
+    pub fn has_html(&self) -> bool {
+        self.contents
+            .as_ref()
+            .is_some_and(|item| item.html().is_some())
+    }
+
+    pub fn send(&self, mime_type: String, fd: OwnedFd) {
+        if let Some(bytes) = self
+            .contents
+            .as_ref()
+            .and_then(|item| clipboard_bytes(item, &mime_type))
+        {
+            self.send_bytes(fd, bytes);
         }
     }
 
@@ -259,5 +270,39 @@ impl Clipboard {
                 },
             )
             .unwrap();
+    }
+}
+
+/// Unknown MIME requests must not receive a different representation.
+fn clipboard_bytes(item: &ClipboardItem, mime_type: &str) -> Option<Vec<u8>> {
+    if mime_type == HTML_MIME_TYPE {
+        item.html().map(|html| html.as_bytes().to_vec())
+    } else if TEXT_MIME_TYPES.contains(&mime_type) {
+        item.text().map(String::into_bytes)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod mime_tests {
+    use super::*;
+
+    #[test]
+    fn requests_receive_the_named_representation_only() {
+        let item = ClipboardItem::new_string_with_metadata("**selected**".into(), "private".into())
+            .with_html("<ul><li>selected</li><li>other</li></ul>".into());
+        assert_eq!(item.metadata().map(String::as_str), Some("private"));
+        for mime in TEXT_MIME_TYPES {
+            assert_eq!(clipboard_bytes(&item, mime).unwrap(), b"**selected**");
+        }
+        assert_eq!(
+            clipboard_bytes(&item, HTML_MIME_TYPE).unwrap(),
+            b"<ul><li>selected</li><li>other</li></ul>"
+        );
+        assert!(clipboard_bytes(&item, "application/private").is_none());
+        assert!(
+            clipboard_bytes(&ClipboardItem::new_string("plain".into()), HTML_MIME_TYPE).is_none()
+        );
     }
 }

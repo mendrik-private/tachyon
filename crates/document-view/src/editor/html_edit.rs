@@ -85,99 +85,6 @@ impl HtmlSelection {
 }
 
 impl RichDocumentEditor {
-    pub(super) fn html_toolbar(
-        &self,
-        node: NodeId,
-        preview: &crate::html::HtmlPreview,
-        available: f32,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let source = preview.source.clone();
-        let text = preview.text.clone();
-        let can_convert = preview.can_convert;
-        let row = div()
-            .h(px(32. * self.zoom_factor))
-            .flex()
-            .items_center()
-            .gap_2();
-        // Native buttons retain their UI font size during document zoom. Use
-        // their actual available on-screen width, not unscaled prose width.
-        if available < 220. {
-            let editor = cx.entity().downgrade();
-            let focus = self.focus_handle.clone();
-            return row
-                .child(
-                    Button::new(("html-actions", node.get() as usize))
-                        .ghost()
-                        .small()
-                        .label("HTML")
-                        .when(available >= 76., |button| button.icon(IconName::Ellipsis))
-                        .when(available < 76., |button| button.px_0())
-                        .accessibility_id(format!("html-actions-{}", node.get()))
-                        .tooltip("HTML actions: copy source, copy text, or edit text")
-                        .dropdown_menu(move |menu, _, _| {
-                            let source = source.clone();
-                            let text = text.clone();
-                            let editor = editor.clone();
-                            menu.min_w(px(240.))
-                                .max_w(px(240.))
-                                .action_context(focus.clone())
-                                .item(
-                                    PopupMenuItem::new("Copy original HTML")
-                                        .icon(IconName::Copy)
-                                        .on_click(move |_, _, cx| {
-                                            cx.write_to_clipboard(ClipboardItem::new_string(
-                                                source.to_string(),
-                                            ))
-                                        }),
-                                )
-                                .item(
-                                    PopupMenuItem::new("Copy fragment text")
-                                        .icon(IconName::CaseSensitive)
-                                        .on_click(move |_, _, cx| {
-                                            cx.write_to_clipboard(ClipboardItem::new_string(
-                                                text.clone(),
-                                            ))
-                                        }),
-                                )
-                                .when(can_convert, |menu| {
-                                    menu.separator().item(
-                                        PopupMenuItem::new("Edit text")
-                                            .icon(IconName::CaseSensitive)
-                                            .on_click(move |_, window, cx| {
-                                                let _ = editor.update(cx, |editor, cx| {
-                                                    editor.apply_structural_command(
-                                                        EditCommand::ConvertHtmlToMarkdown {
-                                                            node_id: node,
-                                                        },
-                                                        window,
-                                                        cx,
-                                                    );
-                                                });
-                                            }),
-                                    )
-                                })
-                        }),
-                )
-                .into_any_element();
-        }
-        row.child(Button::new(("copy-html", node.get() as usize))
-            .ghost().small().icon(IconName::Copy).label("HTML")
-            .tooltip("Copy original HTML source")
-            .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(source.to_string()))))
-            .child(Button::new(("copy-html-text", node.get() as usize))
-                .ghost().small().icon(IconName::Copy)
-                .tooltip("Copy fragment text")
-                .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(text.clone()))))
-            .when(can_convert, |row| row.child(Button::new(("edit-html", node.get() as usize))
-                .ghost().small().label("Edit text")
-                .tooltip("Convert to editable Markdown; replaces HTML styling and disclosure controls, retaining all body text. Or click rendered text and type to convert with your first edit. Undo restores the original HTML.")
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.apply_structural_command(EditCommand::ConvertHtmlToMarkdown { node_id: node }, window, cx);
-                }))))
-            .into_any_element()
-    }
-
     pub(super) fn html_link_chrome(
         &self,
         node: NodeId,
@@ -186,9 +93,14 @@ impl RichDocumentEditor {
         let mut elements = Vec::new();
         for (index, link) in preview.links.iter().enumerate() {
             for (part, rect) in link.bounds.iter().enumerate() {
-                let hint = if self.can_open_link(&link.target) {
+                let hint = if self.can_open_link(&link.target) && link.range.is_some() {
                     format!(
                         "{} — Ctrl-click to open; Alt+Enter at the caret. Click to edit text.",
+                        link.target
+                    )
+                } else if self.can_open_link(&link.target) {
+                    format!(
+                        "{} — Ctrl-click to open. This rendered HTML text remains source-preserved.",
                         link.target
                     )
                 } else {
@@ -266,7 +178,11 @@ impl RichDocumentEditor {
                 position,
             } => {
                 let preview = self.visual_lines.iter().find_map(|line| {
-                    (self.projection.segment_for_range(&line.range)?.node_id == node_id)
+                    (self
+                        .projection
+                        .segment_for_range(&line.projected_range())?
+                        .node_id
+                        == node_id)
                         .then_some(line.html_preview.as_ref())
                         .flatten()
                         .filter(|preview| preview.source == expected_source)
@@ -310,7 +226,7 @@ impl RichDocumentEditor {
             return;
         };
         let preview = self.visual_lines.iter().find_map(|line| {
-            let segment = self.projection.segment_for_range(&line.range)?;
+            let segment = self.projection.segment_for_range(&line.projected_range())?;
             (segment.node_id == selection.node)
                 .then_some(line.html_preview.as_ref())
                 .flatten()
@@ -385,7 +301,11 @@ impl RichDocumentEditor {
                     node_id, position, ..
                 } => {
                     let preview = self.visual_lines.iter().find_map(|line| {
-                        (self.projection.segment_for_range(&line.range)?.node_id == node_id)
+                        (self
+                            .projection
+                            .segment_for_range(&line.projected_range())?
+                            .node_id
+                            == node_id)
                             .then_some(line.html_preview.as_ref())
                             .flatten()
                     })?;
@@ -397,12 +317,12 @@ impl RichDocumentEditor {
         };
         let line = self.visual_lines.iter().find(|line| {
             self.projection
-                .segment_for_range(&line.range)
+                .segment_for_range(&line.projected_range())
                 .is_some_and(|s| s.node_id == node)
         })?;
         let [x, y, right, bottom] = preview.caret_bounds(byte)?;
         let bounds = self.element_bounds?;
-        let scroll = segment_for_line(&self.projection, &line.range)
+        let scroll = segment_for_line(&self.projection, &line.projected_range())
             .and_then(|segment| horizontal_scroll_owner(&self.projection, segment))
             .and_then(|owner| self.horizontal_scrolls.get(&owner).copied())
             .unwrap_or(0.);
@@ -411,7 +331,7 @@ impl RichDocumentEditor {
         Some(Bounds::new(
             point(
                 left + px(x * self.zoom_factor),
-                bounds.top() + px(line.y + (32. + y) * self.zoom_factor),
+                bounds.top() + px(line.y + y * self.zoom_factor),
             ),
             size(
                 px((right - x) * self.zoom_factor),

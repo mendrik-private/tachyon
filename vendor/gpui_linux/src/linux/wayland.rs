@@ -1,3 +1,4 @@
+mod a11y_updates;
 mod client;
 mod clipboard;
 mod cursor;

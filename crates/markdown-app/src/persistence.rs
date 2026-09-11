@@ -33,6 +33,10 @@ pub enum PersistenceError {
     Io { path: PathBuf, source: io::Error },
     #[error("recovery journal is malformed: {0}")]
     Journal(String),
+    #[error(
+        "write to {path} completed, but filesystem durability could not be confirmed: {source}"
+    )]
+    DurabilityUncertain { path: PathBuf, source: io::Error },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -50,6 +54,12 @@ pub enum RecoverableSaveError {
 pub struct SaveOutcome {
     pub identity: SourceIdentity,
     pub cleanup_warning: Option<PersistenceError>,
+}
+
+#[derive(Debug)]
+pub(crate) struct WriteOutcome {
+    pub identity: SourceIdentity,
+    pub durability_warning: Option<PersistenceError>,
 }
 
 impl PersistenceError {
@@ -85,6 +95,13 @@ pub fn read_source_with_identity(
 fn read_source_bytes_with_identity(
     path: &Path,
 ) -> Result<(Vec<u8>, SourceIdentity), PersistenceError> {
+    read_source_bytes_with_identity_using(path, |_| Ok(()))
+}
+
+fn read_source_bytes_with_identity_using(
+    path: &Path,
+    after_read: impl FnOnce(&Path) -> io::Result<()>,
+) -> Result<(Vec<u8>, SourceIdentity), PersistenceError> {
     let mut file = File::open(path).map_err(|error| PersistenceError::io(path, error))?;
     let before = file
         .metadata()
@@ -92,18 +109,31 @@ fn read_source_bytes_with_identity(
     let mut bytes = Vec::with_capacity(usize::try_from(before.len()).unwrap_or_default());
     file.read_to_end(&mut bytes)
         .map_err(|error| PersistenceError::io(path, error))?;
+    after_read(path).map_err(|error| PersistenceError::io(path, error))?;
     let after = file
         .metadata()
         .map_err(|error| PersistenceError::io(path, error))?;
+    let path_after = fs::metadata(path).map_err(|error| {
+        if error.kind() == io::ErrorKind::NotFound {
+            PersistenceError::ExternalChange(path.to_path_buf())
+        } else {
+            PersistenceError::io(path, error)
+        }
+    })?;
     #[cfg(unix)]
     use std::os::unix::fs::MetadataExt as _;
     let stable = before.len() == after.len()
         && before.modified().ok() == after.modified().ok()
         && bytes.len() as u64 == after.len()
+        && path_after.len() == after.len()
+        && path_after.modified().ok() == after.modified().ok()
         && {
             #[cfg(unix)]
             {
-                before.dev() == after.dev() && before.ino() == after.ino()
+                before.dev() == after.dev()
+                    && before.ino() == after.ino()
+                    && path_after.dev() == after.dev()
+                    && path_after.ino() == after.ino()
             }
             #[cfg(not(unix))]
             {
@@ -142,6 +172,12 @@ pub fn detect_external_state(
 }
 
 pub fn atomic_save(snapshot: SaveSnapshot) -> Result<SourceIdentity, PersistenceError> {
+    atomic_save_with_outcome(snapshot).map(|outcome| outcome.identity)
+}
+
+pub(crate) fn atomic_save_with_outcome(
+    snapshot: SaveSnapshot,
+) -> Result<WriteOutcome, PersistenceError> {
     atomic_save_with_hook(snapshot, |_, _| Ok(()))
 }
 
@@ -169,7 +205,7 @@ fn require_expected_identity(
 fn atomic_save_with_hook(
     snapshot: SaveSnapshot,
     mut before: impl FnMut(AtomicSaveStage, &Path) -> io::Result<()>,
-) -> Result<SourceIdentity, PersistenceError> {
+) -> Result<WriteOutcome, PersistenceError> {
     let path = snapshot
         .expected_identity
         .as_ref()
@@ -223,12 +259,20 @@ fn atomic_save_with_hook(
             require_expected_identity(&path, expected)?;
         }
         fs::rename(&temporary, &path).map_err(|error| PersistenceError::io(&path, error))?;
-        before(AtomicSaveStage::SyncDirectory, parent)
-            .map_err(|error| PersistenceError::io(parent, error))?;
-        File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .map_err(|error| PersistenceError::io(parent, error))?;
-        source_identity(&path)
+        let identity = source_identity(&path)?;
+        let sync_result = before(AtomicSaveStage::SyncDirectory, parent)
+            .and_then(|()| File::open(parent).and_then(|directory| directory.sync_all()));
+        let durability_warning =
+            sync_result
+                .err()
+                .map(|source| PersistenceError::DurabilityUncertain {
+                    path: path.clone(),
+                    source,
+                });
+        Ok(WriteOutcome {
+            identity,
+            durability_warning,
+        })
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
@@ -240,13 +284,13 @@ pub fn save_with_recovery(
     snapshot: SaveSnapshot,
     journal: &RecoveryJournal,
 ) -> Result<SaveOutcome, RecoverableSaveError> {
-    save_with_recovery_using(snapshot, journal, atomic_save)
+    save_with_recovery_using(snapshot, journal, atomic_save_with_outcome)
 }
 
 fn save_with_recovery_using(
     snapshot: SaveSnapshot,
     journal: &RecoveryJournal,
-    save: impl FnOnce(SaveSnapshot) -> Result<SourceIdentity, PersistenceError>,
+    save: impl FnOnce(SaveSnapshot) -> Result<WriteOutcome, PersistenceError>,
 ) -> Result<SaveOutcome, RecoverableSaveError> {
     let Some(source_path) = snapshot
         .expected_identity
@@ -269,10 +313,16 @@ fn save_with_recovery_using(
     let recovery_error = journal.write(&entry).err();
 
     match save(snapshot) {
-        Ok(identity) => Ok(SaveOutcome {
-            identity,
-            cleanup_warning: journal.clear(&source_path).err(),
-        }),
+        Ok(outcome) => {
+            let cleanup_warning = match outcome.durability_warning {
+                Some(warning) => Some(warning),
+                None => journal.clear(&source_path).err(),
+            };
+            Ok(SaveOutcome {
+                identity: outcome.identity,
+                cleanup_warning,
+            })
+        }
         Err(save) => match recovery_error {
             None => Err(RecoverableSaveError::Recovered { save }),
             Some(recovery) => Err(RecoverableSaveError::Unrecovered { save, recovery }),
@@ -284,6 +334,13 @@ fn save_with_recovery_using(
 /// link publishes the fully synced temporary inode, which gives copy saves the
 /// same-directory atomicity of normal saves while retaining create-new safety.
 pub fn atomic_write_new(path: &Path, bytes: &[u8]) -> Result<SourceIdentity, PersistenceError> {
+    atomic_write_new_with_outcome(path, bytes).map(|outcome| outcome.identity)
+}
+
+pub(crate) fn atomic_write_new_with_outcome(
+    path: &Path,
+    bytes: &[u8],
+) -> Result<WriteOutcome, PersistenceError> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(parent).map_err(|error| PersistenceError::io(parent, error))?;
     let filename = path
@@ -309,11 +366,21 @@ pub fn atomic_write_new(path: &Path, bytes: &[u8]) -> Result<SourceIdentity, Per
             .map_err(|error| PersistenceError::io(&temporary, error))?;
         drop(output);
         fs::hard_link(&temporary, path).map_err(|error| PersistenceError::io(path, error))?;
-        fs::remove_file(&temporary).map_err(|error| PersistenceError::io(&temporary, error))?;
-        File::open(parent)
+        let identity = source_identity(path)?;
+        let cleanup_warning = fs::remove_file(&temporary)
+            .err()
+            .map(|error| PersistenceError::io(&temporary, error));
+        let durability_warning = File::open(parent)
             .and_then(|directory| directory.sync_all())
-            .map_err(|error| PersistenceError::io(parent, error))?;
-        source_identity(path)
+            .err()
+            .map(|source| PersistenceError::DurabilityUncertain {
+                path: path.to_path_buf(),
+                source,
+            });
+        Ok(WriteOutcome {
+            identity,
+            durability_warning: durability_warning.or(cleanup_warning),
+        })
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
@@ -496,6 +563,11 @@ pub struct WorkspaceState {
     #[serde(default)]
     pub navigation_root: Option<PathBuf>,
     pub navigation_width: f32,
+    // The old Files-first ratio does not describe the new content-sized Outline.
+    #[serde(
+        rename = "outline_height_limit",
+        default = "default_outline_height_limit"
+    )]
     pub navigation_split: f32,
     pub expanded_folders: Vec<PathBuf>,
     pub selection_start: usize,
@@ -509,6 +581,10 @@ pub struct WorkspaceState {
     pub scroll_anchor_intra_line_offset: f32,
 }
 
+fn default_outline_height_limit() -> f32 {
+    1.
+}
+
 impl Default for WorkspaceState {
     fn default() -> Self {
         Self {
@@ -517,7 +593,7 @@ impl Default for WorkspaceState {
             draft_recovery_key: None,
             navigation_root: None,
             navigation_width: 224.,
-            navigation_split: 0.6,
+            navigation_split: 1.,
             expanded_folders: Vec::new(),
             selection_start: 0,
             selection_end: 0,
@@ -658,6 +734,29 @@ mod tests {
         fs::remove_dir_all(directory).expect("cleanup isolated test directory");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn source_read_rejects_path_replacement_after_bytes_are_captured() {
+        let directory = temporary_directory("read-replacement");
+        let path = directory.join("document.md");
+        let displaced = directory.join("displaced.md");
+        fs::write(&path, "first").expect("fixture");
+
+        let error = read_source_bytes_with_identity_using(&path, |target| {
+            fs::rename(target, &displaced)?;
+            fs::write(target, "other")
+        })
+        .expect_err("replacement path must conflict with the captured bytes");
+
+        assert!(matches!(error, PersistenceError::ExternalChange(_)));
+        assert_eq!(fs::read_to_string(&path).expect("replacement"), "other");
+        assert_eq!(
+            fs::read_to_string(&displaced).expect("captured file"),
+            "first"
+        );
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
     #[test]
     fn disk_full_during_write_keeps_original_and_recovery() {
         let directory = temporary_directory("disk-full");
@@ -794,13 +893,167 @@ mod tests {
                     .markdown,
                 "latest draft"
             );
-            atomic_save(snapshot)
+            atomic_save_with_outcome(snapshot)
         })
         .expect("save");
 
         assert!(outcome.cleanup_warning.is_none());
         assert_eq!(fs::read_to_string(&path).expect("saved"), "latest draft");
         assert_eq!(journal.load(&path).expect("journal cleared"), None);
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+        fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");
+    }
+
+    #[test]
+    fn directory_sync_failure_reports_committed_write_and_retains_recovery() {
+        let directory = temporary_directory("uncertain-durability");
+        let recovery_directory = temporary_directory("uncertain-durability-recovery");
+        let journal = RecoveryJournal::in_directory(recovery_directory.clone());
+        let path = directory.join("document.md");
+        fs::write(&path, "old").expect("fixture");
+        let snapshot = SaveSnapshot {
+            revision: Revision(12),
+            bytes: b"committed draft".as_slice().into(),
+            expected_identity: Some(source_identity(&path).expect("identity")),
+        };
+
+        let outcome = save_with_recovery_using(snapshot, &journal, |snapshot| {
+            atomic_save_with_hook(snapshot, |stage, _| {
+                if stage == AtomicSaveStage::SyncDirectory {
+                    Err(io::Error::other("injected directory sync failure"))
+                } else {
+                    Ok(())
+                }
+            })
+        })
+        .expect("replacement is a committed save with a durability warning");
+
+        assert_eq!(
+            fs::read_to_string(&path).expect("saved target"),
+            "committed draft"
+        );
+        assert_eq!(
+            outcome.identity,
+            source_identity(&path).expect("reconciled identity")
+        );
+        assert!(matches!(
+            outcome.cleanup_warning,
+            Some(PersistenceError::DurabilityUncertain { path: ref warning_path, .. })
+                if warning_path == &path
+        ));
+        assert_eq!(
+            journal
+                .load(&path)
+                .expect("journal load")
+                .expect("recovery retained")
+                .markdown,
+            "committed draft"
+        );
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+        fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");
+    }
+
+    #[test]
+    fn failures_before_replacement_keep_original_and_recovery_at_every_stage() {
+        for failed_stage in [
+            AtomicSaveStage::CreateTemporary,
+            AtomicSaveStage::Write,
+            AtomicSaveStage::SyncTemporary,
+            AtomicSaveStage::Replace,
+        ] {
+            let directory = temporary_directory("pre-replace-failure");
+            let recovery_directory = temporary_directory("pre-replace-recovery");
+            let journal = RecoveryJournal::in_directory(recovery_directory.clone());
+            let path = directory.join("document.md");
+            fs::write(&path, "old").expect("fixture");
+            let snapshot = SaveSnapshot {
+                revision: Revision(13),
+                bytes: b"uncommitted draft".as_slice().into(),
+                expected_identity: Some(source_identity(&path).expect("identity")),
+            };
+
+            let result = save_with_recovery_using(snapshot, &journal, |snapshot| {
+                atomic_save_with_hook(snapshot, |stage, _| {
+                    if stage == failed_stage {
+                        Err(io::Error::other("injected pre-replacement failure"))
+                    } else {
+                        Ok(())
+                    }
+                })
+            });
+
+            assert!(
+                matches!(result, Err(RecoverableSaveError::Recovered { .. })),
+                "stage {failed_stage:?} must remain a failed save"
+            );
+            assert_eq!(fs::read_to_string(&path).expect("original"), "old");
+            assert_eq!(
+                journal
+                    .load(&path)
+                    .expect("journal load")
+                    .expect("recovery retained")
+                    .markdown,
+                "uncommitted draft"
+            );
+            assert!(!fs::read_dir(&directory).expect("directory").any(|entry| {
+                entry
+                    .expect("entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .contains("mineral-save")
+            }));
+            fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+            fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn journal_cleanup_failure_keeps_committed_identity_and_recovery() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let directory = temporary_directory("cleanup-failure");
+        let recovery_directory = temporary_directory("cleanup-failure-recovery");
+        let journal = RecoveryJournal::in_directory(recovery_directory.clone());
+        let path = directory.join("document.md");
+        fs::write(&path, "old").expect("fixture");
+        let snapshot = SaveSnapshot {
+            revision: Revision(14),
+            bytes: b"durable draft".as_slice().into(),
+            expected_identity: Some(source_identity(&path).expect("identity")),
+        };
+
+        let outcome = save_with_recovery_using(snapshot, &journal, |snapshot| {
+            let outcome = atomic_save_with_outcome(snapshot)?;
+            fs::set_permissions(&recovery_directory, fs::Permissions::from_mode(0o500))
+                .expect("block recovery cleanup");
+            Ok(outcome)
+        })
+        .expect("save remains committed when cleanup fails");
+        fs::set_permissions(&recovery_directory, fs::Permissions::from_mode(0o700))
+            .expect("restore recovery permissions");
+
+        assert_eq!(
+            fs::read_to_string(&path).expect("saved target"),
+            "durable draft"
+        );
+        assert_eq!(
+            outcome.identity,
+            source_identity(&path).expect("saved identity")
+        );
+        assert!(matches!(
+            outcome.cleanup_warning,
+            Some(PersistenceError::Io { path: ref warning_path, .. })
+                if warning_path == &journal.path_for(&path)
+        ));
+        assert_eq!(
+            journal
+                .load(&path)
+                .expect("journal load")
+                .expect("recovery retained")
+                .markdown,
+            "durable draft"
+        );
         fs::remove_dir_all(directory).expect("cleanup isolated test directory");
         fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");
     }

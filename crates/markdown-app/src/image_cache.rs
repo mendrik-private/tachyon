@@ -78,6 +78,18 @@ impl BoundedImageCache {
         self.dimensions.clone()
     }
 
+    /// Advances document-wide image decoding through the same bounded queue
+    /// used by visible images. Completed and failed resources leave the list;
+    /// cache notifications schedule another frame for the remaining work.
+    pub(crate) fn prefetch(
+        &mut self,
+        resources: &mut Vec<Resource>,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        resources.retain(|resource| self.load(resource, window, cx).is_none());
+    }
+
     pub(crate) fn retry_failed(&mut self, resource: &Resource) -> bool {
         let key = hash(resource);
         let failed = match self.entries.get_mut(&key) {

@@ -6,6 +6,10 @@ Tachyon keeps your Markdown rendered while you edit it. Headings, lists, tables,
 code and figures share one editable document, with automatic layouts that adapt
 to the space available. Your work lives in local Markdown files.
 
+<P>
+<img width="2879" height="1669" alt="image" src="https://github.com/user-attachments/assets/aee4dd72-89bc-42eb-93a6-a3af80f087e7" />
+</P>
+
 ## Highlights
 
 - **Native Wayland app.** Rust and GPUI with GPU rendering, native window

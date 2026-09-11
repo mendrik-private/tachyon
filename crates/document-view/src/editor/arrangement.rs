@@ -1,4 +1,5 @@
 use super::*;
+use crate::adaptive::rows::RowKind;
 
 /// Read-only resources already owned by the view. Candidate measurement never
 /// starts image loading; absent or stale dimensions retain the stack fallback.
@@ -703,6 +704,59 @@ pub(super) fn build_edit_locked_adaptive_plan<'a>(
                 })
         },
     );
+    // A retained typing layout must not require reading down one screen and
+    // scrolling back up for the next prose column. Recheck current content,
+    // including synchronous text refreshes whose retained heights are stale.
+    let mut oversized_prose = Vec::new();
+    for row in &mut plan.measured_rows.chosen {
+        if row.widths.len() != 2
+            || !matches!(
+                row.kind,
+                RowKind::Opening | RowKind::Peer | RowKind::Explanation
+            )
+        {
+            continue;
+        }
+        let heights = row
+            .parts
+            .iter()
+            .zip(&row.widths)
+            .map(|(part, width)| {
+                let cards = row.kind == RowKind::Peer;
+                cache
+                    .entry((part.start, part.end, width.to_bits(), cards))
+                    .or_insert_with(|| {
+                        measure_row_group(
+                            projection,
+                            &roots[part.clone()],
+                            &segments,
+                            *width,
+                            cards,
+                            &resources,
+                            &presentation,
+                        )
+                    })
+                    .map(|m| m.height)
+            })
+            .collect::<Option<Vec<_>>>();
+        if let Some(heights) = heights.filter(|heights| {
+            viewport.is_finite()
+                && viewport > 0.
+                && heights
+                    .iter()
+                    .all(|height| height.is_finite() && *height > 0. && *height <= viewport)
+        }) {
+            row.heights = heights;
+            row.height_estimated = false;
+        } else {
+            oversized_prose.push(row.ids[0]);
+        }
+    }
+    plan.measured_rows
+        .chosen
+        .retain(|row| !oversized_prose.contains(&row.ids[0]));
+    plan.slots
+        .retain(|_, slot| !oversized_prose.contains(&slot.group));
     plan.measure_lists(
         projection,
         width,
@@ -2389,6 +2443,76 @@ pub(super) mod tests {
     }
 
     #[gpui::test]
+    fn prose_columns_stack_when_the_current_viewport_cannot_hold_the_row(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let source = include_str!("../../../../performance/layout-fixtures/129-small-fish.md");
+            for zoom in [1., 1.5, 2.] {
+                let mut document = Document::from_markdown(source).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let fonts = FontMeasurement::new(
+                    cx.text_system().clone(),
+                    "Spline Sans Tachyon".into(),
+                    zoom,
+                );
+                let ready =
+                    build_measured_adaptive_plan(&projection, 1725., 1500., None, false, &fonts);
+                let row = ready
+                    .measured_rows
+                    .chosen
+                    .iter()
+                    .find(|row| row.kind == RowKind::Opening)
+                    .unwrap();
+                let height = row.heights.iter().copied().fold(0., f32::max);
+                let body = projection.roots().nth(1).unwrap().id();
+                for keep in [false, true] {
+                    let short = build_edit_locked_adaptive_plan(
+                        &projection,
+                        1725.,
+                        height - 1.,
+                        Some(&ready),
+                        keep,
+                        &fonts,
+                        Some(body),
+                    );
+                    assert!(!short.slots.contains_key(&body), "zoom={zoom}, keep={keep}");
+                }
+                document
+                    .apply(EditCommand::ReplaceText {
+                        node_id: body,
+                        range: 0..0,
+                        text: "A longer argument continues here. ".repeat(500),
+                        typing: true,
+                        selection_after: None,
+                    })
+                    .unwrap();
+                let edited = TextProjection::from_snapshot(&document.snapshot());
+                for keep in [false, true] {
+                    let grown = build_edit_locked_adaptive_plan(
+                        &edited,
+                        1725.,
+                        600.,
+                        Some(&ready),
+                        keep,
+                        &fonts,
+                        Some(body),
+                    );
+                    assert!(
+                        !grown.slots.contains_key(&body),
+                        "grown prose must stack: zoom={zoom}, keep={keep}"
+                    );
+                }
+                document.undo().unwrap();
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+                let restored =
+                    build_measured_adaptive_plan(&projection, 1725., 1500., None, false, &fonts);
+                assert!(restored.slots.contains_key(&body));
+            }
+        });
+    }
+
+    #[gpui::test]
     fn opening_lead_and_overview_share_width_below_the_authored_title(
         cx: &mut gpui::TestAppContext,
     ) {
@@ -2478,12 +2602,7 @@ pub(super) mod tests {
                 );
                 let ready =
                     build_measured_adaptive_plan(&projection, 1725., 1500., None, false, &fonts);
-                let row = ready
-                    .measured_rows
-                    .chosen
-                    .iter()
-                    .find(|row| row.kind == RowKind::Opening)
-                    .unwrap();
+                assert!(ready.measured_rows.chosen.iter().any(|row| row.kind == RowKind::Opening));
                 for (width, height) in [(650., 1500.), (1725., 304.)] {
                     let stack = build_measured_adaptive_plan(
                         &projection,
@@ -2568,15 +2687,9 @@ pub(super) mod tests {
                         &fonts,
                         Some(*body),
                     );
-                    let retained = focused
-                        .measured_rows
-                        .chosen
-                        .iter()
-                        .find(|r| r.kind == RowKind::Opening)
-                        .expect("typing retains the opening");
-                    assert_eq!(retained.parts, row.parts);
-                    assert_eq!(retained.widths, row.widths);
-                    assert!(retained.edit_locked);
+                    assert!(focused.measured_rows.chosen.iter().all(|r| r.kind != RowKind::Opening),
+                        "grown prose must fit the viewport before retaining columns");
+                    assert!(!focused.slots.contains_key(body));
                     let lines = build_measured_visual_lines(
                         &edited,
                         &HashMap::new(),
@@ -7043,17 +7156,15 @@ pub(super) mod tests {
                     },
                     Some(paragraph),
                 );
-                let retained = focused
-                    .measured_rows
-                    .chosen
-                    .iter()
-                    .find(|candidate| candidate.ids == row.ids)
-                    .unwrap();
-                assert!(retained.edit_locked);
-                assert_eq!(
-                    retained.widths, row.widths,
-                    "typing beyond the measurement budget retains the active tracks"
+                assert!(
+                    focused
+                        .measured_rows
+                        .chosen
+                        .iter()
+                        .all(|candidate| candidate.ids != row.ids),
+                    "unmeasurable prose cannot prove that two columns fit the viewport"
                 );
+                assert!(!focused.slots.contains_key(&paragraph));
                 let released = build_measured_adaptive_plan(
                     &edited,
                     1314.,

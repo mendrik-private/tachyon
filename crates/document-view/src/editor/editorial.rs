@@ -648,8 +648,8 @@ mod tests {
                 &fonts,
                 Some(id),
             );
-            assert_eq!(locked.slots[&id].width(1280.), slot.width(1200.));
-            assert_eq!(locked.slots[&id].left(1280.), slot.left(1200.));
+            assert_eq!(locked.slots[&id].columns, 1);
+            assert!(locked.slots[&id].width(1280.) > slot.width(1200.));
             let lines = arrangement::build_measured_visual_lines(
                 &projection,
                 &HashMap::new(),

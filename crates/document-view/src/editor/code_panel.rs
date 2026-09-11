@@ -250,7 +250,7 @@ mod tests {
             let document = Document::from_markdown("```sh\npwd\n```\n").unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let lines = build_visual_lines_for_segment(
                 &projection,
                 &projection.segments()[0],
@@ -275,7 +275,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 for (source, width, strip) in [
@@ -343,7 +343,7 @@ mod tests {
             let document = Document::from_markdown(source.as_str()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = arrangement::build_edit_locked_adaptive_plan(
                 &projection,
                 760.,
@@ -678,7 +678,7 @@ mod tests {
                     let view = prepare(&editor.measurement, published.take());
                     let fresh = FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Tachyon".into(),
+                        "Public Sans Tachyon".into(),
                         1.,
                     );
                     let oracle = prepare(&fresh, None);

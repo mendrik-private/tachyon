@@ -205,7 +205,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 for width in [360., 620., 1600.] {
@@ -290,7 +290,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 fonts.measure_tables(&mut projection);
@@ -429,7 +429,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 let images = projection
@@ -554,7 +554,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 for width in [360., 520., 570., 620., 1600.] {
@@ -699,7 +699,7 @@ mod tests {
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 fonts.measure_tables(&mut projection);

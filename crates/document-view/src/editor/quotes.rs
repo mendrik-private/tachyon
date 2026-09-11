@@ -52,7 +52,7 @@ mod tests {
             let mut document = Document::from_markdown(SOURCE).unwrap();
             let before = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = build_measured_adaptive_plan(&before, 1280., 1000., None, false, &fonts);
             let id = before
                 .segments()
@@ -114,7 +114,7 @@ mod tests {
                 .unwrap();
             assert_eq!((line.style.font_size, line.style.line_height), (14., 20.));
             let text_style = gpui::TextStyle {
-                font_family: "Spline Sans Tachyon".into(),
+                font_family: "Public Sans Tachyon".into(),
                 ..Default::default()
             };
             let runs = styled_projection_runs(
@@ -127,7 +127,7 @@ mod tests {
             );
             assert!(
                 runs.iter()
-                    .all(|run| run.font.family.as_ref() == "Spline Sans Tachyon")
+                    .all(|run| run.font.family.as_ref() == "Public Sans Tachyon")
             );
             let blurred = TextProjection::from_snapshot(&snapshot);
             assert!(
@@ -169,7 +169,7 @@ mod tests {
             for (width, zoom) in [(1280., 1.), (420., 1.), (640., 2.)] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 let plan =

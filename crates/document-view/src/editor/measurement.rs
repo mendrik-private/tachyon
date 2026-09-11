@@ -100,7 +100,7 @@ impl FontMeasurement {
         let text = number.to_string();
         let run = TextRun {
             len: text.len(),
-            font: gpui::font("Spline Sans Tachyon"),
+            font: gpui::font("Public Sans Tachyon"),
             color: rgb(TachyonPalette::LIGHT.accent).into(),
             background_color: None,
             underline: None,
@@ -463,23 +463,20 @@ impl FontMeasurement {
         // stable while typing and avoids data-dependent width oscillation.
         const SAMPLE: &str = "Good writing gives ideas a clear shape and enough room for the reader to follow the argument.";
         let system = gpui::WindowTextSystem::new(fonts.clone());
-        let prose_measures = [
-            (family.clone(), DocumentStyle::REFERENCE_SIZE),
-            ("Liberation Serif".into(), DocumentStyle::READING_SIZE),
-        ]
-        .map(|(family, size)| {
-            let run = TextRun {
-                len: SAMPLE.len(),
-                font: gpui::font(family),
-                color: rgb(TachyonPalette::LIGHT.text).into(),
-                background_color: None,
-                underline: None,
-                strikethrough: None,
-            };
-            let line = system.shape_line(SAMPLE.into(), px(size * zoom), &[run], None);
-            f32::from(line.width) / zoom / SAMPLE.chars().count() as f32
-                * DocumentStyle::PROSE_CHARACTERS
-        });
+        let prose_measures =
+            [DocumentStyle::REFERENCE_SIZE, DocumentStyle::READING_SIZE].map(|size| {
+                let run = TextRun {
+                    len: SAMPLE.len(),
+                    font: gpui::font(DocumentStyle::BODY_FONT_FAMILY),
+                    color: rgb(TachyonPalette::LIGHT.text).into(),
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                let line = system.shape_line(SAMPLE.into(), px(size * zoom), &[run], None);
+                f32::from(line.width) / zoom / SAMPLE.chars().count() as f32
+                    * DocumentStyle::PROSE_CHARACTERS
+            });
         let code_digit_width = ('0'..='9')
             .map(|digit| {
                 let run = TextRun {
@@ -771,7 +768,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[0];
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for width in 90..140 {
                 let lines = fonts
                     .wrap(
@@ -822,7 +819,7 @@ mod tests {
                 for zoom in [1., 1.5, 2.] {
                     let fonts = FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Tachyon".into(),
+                        "Public Sans Tachyon".into(),
                         zoom,
                     );
                     // Every legal unit fits by itself, so an emergency break
@@ -898,7 +895,7 @@ mod tests {
             let text = &projection.text()[segment.projection_range()];
             assert!(segment.projection_start() > 0);
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for width in [1., 18., 90.] {
                 let lines = fonts
                     .wrap(&projection, segment, segment.projection_range(), width, 18.)
@@ -940,7 +937,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[0];
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let scope = diagnostics::MeasurementScope::new();
             let cold_width = measurement
                 .line_width(&projection, segment.projection_range(), 18.)
@@ -1003,7 +1000,7 @@ mod tests {
             .unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             measurement.measure_tables(&mut projection);
             for segment in projection.segments() {
                 let width = segment_text_width(segment, &projection, 1100.);
@@ -1034,7 +1031,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             for zoom in [1., 1.5, 2.] {
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
-                let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom);
                 fonts.measure_tables(&mut projection);
                 for width in [260., 420., 560., 641., 760., 1280.] {
                     let plan = build_measured_adaptive_plan(&projection, width, 1200., None, false, &fonts);
@@ -1071,7 +1068,7 @@ mod tests {
                 let mut document = Document::from_markdown(source).unwrap();
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     1.,
                 );
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
@@ -1154,7 +1151,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for (header, value, atomic) in [
                 ("Status", "In review", true),
                 ("State", "**In review**", true),
@@ -1201,7 +1198,7 @@ mod tests {
             let document = Document::from_markdown(source.as_str()).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let id = projection.roots().next().unwrap().id();
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             measurement.measure_tables(&mut projection);
             let measured = projection.table_measurements(id).unwrap();
             let last = projection.segments().iter().find(|s| &projection.text()[s.projection_range()] == "configuration_schema_revision_identifier").unwrap();
@@ -1228,7 +1225,7 @@ mod tests {
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let id = projection.roots().next().unwrap().id();
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             measurement.measure_tables(&mut projection);
             assert!(projection.table_measurements(id).is_none());
             assert!(
@@ -1247,7 +1244,7 @@ mod tests {
                 Document::from_markdown("iiiiiiii\n\nWWWWWWWW\n\n**WWWWWWWW**\n").unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let ranges = projection
                 .segments()
                 .iter()
@@ -1289,7 +1286,7 @@ mod tests {
         cx.update(|cx| {
             let document = Document::from_markdown("# Atlas product specification\n\nA **bold** label and `identifier` with e\u{301} and 👨‍👩‍👧‍👦.\n").unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for segment in projection.segments() {
                 let mut previous = None;
                 for width in [70., 70.25, 320., 760.] {
@@ -1320,7 +1317,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[0];
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let ranges = measurement
                 .wrap(&projection, segment, segment.projection_range(), 180., 18.)
                 .unwrap();
@@ -1347,7 +1344,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[0];
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let runs = styled_projection_runs(
                 &projection,
                 &segment.projection_range(),

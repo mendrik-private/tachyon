@@ -325,7 +325,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             fonts.measure_tables(&mut projection);
             let table = projection
                 .roots()
@@ -398,7 +398,7 @@ mod tests {
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 fonts.measure_tables(&mut projection);
@@ -477,7 +477,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             fonts.measure_tables(&mut projection);
             let segment = projection
                 .segments()
@@ -565,7 +565,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let compact = "| Name | Description | Owner |\n| --- | --- | --- |\n| Atlas | A sustained explanation describes this independent service and the context in which it should be used. | Research |\n";
             for (source, width, expected_inline) in [(ENTITIES, 420., true), (compact, 260., false)] {
                 let document = Document::from_markdown(source).unwrap();
@@ -615,7 +615,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let mut document = Document::from_markdown(ENTITIES).unwrap();
             let mut previous = TextProjection::from_snapshot(&document.snapshot());
             fonts.measure_tables(&mut previous);
@@ -750,7 +750,7 @@ mod tests {
         cx.update(|cx| {
             let document = Document::from_markdown(source).unwrap();
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             fonts.measure_tables(&mut projection);
             let tables = projection
@@ -791,7 +791,7 @@ mod tests {
             for width in [280., 420., 760., 1280.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     1.,
                 );
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
@@ -923,7 +923,7 @@ mod tests {
         cx.update(|cx| {
             let mut document = Document::from_markdown(SOURCE).unwrap();
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             fonts.measure_tables(&mut projection);
             let plan = build_measured_adaptive_plan(&projection, 420., 900., None, false, &fonts);
@@ -1032,7 +1032,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for source in [
                 "| Option | Result |\n| --- | --- |\n| A | A very long descriptive result repeated for comparison across options. |\n| B | Another result. |\n".to_string(),
                 "| Property | Description |\n| --- | --- |\n| Duplicate | A long description that would otherwise use the record fallback on a narrow screen. |\n| Duplicate | Another description. |\n".to_string(),

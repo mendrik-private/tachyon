@@ -4450,6 +4450,19 @@ impl RichDocumentEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let preserve_view = matches!(
+            &command,
+            EditCommand::InsertTableRow { .. } | EditCommand::InsertTableColumn { .. }
+        );
+        let scroll_anchor = preserve_view.then(|| {
+            let snapshot = self.document.snapshot();
+            capture_scroll_anchor(
+                &snapshot,
+                &self.projection,
+                &self.visual_lines,
+                self.scroll_metrics().0,
+            )
+        });
         match self.apply_command(command) {
             Ok(result) if !result.dirty_node_ids.is_empty() => {
                 self.table_hover = None;
@@ -4457,9 +4470,25 @@ impl RichDocumentEditor {
                 self.refresh_after_transaction(&result);
                 self.last_error = None;
                 self.focus_handle.focus(window, cx);
-                // Row and column edits can move the surviving selection out
-                // of view. Reveal it using the refreshed table geometry.
-                self.keep_offset_visible(self.cursor_offset());
+                let view_restored = scroll_anchor.flatten().is_some_and(|anchor| {
+                    let snapshot = self.document.snapshot();
+                    let Some(y) = resolve_scroll_anchor(
+                        &snapshot,
+                        &self.projection,
+                        &self.visual_lines,
+                        &anchor,
+                    ) else {
+                        return false;
+                    };
+                    let x = self.scroll_handle.offset().x;
+                    self.scroll_handle.set_offset(point(x, px(-y.max(0.))));
+                    true
+                });
+                if !view_restored {
+                    // Deletions and structural edits without a surviving
+                    // viewport anchor reveal the resulting selection.
+                    self.keep_offset_visible(self.cursor_offset());
+                }
                 cx.emit(EditorEvent::Changed);
                 cx.notify();
             }
@@ -6297,8 +6326,8 @@ impl gpui::Render for RichDocumentEditor {
                         .items_center()
                         .gap(px(9. * self.zoom_factor))
                         .text_size(px(18. * self.zoom_factor))
-                        .font_family("Fraunces Tachyon H3")
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_family(DocumentStyle::HEADLINE_FONT_FAMILY)
+                        .font_weight(FontWeight::EXTRA_BOLD)
                         .text_color(rgb(color))
                         .child(
                             Icon::new(alert_icon(kind))
@@ -8390,12 +8419,10 @@ impl Element for DocumentTextElement {
                     }
                     if task.is_none() && numbered {
                         let mut font = text_style.font();
-                        if segment.context.bibliography.is_some() {
-                            font.family = "Liberation Serif".into();
-                        }
+                        font.family = DocumentStyle::BODY_FONT_FAMILY.into();
                         if numbered_tile {
-                            font.family = "Fraunces Tachyon H2".into();
-                            font.weight = FontWeight::SEMIBOLD;
+                            font.family = DocumentStyle::HEADLINE_FONT_FAMILY.into();
+                            font.weight = FontWeight::EXTRA_BOLD;
                         }
                         let marker_layout = window.text_system().shape_line(
                             marker.to_owned().into(),
@@ -12317,6 +12344,8 @@ fn styled_projection_runs(
         return Vec::new();
     }
     let mut base_font = text_style.font();
+    base_font.family = DocumentStyle::BODY_FONT_FAMILY.into();
+    base_font.weight = FontWeight::EXTRA_LIGHT;
     let mut base_color = rgb(palette.text).into();
     let mut base_background = None;
     let Some((segment, block)) = projection.segment_for_range(line).and_then(|segment| {
@@ -12337,44 +12366,34 @@ fn styled_projection_runs(
             strikethrough: None,
         }];
     };
-    if segment.context.narrative || segment.context.bibliography.is_some() {
-        base_font.family = "Liberation Serif".into();
-    }
     if matches!(block, BlockNode::Paragraph(_))
         && segment.context.quote.is_some()
         && segment.context.list_depth == 0
         && segment.context.table_cell.is_none()
+        && segment.context.quote_pull
     {
-        base_font.family = "Liberation Serif".into();
-        if segment.context.quote_pull {
-            base_font.style = FontStyle::Italic;
-        }
+        base_font.style = FontStyle::Italic;
     }
     if segment.context.quote_attribution || segment.context.margin_note_anchor.is_some() {
-        base_font.family = "Spline Sans Tachyon".into();
+        base_font.family = DocumentStyle::BODY_FONT_FAMILY.into();
         base_font.style = FontStyle::Normal;
         base_color = rgb(palette.secondary).into();
     }
     if segment.context.figure_text.is_some() {
-        base_font.family = "Spline Sans Tachyon".into();
+        base_font.family = DocumentStyle::BODY_FONT_FAMILY.into();
         base_color = rgb(palette.secondary).into();
     }
     match block {
-        BlockNode::Heading(heading) => {
-            base_font.family = match heading.level {
-                1 => "Fraunces Tachyon H1",
-                2 => "Fraunces Tachyon H2",
-                _ => "Fraunces Tachyon H3",
-            }
-            .into();
-            base_font.weight = FontWeight::SEMIBOLD;
+        BlockNode::Heading(_) => {
+            base_font.family = DocumentStyle::HEADLINE_FONT_FAMILY.into();
+            base_font.weight = FontWeight::EXTRA_BOLD;
             base_color = rgb(palette.heading).into();
         }
         BlockNode::CodeBlock(_) => {
-            base_font.family = "Spline Sans Mono Tachyon".into();
+            base_font.family = DocumentStyle::MONOSPACE_FONT_FAMILY.into();
         }
         BlockNode::PreservedSource { .. } => {
-            base_font.family = "Spline Sans Mono Tachyon".into();
+            base_font.family = DocumentStyle::MONOSPACE_FONT_FAMILY.into();
             base_color = rgb(palette.secondary).into();
             base_background = Some(rgb(palette.surface).into());
         }
@@ -12386,17 +12405,12 @@ fn styled_projection_runs(
     if let Some(role) = segment.context.metric {
         match role {
             crate::metrics::TextRole::Label | crate::metrics::TextRole::Value => {
-                base_font.family = if role == crate::metrics::TextRole::Value {
-                    "Fraunces Tachyon H1"
-                } else {
-                    "Fraunces Tachyon H3"
-                }
-                .into();
-                base_font.weight = FontWeight::SEMIBOLD;
+                base_font.family = DocumentStyle::HEADLINE_FONT_FAMILY.into();
+                base_font.weight = FontWeight::EXTRA_BOLD;
                 base_color = rgb(palette.heading).into();
             }
             crate::metrics::TextRole::Context => {
-                base_font.family = "Spline Sans Tachyon".into();
+                base_font.family = DocumentStyle::BODY_FONT_FAMILY.into();
                 base_color = rgb(palette.secondary).into();
             }
         }
@@ -12413,13 +12427,13 @@ fn styled_projection_runs(
     if let Some(role) = segment.context.color_role {
         use crate::signals::ColorRole;
         base_font.family = match role {
-            ColorRole::Label => "Fraunces Tachyon H3",
-            ColorRole::Literal => "Spline Sans Mono Tachyon",
-            ColorRole::Context => "Spline Sans Tachyon",
+            ColorRole::Label => DocumentStyle::HEADLINE_FONT_FAMILY,
+            ColorRole::Literal => DocumentStyle::MONOSPACE_FONT_FAMILY,
+            ColorRole::Context => DocumentStyle::BODY_FONT_FAMILY,
         }
         .into();
         base_font.weight = if role == ColorRole::Label {
-            FontWeight::SEMIBOLD
+            FontWeight::EXTRA_BOLD
         } else {
             FontWeight::NORMAL
         };
@@ -12536,13 +12550,7 @@ fn styled_projection_runs(
             for style in &inline.styles {
                 match style {
                     InlineStyle::Bold => font.weight = FontWeight::BOLD,
-                    InlineStyle::Italic => {
-                        font.style = if font.family.as_ref() == "Spline Sans Tachyon" {
-                            FontStyle::Oblique
-                        } else {
-                            FontStyle::Italic
-                        };
-                    }
+                    InlineStyle::Italic => font.style = FontStyle::Italic,
                     InlineStyle::Strikethrough => {
                         strikethrough = Some(StrikethroughStyle {
                             color: Some(color),
@@ -12550,7 +12558,7 @@ fn styled_projection_runs(
                         });
                     }
                     InlineStyle::Code | InlineStyle::Math { .. } => {
-                        font.family = "Spline Sans Mono Tachyon".into();
+                        font.family = DocumentStyle::MONOSPACE_FONT_FAMILY.into();
                         background_color = Some(rgb(palette.surface).into());
                     }
                     InlineStyle::Link(_) => {
@@ -12567,7 +12575,7 @@ fn styled_projection_runs(
                 }
             }
             if label_end.is_some_and(|end| overlap.end <= end) {
-                font.weight = FontWeight::SEMIBOLD;
+                font.weight = FontWeight::EXTRA_BOLD;
                 if !inline
                     .styles
                     .iter()
@@ -12576,7 +12584,7 @@ fn styled_projection_runs(
                     color = rgb(palette.heading).into();
                 }
                 if !inline.styles.contains(&InlineStyle::Code) && !segment.context.metadata {
-                    font.family = "Fraunces Tachyon H3".into();
+                    font.family = DocumentStyle::HEADLINE_FONT_FAMILY.into();
                 }
             }
             if let Some(badge) = segment.context.badge
@@ -12622,7 +12630,7 @@ fn styled_projection_runs(
                 let mut number = run.clone();
                 number.len = length.min(prefix - offset);
                 number.color = rgb(palette.accent).into();
-                number.font.family = "Spline Sans Tachyon".into();
+                number.font.family = "Public Sans Tachyon".into();
                 number.font.weight = FontWeight::MEDIUM;
                 run.len -= number.len;
                 styled.push(number);
@@ -13814,6 +13822,80 @@ mod tests {
         assert_eq!(document.snapshot().serialize().unwrap(), source);
     }
 
+    #[test]
+    fn readme_uses_one_body_family_and_one_headline_family() {
+        let source = include_str!("../../../README.md");
+        let document = Document::from_markdown(source).unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let text_style = gpui::TextStyle {
+            font_family: DocumentStyle::BODY_FONT_FAMILY.into(),
+            ..Default::default()
+        };
+        for prefix in [
+            "The divider between Files and Outline",
+            "Find follows source order",
+            "For copyable source examples",
+            "Short independent lists can use",
+        ] {
+            let segment = projection
+                .segments()
+                .iter()
+                .find(|segment| projection.text()[segment.projection_range()].starts_with(prefix))
+                .unwrap_or_else(|| panic!("missing README paragraph: {prefix}"));
+            let range = segment.projection_range();
+            let runs = styled_projection_runs(
+                &projection,
+                &range,
+                range.len(),
+                &text_style,
+                false,
+                TachyonPalette::DARK,
+            );
+            assert!(
+                runs.iter().all(
+                    |run| run.font.family.as_ref() == DocumentStyle::BODY_FONT_FAMILY
+                        && run.font.weight == FontWeight::EXTRA_LIGHT
+                ),
+                "paragraph {prefix:?} used {:?}",
+                runs.iter()
+                    .map(|run| run.font.family.as_ref())
+                    .collect::<Vec<_>>()
+            );
+        }
+        for prefix in ["Tachyon", "Adaptive layouts", "Storage and recovery"] {
+            let segment = projection
+                .segments()
+                .iter()
+                .find(|segment| {
+                    projection.text()[segment.projection_range()].starts_with(prefix)
+                        && matches!(
+                            projection.block(segment.node_id),
+                            Some(BlockNode::Heading(_))
+                        )
+                })
+                .unwrap_or_else(|| panic!("missing README heading: {prefix}"));
+            let range = segment.projection_range();
+            let runs = styled_projection_runs(
+                &projection,
+                &range,
+                range.len(),
+                &text_style,
+                false,
+                TachyonPalette::DARK,
+            );
+            assert!(
+                runs.iter().all(|run| run.font.family.as_ref()
+                    == DocumentStyle::HEADLINE_FONT_FAMILY
+                    && run.font.weight == FontWeight::EXTRA_BOLD),
+                "heading {prefix:?} used {:?}",
+                runs.iter()
+                    .map(|run| run.font.family.as_ref())
+                    .collect::<Vec<_>>()
+            );
+        }
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+    }
+
     #[gpui::test]
     fn html_preedit_style_runs_cover_only_their_original_text(cx: &mut gpui::TestAppContext) {
         cx.update(init_editor);
@@ -13867,7 +13949,7 @@ mod tests {
                     editor.zoom_factor = zoom;
                     editor.measurement = Arc::new(FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Tachyon".into(),
+                        "Public Sans Tachyon".into(),
                         zoom,
                     ));
                     editor.measurement.measure_tables(&mut editor.projection);
@@ -14631,7 +14713,7 @@ mod tests {
                         editor.zoom_factor = zoom;
                         editor.measurement = Arc::new(FontMeasurement::new(
                             cx.text_system().clone(),
-                            "Spline Sans Tachyon".into(),
+                            "Public Sans Tachyon".into(),
                             zoom,
                         ));
                         editor.measurement.measure_tables(&mut editor.projection);
@@ -15892,7 +15974,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = AdaptivePlan::build(&projection, 420., None, false);
             let lines = build_measured_visual_lines(
                 &projection,
@@ -16961,7 +17043,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let document = Document::from_markdown("# Recovery cache\n\n- Alpha\n- Beta\n- Gamma\n- Delta\n- Epsilon\n- Zeta\n\n<div><strong>HTML survives.</strong></div>\n\n$$\n\\frac{1}{2}\n$$\n").unwrap();
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let mut previous = AdaptivePlan::default();
             let mut published_geometry = None;
             let mut last_stack: Option<Arc<PublishedGeometry>> = None;
@@ -17002,7 +17084,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let previous = AdaptivePlan::build(&projection, 900., None, false);
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let mut viewport = ReflowViewport {
                 published_geometry: None,
                 width: 900.,
@@ -17066,7 +17148,7 @@ mod tests {
             .unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = build_measured_adaptive_plan(&projection, 1280., 1166., None, false, &fonts);
             let term = projection
                 .segments()
@@ -17116,7 +17198,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let previous = AdaptivePlan::build(&projection, 900., None, false);
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let viewport = ReflowViewport {
                 published_geometry: None, width: 900., height: 800., zoom: 1.,
                 preview_edit_node: None, expanded_code_tail: None, editing_node: None, table_layout_lock: None,
@@ -18537,7 +18619,108 @@ mod tests {
     }
 
     #[gpui::test]
-    fn table_row_menu_changes_keep_the_surviving_caret_visible(cx: &mut gpui::TestAppContext) {
+    fn inserting_table_rows_and_columns_preserves_the_visible_anchor(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(init_editor);
+        let source = format!(
+            "{}| Left | Right |\n| --- | --- |\n| Alpha | Beta |\n\n{}",
+            "Preamble keeps the caret above the viewport.\n\n".repeat(24),
+            "Trailing content leaves room below the table.\n\n".repeat(12),
+        );
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(
+                Document::from_markdown(source.as_str()).unwrap(),
+                window,
+                cx,
+            )
+        });
+        cx.simulate_resize(size(px(700.), px(250.)));
+        for _ in 0..4 {
+            cx.update(|window, cx| {
+                _ = window.draw(cx);
+            });
+            cx.run_until_parked();
+        }
+
+        for insert_column in [false, true] {
+            let (anchor, command) = cx.update(|window, cx| {
+                editor.update(cx, |editor, cx| {
+                    editor.set_selection(0..0, false, window, cx);
+                    let table_id = editor
+                        .projection
+                        .roots()
+                        .find_map(|root| matches!(root, BlockNode::Table(_)).then_some(root.id()))
+                        .expect("table");
+                    let BlockNode::Table(table) = editor.projection.block(table_id).unwrap() else {
+                        unreachable!()
+                    };
+                    let command = if insert_column {
+                        EditCommand::InsertTableColumn {
+                            table_id,
+                            index: table.column_count(),
+                        }
+                    } else {
+                        EditCommand::InsertTableRow {
+                            table_id,
+                            index: table.row_count(),
+                        }
+                    };
+                    let table_top = editor
+                        .visual_lines
+                        .iter()
+                        .find(|line| {
+                            line.table_cell.is_some_and(|(id, row, column, _)| {
+                                id == table_id && row == 0 && column == 0
+                            })
+                        })
+                        .expect("table header line")
+                        .y;
+                    editor.set_scroll_y(table_top, cx);
+                    let anchor = capture_scroll_anchor(
+                        &editor.document.snapshot(),
+                        &editor.projection,
+                        &editor.visual_lines,
+                        editor.scroll_metrics().0,
+                    )
+                    .expect("visible table anchor");
+                    (anchor, command)
+                })
+            });
+
+            cx.update(|window, cx| {
+                editor.update(cx, |editor, cx| {
+                    editor.apply_structural_command(command, window, cx);
+                });
+            });
+            for _ in 0..4 {
+                cx.update(|window, cx| {
+                    _ = window.draw(cx);
+                });
+                cx.run_until_parked();
+            }
+            editor.read_with(cx, |editor, _| {
+                let resolved = resolve_scroll_anchor(
+                    &editor.document.snapshot(),
+                    &editor.projection,
+                    &editor.visual_lines,
+                    &anchor,
+                )
+                .expect("surviving visible table anchor");
+                assert!(
+                    (editor.scroll_metrics().0 - resolved).abs() < 0.1,
+                    "{} insertion moved the visible anchor: scroll={}, anchor={resolved}",
+                    if insert_column { "column" } else { "row" },
+                    editor.scroll_metrics().0,
+                );
+            });
+        }
+    }
+
+    #[gpui::test]
+    fn table_row_menu_changes_preserve_selection_and_history_reveals_the_caret(
+        cx: &mut gpui::TestAppContext,
+    ) {
         fn assert_visible(editor: &RichDocumentEditor) {
             let cursor = editor.cursor_offset();
             let line = editor
@@ -18624,21 +18807,25 @@ mod tests {
                     .table_cell_containing(selection.head.node_id)
                     .unwrap();
                 assert_eq!((row, column), (if delete { 2 } else { 3 }, 1));
-                let cursor = editor.cursor_offset();
-                let line = editor
-                    .painted_lines
-                    .iter()
-                    .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
-                    .expect("row insertion/deletion must reveal the surviving caret");
-                let viewport = line.content_mask.unwrap().bounds;
-                assert!(
-                    line.bounds.top() >= viewport.top()
-                        && line.bounds.bottom() <= viewport.bottom(),
-                    "surviving caret line must be visible after structural edit"
-                );
+                if delete {
+                    let cursor = editor.cursor_offset();
+                    let line = editor
+                        .painted_lines
+                        .iter()
+                        .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
+                        .expect("row deletion must reveal the surviving caret");
+                    let viewport = line.content_mask.unwrap().bounds;
+                    assert!(
+                        line.bounds.top() >= viewport.top()
+                            && line.bounds.bottom() <= viewport.bottom(),
+                        "surviving caret line must be visible after row deletion"
+                    );
+                }
             });
             let (changed_source, changed_selection) = editor.read_with(cx, |editor, _| {
-                assert_visible(editor);
+                if delete {
+                    assert_visible(editor);
+                }
                 (
                     editor.document.snapshot().serialize().unwrap(),
                     editor.selection.clone(),
@@ -18700,7 +18887,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn table_column_history_preserves_saved_widths_and_reveals_the_caret(
+    fn table_column_history_preserves_saved_widths_selection_and_view(
         cx: &mut gpui::TestAppContext,
     ) {
         fn assert_visible(editor: &RichDocumentEditor) {
@@ -18760,19 +18947,24 @@ mod tests {
                 });
                 cx.run_until_parked();
             }
-            let (table_id, original_selection) = editor.read_with(cx, |editor, _| {
-                let Selection::Text(selection) = &editor.selection else {
-                    panic!("text caret")
-                };
-                let (table_id, row, column) = editor
-                    .document
-                    .snapshot()
-                    .table_cell_containing(selection.head.node_id)
-                    .unwrap();
-                assert_eq!((row, column), (1, 2));
-                assert_eq!(widths(editor, table_id), vec![Some(400.); 3]);
-                (table_id, editor.selection.clone())
-            });
+            let (table_id, original_selection, original_horizontal_scroll) =
+                editor.read_with(cx, |editor, _| {
+                    let Selection::Text(selection) = &editor.selection else {
+                        panic!("text caret")
+                    };
+                    let (table_id, row, column) = editor
+                        .document
+                        .snapshot()
+                        .table_cell_containing(selection.head.node_id)
+                        .unwrap();
+                    assert_eq!((row, column), (1, 2));
+                    assert_eq!(widths(editor, table_id), vec![Some(400.); 3]);
+                    (
+                        table_id,
+                        editor.selection.clone(),
+                        editor.horizontal_scrolls.get(&table_id).copied(),
+                    )
+                });
 
             cx.update(|window, cx| {
                 editor.update(cx, |editor, cx| {
@@ -18808,7 +19000,15 @@ mod tests {
                         vec![None, Some(400.), Some(400.), Some(400.)]
                     }
                 );
-                assert_visible(editor);
+                if delete {
+                    assert_visible(editor);
+                } else {
+                    assert_eq!(
+                        editor.horizontal_scrolls.get(&table_id).copied(),
+                        original_horizontal_scroll,
+                        "column insertion must retain the local table scroll position"
+                    );
+                }
                 (
                     editor.document.snapshot().serialize().unwrap(),
                     editor.selection.clone(),
@@ -20074,7 +20274,7 @@ mod tests {
             let outline = crate::project_outline(snapshot.blocks());
             let measurement = FontMeasurement::new(
                 cx.text_system().clone(),
-                "Spline Sans Tachyon".into(),
+                "Public Sans Tachyon".into(),
                 1.,
             );
             let mut previous = AdaptivePlan::default();

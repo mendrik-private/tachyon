@@ -7,20 +7,16 @@ use gpui::App;
 
 pub fn register(cx: &mut App) {
     let fonts: Vec<Cow<'static, [u8]>> = [
-        include_bytes!("../../../assets/fonts/LiberationSerif-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/LiberationSerif-Italic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/LiberationSerif-Bold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/LiberationSerif-BoldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H1-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H1-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H2-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H2-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H3-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H3-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Oblique.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-SemiboldOblique.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBoldItalic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Regular.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Semibold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Bold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLightItalic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Italic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-SemiboldItalic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-BoldItalic.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Semibold.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Italic.ttf").as_slice(),
@@ -65,21 +61,41 @@ pub fn register_delayed_alternate_for_validation(cx: &mut App) -> bool {
 
 #[cfg(test)]
 mod tests {
-    const BODY_FONTS: [&[u8]; 4] = [
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Regular.ttf"),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Semibold.ttf"),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Oblique.ttf"),
-        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-SemiboldOblique.ttf"),
+    const BODY_FONTS: [&[u8]; 8] = [
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Regular.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Semibold.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Bold.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLightItalic.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Italic.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-SemiboldItalic.ttf"),
+        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-BoldItalic.ttf"),
     ];
 
     #[test]
     fn bundled_body_fonts_keep_readable_space_advance() {
-        for data in BODY_FONTS {
+        for (data, expected_weight) in BODY_FONTS
+            .into_iter()
+            .zip([200, 400, 600, 700, 200, 400, 600, 700])
+        {
             let face = ttf_parser::Face::parse(data, 0).expect("valid bundled font");
+            assert_eq!(face.weight().to_number(), expected_weight);
             let glyph = face.glyph_index(' ').expect("U+0020 glyph");
             let advance = face.glyph_hor_advance(glyph).expect("horizontal advance") as u32;
             let units_per_em = u32::from(face.units_per_em());
-            assert_eq!(advance * 10, units_per_em * 3);
+            assert!(advance * 5 >= units_per_em);
+            assert!(advance * 2 <= units_per_em);
+        }
+    }
+
+    #[test]
+    fn bundled_headline_faces_are_extra_bold() {
+        for data in [
+            include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBold.ttf").as_slice(),
+            include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBoldItalic.ttf").as_slice(),
+        ] {
+            let face = ttf_parser::Face::parse(data, 0).expect("valid bundled headline font");
+            assert_eq!(face.weight().to_number(), 800);
         }
     }
 }

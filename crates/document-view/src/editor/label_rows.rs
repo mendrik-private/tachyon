@@ -434,7 +434,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             for zoom in [1., 1.5, 2.] {
-                let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom);
                 for width in [1400., 230.] {
                     let plan = build_measured_adaptive_plan(&projection, width, 1000., None, false, &fonts);
                     assert_eq!(plan.label_rows.len(), 8, "every explicit-date list is measured, including two nested histories and an event inside an event");
@@ -475,7 +475,7 @@ mod tests {
             let source = "- Root\n  - Branch\n    - Context\n      - 2024: First event.\n      - 2025: Second event.\n";
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let wide = build_measured_adaptive_plan(&projection, 1400., 1000., None, false, &fonts);
             assert_eq!(wide.label_rows.len(), 2);
             let narrow = build_measured_adaptive_plan(&projection, 280., 1000., Some(&wide), false, &fonts);
@@ -496,7 +496,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let initial =
                 build_measured_adaptive_plan(&projection, 1400., 1000., None, false, &fonts);
             let code = projection
@@ -561,7 +561,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 for width in [1400., 230.] {
@@ -671,7 +671,7 @@ mod tests {
                 let projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     1.,
                 );
                 let initial =
@@ -731,7 +731,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = build_measured_adaptive_plan(&projection, 1400., 1000., None, false, &fonts);
             let leads = projection
                 .segments()
@@ -757,7 +757,7 @@ mod tests {
                 );
             }
             for zoom in [1., 1.5, 2.] {
-                let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom);
                 for width in [1400., 230.] {
                     let plan = build_measured_adaptive_plan(&projection, width, 1000., None, false, &fonts);
                     let root = leads[0].top_level_node_id;
@@ -808,7 +808,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let initial =
                 build_measured_adaptive_plan(&projection, 1400., 1000., None, false, &fonts);
             let code = projection
@@ -894,7 +894,7 @@ mod tests {
             let mut document = Document::from_markdown(DATES).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let initial =
                 build_measured_adaptive_plan(&projection, 1200., 900., None, false, &fonts);
             let node = projection
@@ -995,7 +995,7 @@ mod tests {
             let document = Document::from_markdown(DATES).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for (width, horizontal, stacked) in [
                 (1200., true, true),
                 (560., false, false),
@@ -1149,7 +1149,7 @@ mod tests {
             let document = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = build_measured_adaptive_plan(&projection, 760., 900., None, false, &fonts);
             assert_eq!(plan.label_rows.len(), 2);
             let widths = plan
@@ -1221,7 +1221,7 @@ mod tests {
             let mut document = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let plan = build_measured_adaptive_plan(&projection, 760., 900., None, false, &fonts);
             let segment = projection
                 .segments()
@@ -1283,7 +1283,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for source in [
                 "1. First: Do this.\n2. Second: Do that.",
                 "- [x] Done: Known result.\n- [ ] Next: Pending result.",

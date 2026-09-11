@@ -141,7 +141,7 @@ mod tests {
             for (width, zoom) in [(1280., 1.), (400., 1.), (640., 2.)] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 let plan =

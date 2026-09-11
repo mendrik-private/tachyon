@@ -148,10 +148,13 @@ fn mix(ink: u32, paper: u32, amount: f32) -> u32 {
 pub(crate) struct DocumentStyle;
 
 impl DocumentStyle {
-    // Ordinary prose, list bodies and card bodies share the opening specimen's
-    // size. Reading roles still select their existing font families.
+    // Keep semantic hierarchy in size, weight and style. Proportional text uses
+    // exactly one body family and one headline family throughout the document.
+    pub const BODY_FONT_FAMILY: &'static str = "Public Sans Tachyon";
+    pub const HEADLINE_FONT_FAMILY: &'static str = "Fraunces Tachyon";
+    pub const MONOSPACE_FONT_FAMILY: &'static str = "Spline Sans Mono Tachyon";
     pub const BODY_SIZE: f32 = 21.;
-    pub const BODY_LEADING: f32 = 32.;
+    pub const BODY_LEADING: f32 = Self::BODY_SIZE * 1.5;
     pub const CHECKBOX_SIZE: f32 = 18.;
     pub const CHECKBOX_TEXT_GAP: f32 = 13.;
     pub const TASK_INDENT_EXTRA: f32 = Self::CHECKBOX_SIZE + Self::CHECKBOX_TEXT_GAP + 1. - 24.;
@@ -163,7 +166,7 @@ impl DocumentStyle {
     pub const READING_SIZE: f32 = Self::BODY_SIZE;
     pub const READING_LEADING: f32 = Self::BODY_LEADING;
     pub const LEAD_SIZE: f32 = 21.;
-    pub const LEAD_LEADING: f32 = 32.;
+    pub const LEAD_LEADING: f32 = Self::LEAD_SIZE * 1.5;
     pub const OPENING_SECTION_GAP: f32 = 48.;
     pub const TITLE_SECTION_HEADING_GAP: f32 = 28.;
     pub const MAJOR_SECTION_GAP: f32 = 64.;
@@ -181,7 +184,7 @@ impl DocumentStyle {
     pub const QUOTE_INSET: f32 = 24.;
     pub const QUOTE_PADDING: f32 = 16.;
     pub const PULL_QUOTE_SIZE: f32 = 24.;
-    pub const PULL_QUOTE_LEADING: f32 = 32.;
+    pub const PULL_QUOTE_LEADING: f32 = Self::PULL_QUOTE_SIZE * 1.5;
     pub const BIBLIOGRAPHY_HANG: f32 = 24.;
     pub const BIBLIOGRAPHY_GAP: f32 = 12.;
     pub const EQUATION_GAP: f32 = 24.;
@@ -260,6 +263,20 @@ mod tests {
             assert_eq!((style.ink, style.paper), (ink, paper));
             assert_ne!(style.rule, style.ink);
             assert_ne!(style.rule, style.paper);
+        }
+    }
+
+    #[test]
+    fn proportional_body_roles_use_exact_one_and_a_half_leading() {
+        for (size, leading) in [
+            (DocumentStyle::BODY_SIZE, DocumentStyle::BODY_LEADING),
+            (DocumentStyle::LEAD_SIZE, DocumentStyle::LEAD_LEADING),
+            (
+                DocumentStyle::PULL_QUOTE_SIZE,
+                DocumentStyle::PULL_QUOTE_LEADING,
+            ),
+        ] {
+            assert_eq!(leading, size * 1.5);
         }
     }
 }

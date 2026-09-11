@@ -11,7 +11,7 @@ boards are visual references, not canonical typography or document content.
 | Grammar role | Native implementation |
 | --- | --- |
 | Foundations | Exact paper, surface, ink, body, muted, rule, moss, sage, information, warning, caution, and dark-code colors in `TachyonPalette`. Shared typography, gutter, inset, radius, and width tokens in `DocumentStyle`. No heading shadows. |
-| Typography | Fraunces display/section faces; bundled Liberation Serif 18/28 for sustained narrative sections; Spline Sans 16/24 for reference sections; mono code 14/21; compact tables 14/21; metadata 13. Display titles use 52/58, or 44/50 on narrow surfaces. |
+| Typography | One maximum-softness Fraunces ExtraBold headline family and one Public Sans body family across all prose roles. Body copy uses ExtraLight with exact 1.5 leading; mono code remains 14/21. Display titles use 52/58, or 44/50 on narrow surfaces. |
 | Rhythm | 64 before major sections, 40 before subordinate headings, 24 after major headings and between paragraphs, 16 after subordinate headings. Internal component padding is separate from external spacing. |
 | Open features | Measured two-/three-column, row-major groups; 19 px authored labels with hanging explanations; consistent green bullet dots. No invented labels, sequence numbers, or completion icons. |
 | Ordered stages | Larger authored numbers above short stages in quiet tiles. Longer/dependent actions retain vertical steps; nesting retains outline relationships. |
@@ -47,7 +47,7 @@ records the binary and source hashes and confirms unchanged Markdown.
 - [Signals](layout-previews/grammar-signals.png): semantic callouts.
 - [Narrow signals](layout-previews/grammar-signals-narrow.png): stacked callouts
   with the same source, colors and icon semantics.
-- [Reading](layout-previews/grammar-reading.png): narrative serif, inset quotation,
+- [Reading](layout-previews/grammar-reading.png): sustained narrative, inset quotation,
   compact table and source-derived completion meter.
 - [Technical content](layout-previews/grammar-technical.png): code, tables, and explicit states.
 
@@ -60,7 +60,7 @@ table borders have automated regression coverage.
 - Rust workspace/all targets: 449 passed, 2 intentionally ignored.
 - Python validation-oracle suite: 55 passed.
 - Workspace formatting and Clippy with warnings denied: passed.
-- Bundled narrative-font hashes verified; unmodified fonts retain their OFL license.
+- Bundled font hashes and OFL licenses verified.
 - Crusty: no new/worsened advisory architecture findings or blocking constraints;
   its indexed snapshot is stale, so compiler/tests/native captures remain authoritative.
 

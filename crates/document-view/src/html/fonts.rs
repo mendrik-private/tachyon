@@ -11,14 +11,20 @@ pub(super) fn context() -> FontContext {
     FONTS
         .get_or_init(|| {
             let mut fonts = build_single_font_ctx(include_bytes!(
-                "../../../../assets/fonts/SplineSans-Tachyon-Regular.ttf"
+                "../../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf"
             ));
             for bytes in [
-                include_bytes!("../../../../assets/fonts/SplineSans-Tachyon-Semibold.ttf")
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Regular.ttf")
                     .as_slice(),
-                include_bytes!("../../../../assets/fonts/SplineSans-Tachyon-Oblique.ttf")
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Semibold.ttf")
                     .as_slice(),
-                include_bytes!("../../../../assets/fonts/SplineSans-Tachyon-SemiboldOblique.ttf")
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Bold.ttf").as_slice(),
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-ExtraLightItalic.ttf")
+                    .as_slice(),
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Italic.ttf").as_slice(),
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-SemiboldItalic.ttf")
+                    .as_slice(),
+                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-BoldItalic.ttf")
                     .as_slice(),
                 include_bytes!("../../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf")
                     .as_slice(),
@@ -43,7 +49,7 @@ mod tests {
     fn preview_contexts_reuse_registered_bundled_font_sources() {
         let mut first = context();
         let mut second = context();
-        for name in ["Spline Sans Tachyon", "Spline Sans Mono Tachyon"] {
+        for name in ["Public Sans Tachyon", "Spline Sans Mono Tachyon"] {
             let a = first.collection.family_by_name(name).unwrap();
             let b = second.collection.family_by_name(name).unwrap();
             assert_eq!(

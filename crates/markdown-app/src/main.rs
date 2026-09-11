@@ -941,7 +941,7 @@ fn sync_tachyon_component_theme(window: Option<&mut gpui::Window>, cx: &mut App)
         colors.title_bar_border = rgb(palette.border).into();
         colors.overlay = gpui::rgba(TachyonPalette::with_alpha(palette.page, 0x99)).into();
         theme.tokens = (&theme.colors).into();
-        theme.font_family = "Spline Sans Tachyon".into();
+        theme.font_family = "Public Sans Tachyon".into();
         theme.mono_font_family = "Spline Sans Mono Tachyon".into();
         theme.radius = px(8.);
         theme.radius_lg = px(8.);
@@ -3908,7 +3908,7 @@ impl Render for MarkdownWindow {
                             }),
                     ),
             );
-        let mut body_font = font("Spline Sans Tachyon");
+        let mut body_font = font("Public Sans Tachyon");
         body_font.fallbacks = Some(FontFallbacks::from_fonts(vec![
             "Noto Sans Tachyon".into(),
             "Noto Sans".into(),
@@ -4165,10 +4165,10 @@ impl Render for MarkdownWindow {
                     ))
                     .on_action(cx.listener(
                         |_: &mut Self, _: &RestoreBodyFontForValidation, _, cx| {
-                            Theme::global_mut(cx).font_family = "Spline Sans Tachyon".into();
+                            Theme::global_mut(cx).font_family = "Public Sans Tachyon".into();
                             Theme::sync_base(cx);
                             cx.refresh_windows();
-                            eprintln!("TACHYON_FONT_VALIDATION font=Spline Sans Tachyon");
+                            eprintln!("TACHYON_FONT_VALIDATION font=Public Sans Tachyon");
                         },
                     ))
                     .on_action(cx.listener(

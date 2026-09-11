@@ -20,7 +20,7 @@ mod tests {
                 for zoom in [1., 1.5, 2.] {
                     let fonts = FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Tachyon".into(),
+                        "Public Sans Tachyon".into(),
                         zoom,
                     );
                     for width in [360., 900., 1800.] {
@@ -83,7 +83,7 @@ mod tests {
     fn rich_nested_mixed_and_long_tasks_stay_vertical(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             for source in [
                 "- [ ] One\n  - [ ] Child\n- [ ] Two\n",
                 "- [ ] One\n- Two\n- Three\n",

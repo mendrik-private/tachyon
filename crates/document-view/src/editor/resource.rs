@@ -106,7 +106,7 @@ mod tests {
     fn retained_resource_split_handles_shortened_multibyte_text(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let doc = Document::from_markdown("短文").unwrap();
             let projection = TextProjection::from_snapshot(&doc.snapshot());
             let segment = &projection.segments()[0];
@@ -132,7 +132,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let document = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             for width in [1200., 760., 480., 230.] {
@@ -291,7 +291,7 @@ mod tests {
     fn resource_grid_is_stable_while_typing_and_releases_after_blur(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let mut document = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let plan = arrangement::build_measured_adaptive_plan(

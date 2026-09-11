@@ -26,7 +26,7 @@ fn color_objects_have_measured_natural_geometry_and_exact_source(cx: &mut gpui::
             (960., 300., 1.),
         ] {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom);
             let plan =
                 build_measured_adaptive_plan(&projection, width, height, None, false, &fonts);
             if width == 1280. {
@@ -136,7 +136,7 @@ fn incomplete_color_edit_keeps_tracks_not_a_stale_swatch(cx: &mut gpui::TestAppC
         let mut document = Document::from_markdown(SOURCE).unwrap();
         let before = TextProjection::from_snapshot(&document.snapshot());
         let fonts =
-            FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
         let initial = build_measured_adaptive_plan(&before, 1280., 1600., None, false, &fonts);
         let node = before
             .segments()

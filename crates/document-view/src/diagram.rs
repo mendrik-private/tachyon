@@ -302,7 +302,7 @@ fn fonts() -> Arc<usvg::fontdb::Database> {
         .get_or_init(|| {
             let mut db = usvg::fontdb::Database::new();
             db.load_font_data(
-                include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Regular.ttf").to_vec(),
+                include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf").to_vec(),
             );
             db.load_font_data(
                 include_bytes!("../../../assets/fonts/NotoSans-Tachyon-Regular.ttf").to_vec(),
@@ -310,7 +310,7 @@ fn fonts() -> Arc<usvg::fontdb::Database> {
             db.load_font_data(
                 include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf").to_vec(),
             );
-            db.set_sans_serif_family("Spline Sans Tachyon");
+            db.set_sans_serif_family("Public Sans Tachyon");
             Arc::new(db)
         })
         .clone()
@@ -321,7 +321,7 @@ fn render(source: &str, dark: bool) -> Result<Figure, DiagramError> {
     let palette = crate::TachyonPalette::for_dark(dark);
     let hex = |color: u32| format!("#{color:06x}");
     let theme = Theme {
-        font_family: "Spline Sans Tachyon".into(),
+        font_family: "Public Sans Tachyon".into(),
         font_size: 14.,
         primary_color: hex(palette.panel),
         primary_text_color: hex(palette.text),
@@ -366,7 +366,7 @@ fn render(source: &str, dark: bool) -> Result<Figure, DiagramError> {
 pub(super) fn svg_options() -> usvg::Options<'static> {
     usvg::Options {
         fontdb: fonts(),
-        font_family: "Spline Sans Tachyon".into(),
+        font_family: "Public Sans Tachyon".into(),
         image_href_resolver: usvg::ImageHrefResolver {
             resolve_data: Box::new(|_, _, _| None),
             resolve_string: Box::new(|_, _| None),

@@ -100,7 +100,7 @@ fn labelled_features_have_open_edges_and_no_marker_indent(cx: &mut gpui::TestApp
         let document = Document::from_markdown(CARDS).unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
         let fonts =
-            FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
         let plan = build_measured_adaptive_plan(&projection, 1280., 1200., None, false, &fonts);
         let nodes = projection
             .segments()
@@ -140,7 +140,7 @@ fn short_table_leadins_do_not_become_stranded_columns(cx: &mut gpui::TestAppCont
         let source = "## Typography and palette\n\nThe reference defines shared typography for every document component.\n\nUse these text roles:\n\n| Role | Face | Size |\n| --- | --- | --- |\n| Display | Serif | 52 |\n| Section | Serif | 30 |\n| Subsection | Serif | 24 |\n| Body | Sans | 16 |\n| Caption | Sans | 13 |\n| Code | Mono | 14 |\n\nBundle fonts locally so documents remain readable offline.\n";
         let document = Document::from_markdown(source).unwrap();
         let mut projection = TextProjection::from_snapshot(&document.snapshot());
-        let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+        let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
         fonts.measure_tables(&mut projection);
         for width in [1280., 900., 480.] {
             let plan = build_measured_adaptive_plan(&projection, width, 1600., None, false, &fonts);
@@ -158,7 +158,7 @@ fn short_table_leadins_do_not_become_stranded_columns(cx: &mut gpui::TestAppCont
 #[gpui::test]
 fn inserted_cells_inherit_the_current_table_placement_immediately(cx: &mut gpui::TestAppContext) {
     cx.update(|cx| {
-        let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+        let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
         for column in [false, true] {
             for index in 0..=if column { 2 } else { 3 } {
                 let mut document = Document::from_markdown(TABLES).unwrap();

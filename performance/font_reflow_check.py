@@ -195,7 +195,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, log_path
     time.sleep(1.0)
     repeated = probe()
 
-    restored_report = switch_font(65, "Spline Sans Tachyon")  # F7
+    restored_report = switch_font(65, "Public Sans Tachyon")  # F7
     restored = probe()
     _capture(env, work, output, "restored")
 

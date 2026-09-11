@@ -14,7 +14,7 @@ canonical nodes, rich runs, order and authored numbering. Introductory labels
 ending in a colon remain ordinary prose. Tasks, nested lists and technical
 containers are not reinterpreted as bibliography entries.
 
-Citation paragraphs use Liberation Serif 18/28, 24 logical px hanging
+Citation paragraphs use Public Sans ExtraLight 21/31.5, 24 logical px hanging
 continuations, a loaded-font reading measure, and 12 px entry gaps. Existing
 ordered lists retain their 32 px number/body rail; bullet citations retain
 their 24 px rail. Numbers are quiet reference labels, not step badges. Section
@@ -34,7 +34,7 @@ links do not mislabel an entire citation as a standalone resource link.
 - Five focused Rust tests cover section recognition/boundaries, nested/task
   exclusions, source numbering and exact untouched serialization, loaded-font
   glyph fit, hanging indentation, entry gaps, whole-fixture source order,
-  serif runs, every paragraph/heading focus target, citation growth, retained
+  body-family runs, every paragraph/heading focus target, citation growth, retained
   editing roles, exact undo and native semantic entry hierarchy.
 - Measured geometry exercises 1280 px, 420 px and 640 px logical canvases with
   100%/200% font environments. This is not by itself native pixel evidence.

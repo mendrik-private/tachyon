@@ -78,10 +78,10 @@ fn escape_html(value: &str) -> String {
 const STYLE: &str = r#":root { color-scheme: light; --paper:#fbfaf6; --ink:#17212b; --muted:#52616d; --rule:#9ba8b2; --accent:#245f8f; --panel:#f1f3f2; }
 * { box-sizing: border-box; }
 html { background:#d9dde0; }
-body { margin:0; color:var(--ink); background:transparent; font:11pt/1.55 "Spline Sans", "Noto Sans", sans-serif; }
+body { margin:0; color:var(--ink); background:transparent; font:200 11pt/1.5 "Public Sans", "Noto Sans", sans-serif; }
 main { margin:24px auto; width:min(210mm, calc(100% - 32px)); }
 article { min-height:297mm; padding:18mm 16mm 20mm; background:var(--paper); }
-h1,h2,h3,h4,h5,h6 { margin:1.4em 0 .45em; color:#172019; font-family:"Liberation Serif", Georgia, serif; line-height:1.2; break-after:avoid-page; }
+h1,h2,h3,h4,h5,h6 { margin:1.4em 0 .45em; color:#172019; font-family:"Fraunces", Georgia, serif; line-height:1.2; break-after:avoid-page; }
 h1:first-of-type { margin-top:0; string-set:document-title content(text); }
 p { margin:.45em 0 .9em; orphans:3; widows:3; }
 a { color:var(--accent); text-decoration-thickness:.08em; text-underline-offset:.15em; }

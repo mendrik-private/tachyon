@@ -591,7 +591,7 @@ fn render_at_width(
     let palette = TachyonPalette::LIGHT;
     let fonts = fonts::context();
     let css = format!(
-        "html {{ background: #{:06x} !important; color: #{:06x}; font: 16px/1.5 'Spline Sans Tachyon', sans-serif; }}\n\
+        "html {{ background: #{:06x} !important; color: #{:06x}; font: 200 16px/1.5 'Public Sans Tachyon', sans-serif; }}\n\
          body {{ margin: 0; padding: 0; }}\n\
          p {{ margin: 0 0 16px; }}\n\
          table {{ border-collapse: separate; border-spacing: 0; margin: 0 0 16px; border: solid #{:06x}; border-width: 1px 0 0 1px; }}\n\

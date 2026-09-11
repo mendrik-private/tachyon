@@ -11,7 +11,7 @@ fn bibliography_has_measured_hanging_indents_spacing_and_source_order(
         let projection = TextProjection::from_snapshot(&document.snapshot());
         for (width, zoom) in [(1280., 1.), (420., 1.), (640., 2.)] {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom);
             let plan = build_measured_adaptive_plan(&projection, width, 1000., None, false, &fonts);
             let lines = build_measured_visual_lines(
                 &projection,
@@ -85,7 +85,7 @@ fn bibliography_has_measured_hanging_indents_spacing_and_source_order(
                         &line.projected_range(),
                         line.projected_range().len(),
                         &gpui::TextStyle {
-                            font_family: "Spline Sans Tachyon".into(),
+                            font_family: "Public Sans Tachyon".into(),
                             ..Default::default()
                         },
                         false,
@@ -93,7 +93,7 @@ fn bibliography_has_measured_hanging_indents_spacing_and_source_order(
                     );
                     assert!(
                         runs.iter()
-                            .all(|r| r.font.family.as_ref() == "Liberation Serif"),
+                            .all(|r| r.font.family.as_ref() == DocumentStyle::BODY_FONT_FAMILY),
                         "citation fonts: {:?}",
                         runs.iter().map(|r| &r.font.family).collect::<Vec<_>>()
                     );
@@ -148,7 +148,7 @@ fn bibliography_reflows_grown_citations_without_restyling_and_undo_is_exact(
         let mut document = Document::from_markdown(SOURCE).unwrap();
         let before = TextProjection::from_snapshot(&document.snapshot());
         let fonts =
-            FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+            FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
         let old = build_measured_adaptive_plan(&before, 1280., 1000., None, false, &fonts);
         let target = before
             .segments()

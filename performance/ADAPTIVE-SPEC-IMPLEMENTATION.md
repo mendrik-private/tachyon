@@ -1773,7 +1773,7 @@ two installed-font tests ignored; all-target compiler and warning-denied Clippy
 checks, formatting, whitespace checks and five Python harness tests pass.
 Release `1be4b45ef17d1a5afb4b2716033aefc45bfc5051af9a49cd1e74e77245eb9ab5`
 was visually inspected at 1280×1400, 360×1400 and 1280×1400/200% text
-(`spec-rich-cells-complete-{wide,narrow,scaled}.png`). Spline Sans Tachyon body
+(`spec-rich-cells-complete-{wide,narrow,scaled}.png`). Public Sans Tachyon body
 and Fraunces headings use the existing light design tokens; the wide shell
 retains Files/Outline, and the narrow shell hides navigation. The actual native
 view shows 9/10 in the cell and an intact outer 1 before the final table, with
@@ -4699,7 +4699,7 @@ it never types into the user's document or unlocks/operates the physical session
 - `48-typography-direction-overflow.md` is a bounded synthetic body-font,
   200%-text, Arabic/Hebrew and long-unbroken-content fixture. F6/F7 switch the
   component theme between bundled `Noto Sans Tachyon` and
-  `Spline Sans Tachyon` only in a `layout-validation` build; no font or layout
+  `Public Sans Tachyon` only in a `layout-validation` build; no font or layout
   control is exposed in the production UI. A font mismatch creates a new
   immutable `FontMeasurement`, clears the table lock, advances geometry and
   runs a committed measured plan rather than reusing a previous font's cache.
@@ -4929,7 +4929,7 @@ it never types into the user's document or unlocks/operates the physical session
 - The retained production matrix uses binary SHA-256
   `b473c707192ec449e0d33cba11312863f4b64df336594a77d44dc2fbe126dfc5`,
   isolated Weston 14 headless GL/Wayland with kiosk shell at 120 Hz, 100% display
-  scale, bundled **Spline Sans Tachyon**, **Spline Sans Mono Tachyon**, and
+  scale, bundled **Public Sans Tachyon**, **Spline Sans Mono Tachyon**, and
   **Fraunces Tachyon**, and `47-editorial-composition.md`. Every run verifies the
   copied fixture remains byte-identical.
 - Reviewed captures at **360, 768, 1280, and 1920×900 logical px** show the same

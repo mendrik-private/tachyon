@@ -724,7 +724,7 @@ mod tests {
             let document = document_core::Document::from_markdown(source.as_str()).unwrap();
             let snapshot = document.snapshot();
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let previous = AdaptivePlan::default();
             let prepare = |trace_mode| {
                 PreparedDocumentView::prepare_snapshot_with_images(

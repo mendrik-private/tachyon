@@ -108,7 +108,7 @@ mod tests {
             ] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Tachyon".into(),
+                    "Public Sans Tachyon".into(),
                     zoom,
                 );
                 let plan =
@@ -233,7 +233,7 @@ mod tests {
             let mut document = Document::from_markdown(SOURCE).unwrap();
             let before = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let initial = build_measured_adaptive_plan(&before, 1280., 1600., None, false, &fonts);
             let node = before
                 .segments()

@@ -90,8 +90,8 @@ component or every enlarged glyph was pixel-checked.
 
 Verification: 17 resize-oracle and 18 capture-harness Python tests pass; all
 three existing Rust specification relationship/layout/resize/edit regressions
-pass. Logs: `/tmp/mineral-spec-resize-unit.log`,
-`/tmp/mineral-spec-capture-unit.log`, `/tmp/mineral-spec-resize-rust.log`.
+pass. Logs: `/tmp/tachyon-spec-resize-unit.log`,
+`/tmp/tachyon-spec-capture-unit.log`, `/tmp/tachyon-spec-resize-rust.log`.
 `cargo fmt --all -- --check` and `git diff --check` pass. The previous turn's
 756-test workspace run remains historical evidence, not a rerun claimed here.
 The default guidance and opening scenarios also pass native width bursts with

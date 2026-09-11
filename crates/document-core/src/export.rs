@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn static_export_is_inert_semantic_and_preserves_authored_table_widths() {
-        let source = "# Report & review\n\n- [x] Done\n\n<!-- mineral-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[160,320]} -->\n| Key | Value |\n| --- | --- |\n| Mode | Local |\n\n```rust\nfn main() {}\n```\n\n<script>alert('bad')</script>\n";
+        let source = "# Report & review\n\n- [x] Done\n\n<!-- tachyon-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[160,320]} -->\n| Key | Value |\n| --- | --- |\n| Mode | Local |\n\n```rust\nfn main() {}\n```\n\n<script>alert('bad')</script>\n";
         let document = Document::from_markdown(source).unwrap();
         let before = document.snapshot().serialize().unwrap();
         let html = document

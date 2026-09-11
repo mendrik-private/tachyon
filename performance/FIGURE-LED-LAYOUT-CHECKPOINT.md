@@ -51,7 +51,7 @@ units and their complete parts before publishing placement.
 
 Four tests exercise semantic boundaries, the actual full-page plan, native-font
 geometry, and resource/edit state transitions. The first full-page test went
-red before implementation (`/tmp/mineral-figure-led-red.log`): no image-first
+red before implementation (`/tmp/tachyon-figure-led-red.log`): no image-first
 pair was chosen. Complete image/caption/credit and all three prose paragraphs
 now share one row. Widths 520, 657, 1040, 1314 and 2200, short height 220 and
 200% fonts cover pairing/fallback, uncropped aspect ratio, non-upscaled tracks,
@@ -62,8 +62,8 @@ The state test discovered that an image loaded during prose focus correctly
 retained the stack, but the stack stayed after blur. A minimized first-section
 reproduction confirmed it. The probe showed focus cleared and valid measured
 pair candidates, but a change penalty of 1.0 favored the temporary stacks.
-Logs: `/tmp/mineral-figure-led-state-probe.log` and
-`/tmp/mineral-figure-led-state-minimal-red.log`.
+Logs: `/tmp/tachyon-figure-led-state-probe.log` and
+`/tmp/tachyon-figure-led-state-minimal-red.log`.
 
 The focus constraint now marks both stacks of a newly usable, focus-deferred
 figure pair as provisional. Focus remains a hard constraint; after blur the
@@ -78,11 +78,11 @@ also caught adjacent identical rejection branches, now combined without a lint
 suppression. Neither development failure is presented as a production defect.
 
 `cargo test -p document-view --locked figure_led -- --nocapture` passes all four
-tests (`/tmp/mineral-figure-led-state-green.log`). Final `scripts/check.sh`
+tests (`/tmp/tachyon-figure-led-state-green.log`). Final `scripts/check.sh`
 exits 0: formatting, locked source pins/metadata, all-target check, Clippy,
 116 core, 25 source-fidelity, 11 tree, **497 view (2 ignored)**, one external
 consumer, 39 app tests and doctests. Log:
-`/tmp/mineral-figure-led-complete-check.log`.
+`/tmp/tachyon-figure-led-complete-check.log`.
 
 ## Native evidence
 

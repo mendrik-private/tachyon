@@ -19,7 +19,7 @@ An item does not need an invented paragraph title. Keep its authored code, headi
                 record(accepted);
                 ```
                 - Code-led explanation preserves the measurement and the reasoning behind the decision. Keep the remaining questions with the original source, even when this branch is viewed in a narrow window.
-              - ![Layered mineral strata](../visual-assets/mineral-strata.svg)
+              - ![Layered tachyon strata](../visual-assets/tachyon-strata.svg)
                 - Figure-led explanation describes the layers without substituting a generated title for the authored image description.
           - Return to the interpretation summary.
   - Return to the archive summary.

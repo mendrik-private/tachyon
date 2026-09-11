@@ -37,7 +37,7 @@ original recorded typography/table-leadin regression passes unchanged.
   zoom. Other layout/geometry/source tests remain green.
 - `scripts/check.sh` passes: 785 Rust tests, two existing ignored tests, locked
   checks, formatting, strict Clippy, adapter suites and doctests. Final log:
-  `/tmp/mineral-body-size-check-final.log`. `git diff --check` passes.
+  `/tmp/tachyon-body-size-check-final.log`. `git diff --check` passes.
 - Native final debug layout-validation binary SHA-256:
   `400aa162d222e55726ebe7a4441df926af4230bf6be50746fde92bf4f74a1bc5`.
   Before binary: `2fe3a20f99835fa7b277600d1a41a3c5fd88772c22189db51060c141b7ed758f`.
@@ -78,4 +78,4 @@ expected source explicitly includes only that escape and Measure -> xMeasure.
 An initial stricter expectation recorded this known serializer behavior rather
 than a misplaced edit. Six copied markers retain source order; this is not a
 complete rich MIME qualification. Script: `/tmp/verify-body-size-edits.py`;
-final log: `/tmp/mineral-body-size-edits-final.log`.
+final log: `/tmp/tachyon-body-size-edits-final.log`.

@@ -12,7 +12,7 @@ import time
 from urllib.request import urlopen
 
 
-PORT_TOKEN = "MINERAL_INERT_PORT"
+PORT_TOKEN = "TACHYON_INERT_PORT"
 
 
 class RequestMonitor:

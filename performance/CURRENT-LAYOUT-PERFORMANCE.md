@@ -42,7 +42,7 @@ A deterministic mixed document renders without warnings as four A4 pages with
 selectable text, repeated table headers, working internal links, running folios
 and preserved authored table widths. This does not change the continuous-editor
 timings above or qualify finite-page preview, PDF UI, complete page masters,
-tagged PDF, real print equations or Mineral-owned pagination convergence.
+tagged PDF, real print equations or Tachyon-owned pagination convergence.
 
 ## September 11 native-system-IME result
 
@@ -85,7 +85,7 @@ one codegen unit and locked dependencies. The `layout-validation` feature
 enables the existing private diagnostics; it does not disable rendering work.
 
 Build: `cargo build --release --locked -p markdown-app --bin tachyon
---bin mineral-fixture --features layout-validation` (one shell command).
+--bin tachyon-fixture --features layout-validation` (one shell command).
 
 ## September 10 baseline: not qualified
 
@@ -152,7 +152,7 @@ No physical desktop input, session, monitor or power settings were changed.
 A separate 15-second CPU profile attached only to the isolated 100 KiB app
 process, using `perf record -e cpu-clock -F 99 --call-graph dwarf -p PID`.
 It captured 1,436 samples without lost samples. Raw data remains at
-`/tmp/mineral-current-layout-accessibility-profile.perf` (temporary evidence).
+`/tmp/tachyon-current-layout-accessibility-profile.perf` (temporary evidence).
 The release binary is stripped: dominant app addresses are not symbolized,
 so this profile cannot yet assign cost to a Rust function. The named
 `memmove` sample share is 6.89%, insufficient by itself to identify a cause.
@@ -189,9 +189,9 @@ A same-optimization build retaining symbols (`cargo rustc --release --locked
 strip=none`) produced baseline SHA
 `18c3874058ea06fead8b2d61b734ebac0b2d40ce537a43ae88253017e162659a`.
 It is retained temporarily at
-`/tmp/mineral-a11y-baseline-4Duop9/tachyon`.
+`/tmp/tachyon-a11y-baseline-4Duop9/tachyon`.
 The native profiling run is `layout-previews/a11y-symbolized-before.json`;
-raw 15-second, 199Hz CPU samples are `/tmp/mineral-a11y-symbolized-before.perf`.
+raw 15-second, 199Hz CPU samples are `/tmp/tachyon-a11y-symbolized-before.perf`.
 It includes warmup/activation, not just steady scrolling. There were 2,825
 samples and no lost samples. Function symbols resolve, but call-stack unwinding
 is incomplete; do not infer exclusive caller costs from this profile.
@@ -252,7 +252,7 @@ Final verification after removing the experiment:
   `586b55338f6301016ee4d4f5d9d7ef6a2c9ac44e930e35438c3f2a3daf93ed2e`.
 - `scripts/check.sh`: 738 workspace tests plus 5 adapter tests pass;
   2 existing ignored tests. Formatting, all-target check, strict workspace
-  Clippy and doctests pass. Log: `/tmp/mineral-a11y-final-check.log`.
+  Clippy and doctests pass. Log: `/tmp/tachyon-a11y-final-check.log`.
 - Separate strict all-target Clippy for `accesskit_atspi_common` passes;
   17 capture-harness Python tests pass; `git diff --check` is clean.
 - `a11y-restored-actions.atspi.json`: native fixture 27 at 1600×1200/100%

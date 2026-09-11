@@ -67,7 +67,7 @@ reordering, insertion and deletion. All five standalone publisher tests pass.
 Artifacts: performance/layout-previews/reference-current-{first1,first2,warm,profile}
 with JSON, source/resource evidence, CPU logs and application/compositor logs.
 Raw profile: performance/results/reference-scroll-2026-09-10/current.perf.
-Decoded report: /tmp/mineral-scroll-current-profile.txt. Local orchestration:
+Decoded report: /tmp/tachyon-scroll-current-profile.txt. Local orchestration:
 /tmp/run-reference-scroll-current.py. Reproduction flags match
 performance/REFERENCE-SCROLL-FIX.md; `--perf-warm-sweep` selects the warm run.
 
@@ -99,7 +99,7 @@ savings without claiming to fix first-visit stutter.
 
 `scripts/check.sh` passes: 786 Rust tests, two existing ignored tests, locked
 checks, formatting, strict Clippy, adapter/publication suites and doctests.
-Log: /tmp/mineral-snapshot-check.log. The existing publication suite now has
+Log: /tmp/tachyon-snapshot-check.log. The existing publication suite now has
 five tests. `git diff --check` passes. Both candidate first-traversal native trees
 contain 3,056 nodes and the same 327 headings in canonical order as the baseline.
 The unchanged full-source checks pass independently of performance gates.
@@ -115,7 +115,7 @@ another claim that debug snapshot copying was the sole cause.
 
 Raw candidate profile:
 performance/results/reference-scroll-2026-09-10/reference-snapshot-profile.perf.
-Decoded report: /tmp/mineral-scroll-snapshot-profile.txt.
+Decoded report: /tmp/tachyon-scroll-snapshot-profile.txt.
 
 `reference-snapshot-visual-{before,after}` opening screenshots at 1440x1000 are
 pixel-identical (zero changed pixels); the after screenshot was inspected.

@@ -511,7 +511,7 @@ def check(mode, env, input_event, source_path, pid, output, probe_path, work, lo
         return json.loads(result.stdout)
 
     def find_and_collapse(query):
-        subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+        subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                        input=query, text=True, env=env, check=True, timeout=5)
         input_event("key", 29, 1)
         input_event("key", 33, 1)  # Ctrl+F
@@ -548,11 +548,11 @@ def check(mode, env, input_event, source_path, pid, output, probe_path, work, lo
             bursts.append({"axis": dimension, "final_key": key, "events": events})
 
     def trace_reports():
-        prefix = "MINERAL_LAYOUT_TRACE "
+        prefix = "TACHYON_LAYOUT_TRACE "
         return prefixed_records(log_path.read_bytes(), prefix)
 
     def report_editor_state():
-        prefix = "MINERAL_RESIZE_STATE "
+        prefix = "TACHYON_RESIZE_STATE "
         before_count = len(prefixed_records(log_path.read_bytes(), prefix))
         input_event("key", 66, 1)  # F8
         input_event("key", 66, 0)

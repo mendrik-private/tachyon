@@ -9,7 +9,7 @@ import sys
 
 def require_private_bus(environment):
     address = environment.get("DBUS_SESSION_BUS_ADDRESS")
-    if not address or address != environment.get("MINERAL_PRIVATE_ATSPI_BUS"):
+    if not address or address != environment.get("TACHYON_PRIVATE_ATSPI_BUS"):
         raise RuntimeError("Theme fixture requires the harness-owned private session bus")
 
 
@@ -40,7 +40,7 @@ def set_appearance(environment, appearance):
     subprocess.run([
         "gdbus", "call", "--session", "--dest", "org.freedesktop.portal.Desktop",
         "--object-path", "/org/freedesktop/portal/desktop",
-        "--method", "org.mineral.ThemeHarness.SetAppearance", appearance,
+        "--method", "org.tachyon.ThemeHarness.SetAppearance", appearance,
     ], env=environment, check=True, capture_output=True, text=True, timeout=5)
 
 
@@ -57,7 +57,7 @@ def serve(appearance):
         <property name="version" type="u" access="read"/>
         <signal name="SettingChanged"><arg type="s"/><arg type="s"/><arg type="v"/></signal>
       </interface>
-      <interface name="org.mineral.ThemeHarness">
+      <interface name="org.tachyon.ThemeHarness">
         <method name="SetAppearance"><arg type="s" direction="in"/></method>
       </interface>
     </node>"""
@@ -65,7 +65,7 @@ def serve(appearance):
 
     def method(bus, sender, object_path, iface, name, args, invocation):
         nonlocal current
-        if iface == "org.mineral.ThemeHarness":
+        if iface == "org.tachyon.ThemeHarness":
             mode, = args.unpack()
             if mode not in schemes:
                 invocation.return_dbus_error("org.freedesktop.DBus.Error.InvalidArgs", "Unknown appearance")

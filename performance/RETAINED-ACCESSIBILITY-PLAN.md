@@ -74,7 +74,7 @@ The framework owns:
   a full owned-tree clone on every release frame.
 
 The AT-SPI adapter keeps consuming the normal AccessKit protocol. Do not add
-a Mineral-specific parallel adapter or duplicate native application/window.
+a Tachyon-specific parallel adapter or duplicate native application/window.
 
 ## Incremental implementation and proof
 

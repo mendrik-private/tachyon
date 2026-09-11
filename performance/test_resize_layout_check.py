@@ -160,7 +160,7 @@ class ResizeLayoutCheckTests(unittest.TestCase):
     def test_live_record_reader_waits_for_complete_line_and_rejects_corruption(self):
         from resize_layout_check import prefixed_records
 
-        for prefix in ("MINERAL_RESIZE_STATE ", "MINERAL_LAYOUT_TRACE "):
+        for prefix in ("TACHYON_RESIZE_STATE ", "TACHYON_LAYOUT_TRACE "):
             complete = (prefix + '{"sequence":1}\n').encode()
             partial = (prefix + '{"sequence":').encode()
             self.assertEqual(prefixed_records(complete + partial, prefix), [{"sequence": 1}])

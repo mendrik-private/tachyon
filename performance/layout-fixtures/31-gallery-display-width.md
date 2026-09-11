@@ -2,9 +2,9 @@
 
 These synthetic figures have large source dimensions. Their pixel count should not be mistaken for a paragraph's preferred reading width.
 
-[![First complete landscape](../visual-assets/mineral-strata.svg)](../visual-assets/mineral-strata.svg "First original")
+[![First complete landscape](../visual-assets/tachyon-strata.svg)](../visual-assets/tachyon-strata.svg "First original")
 
-![Second complete landscape](../visual-assets/mineral-strata.svg "Second original")
+![Second complete landscape](../visual-assets/tachyon-strata.svg "Second original")
 
 Both figures stay complete, in source order. At comfortable widths they can share a row; narrow or short windows keep a vertical flow. Descriptions remain accessible alt text, not invented captions.
 

@@ -18,8 +18,8 @@ present; link destinations still resolve from the live canonical document.
 
 `scripts/check.sh` passed: 786 Rust tests, two existing ignored tests, formatting,
 locked checks, strict Clippy, adapter/publication suites and doctests. Log:
-`/tmp/mineral-action-check.log`. Release build log:
-`/tmp/mineral-action-release.log`.
+`/tmp/tachyon-action-check.log`. Release build log:
+`/tmp/tachyon-action-release.log`.
 
 Real private AT-SPI consumers exercised the release binary:
 
@@ -40,7 +40,7 @@ Artifacts live under `performance/layout-previews/` with the names above.
 
 ## Matched full-reference measurements
 
-Baseline SHA-256, saved as `/tmp/mineral-before-action-routing`:
+Baseline SHA-256, saved as `/tmp/tachyon-before-action-routing`:
 `41e830f406194ffe1f513be7e878fe44c2e40b0376bf547ba3cad46acc7c6be1`.
 Candidate SHA-256:
 `61cef2e4561e086554ecb7a24e8b31b60d757cc4c4f51dd9712b4cd450ba60fe`.
@@ -71,8 +71,8 @@ other native captures or Crusty architecture analysis were started by this agent
 during their measurement. These are bounded observations, not statistical release
 qualification. Average application CPU over the final 32 one-second pidstat rows
 is 35.03% -> 34.19% first traversal and 32.22% -> 30.38% warm (100% = one core).
-Baseline process name is truncated to `mineral-before-`; candidate is
-`mineral-markdow`. Do not combine unrelated process rows when computing CPU.
+Baseline process name is truncated to `tachyon-before-`; candidate is
+`tachyon-markdow`. Do not combine unrelated process rows when computing CPU.
 
 The change removes recurring callback allocations and reduces observed warm draw
 work. First-visit tails do not improve in this pair. The candidate still fails the

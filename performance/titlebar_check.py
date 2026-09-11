@@ -7,7 +7,7 @@ import time
 
 def window_controls(env, input_event, app, source_path, probe_path, output, work):
     """Exercise the app's actual keyboard buttons under a desktop compositor."""
-    if not env.get('MINERAL_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['MINERAL_PRIVATE_ATSPI_BUS']:
+    if not env.get('TACHYON_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['TACHYON_PRIVATE_ATSPI_BUS']:
         raise RuntimeError('Window-control inspection requires the private accessibility bus')
     original = source_path.read_bytes()
     bar_origins = {}
@@ -160,7 +160,7 @@ def window_controls(env, input_event, app, source_path, probe_path, output, work
 
 
 def inspect(env, input_event, source_path, pid, output, probe_path, work, expected_scale):
-    if not env.get('MINERAL_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['MINERAL_PRIVATE_ATSPI_BUS']:
+    if not env.get('TACHYON_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['TACHYON_PRIVATE_ATSPI_BUS']:
         raise RuntimeError('Title-bar inspection requires the private accessibility bus')
     original = source_path.read_bytes()
 
@@ -343,7 +343,7 @@ def inspect(env, input_event, source_path, pid, output, probe_path, work, expect
 
 def unsaved_close(choice, env, input_event, app, source_path, probe_path, output, work):
     """Keep a private edit unsaved, cancel Close, then save or discard it."""
-    if not env.get('MINERAL_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['MINERAL_PRIVATE_ATSPI_BUS']:
+    if not env.get('TACHYON_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['TACHYON_PRIVATE_ATSPI_BUS']:
         raise RuntimeError('Unsaved-close inspection requires the private accessibility bus')
     original = source_path.read_bytes()
     expected = original.replace(b'# Find without editing', b'# xFind without editing', 1)

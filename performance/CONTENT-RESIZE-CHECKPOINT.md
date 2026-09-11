@@ -95,7 +95,7 @@ gallery forms and rejects headings inside a column or a different source
 root. Existing peer, focused-prose and editing tests remain in the suite.
 `scripts/check.sh` passes formatting, locked all-target checks, strict Clippy,
 **738 Rust tests (two existing ignored)** and doctests. Log:
-`/tmp/mineral-content-resize-check.log`.
+`/tmp/tachyon-content-resize-check.log`.
 
 The UX skill informed separating heading focus from independent content;
 the diagnosis skill required unit/native red-green evidence and competing

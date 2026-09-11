@@ -48,5 +48,5 @@ pub use outline::{OutlineEntry, project_outline};
 pub use projection::{ProjectionContext, ProjectionSegment, TextProjection};
 pub use responsive::{ResponsiveLayout, WindowClass};
 pub use session::{DocumentSessionId, SharedDocumentSession};
-pub use theme::MineralPalette;
+pub use theme::TachyonPalette;
 pub use viewport::{ScrollAnchor, Viewport, VisibleRange};

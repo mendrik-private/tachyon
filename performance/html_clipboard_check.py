@@ -5,7 +5,7 @@ import time
 
 
 def check(env, input_event, source, pid, probe):
-    if not env.get('MINERAL_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['MINERAL_PRIVATE_ATSPI_BUS']:
+    if not env.get('TACHYON_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['TACHYON_PRIVATE_ATSPI_BUS']:
         raise RuntimeError('HTML clipboard check requires the private accessibility bus')
     original = source.read_bytes()
     expected_html = '<div><ul><li>One <strong>bold</strong> <a href="https://example.test">link</a><ul><li>Nested</li></ul></li><li>Other</li></ul></div>\n'
@@ -30,19 +30,19 @@ def check(env, input_event, source, pid, probe):
             time.sleep(0.05)
 
     def read(mime):
-        result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'mineral-test', '--type', mime],
+        result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'tachyon-test', '--type', mime],
                                 env=env, capture_output=True, text=True, timeout=5)
         return result.stdout if result.returncode == 0 else None
 
     def select(query):
         key(33, control=True)
         key(30, control=True)
-        subprocess.run(['wl-copy', '--seat', 'mineral-test', '--type', 'text/plain'],
+        subprocess.run(['wl-copy', '--seat', 'tachyon-test', '--type', 'text/plain'],
                        input='clipboard-query-sentinel', text=True, env=env, check=True, timeout=5)
         key(47, control=True)
         wait_for(lambda: any(n['name'] == 'No results' and 'status' in n['role'] for n in nodes()), 'Search did not clear the previous result')
         key(30, control=True)
-        subprocess.run(['wl-copy', '--seat', 'mineral-test', '--type', 'text/plain'],
+        subprocess.run(['wl-copy', '--seat', 'tachyon-test', '--type', 'text/plain'],
                        input=query, text=True, env=env, check=True, timeout=5)
         key(47, control=True)
         wait_for(lambda: any(n['name'] == '1 / 1' and 'status' in n['role'] for n in nodes()), 'Search did not select HTML text')

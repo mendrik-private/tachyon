@@ -40,7 +40,7 @@ Bundle fonts locally with their licenses. Generate static Fraunces instances dur
 
 The following light palette is an adaptation for this application:
 
-<!-- mineral-table:v1 {"border":"Dotted","widths":[380.078125,230.203125]} -->
+<!-- tachyon-table:v1 {"border":"Dotted","widths":[380.078125,230.203125]} -->
 | Token | Value |
 | --- | --- |
 | Page \/ navigation background | `#FCFBF8` \/ `#F3F2ED` |
@@ -64,14 +64,14 @@ Use a 4 px spacing scale. Paragraph spacing is 16 px; ordinary headings have 20 
 - **Automatic composition:** no layout selectors or saved overrides. Match short independent lists, explicit arrow sequences, adjacent figures, and repeated bounded sibling sections to appropriate arrangements. Keep source order and typing stability; retain vertical fallbacks for complex content. Fit automatically sized table columns above readable minimums and align near-width tables to the reading edge. Preserve explicitly saved column widths exactly, including when the table is close to the prose width, and contain any resulting overflow.
 - Tables and images may use the full central workspace width\. Prose retains its reading measure\. Wide tables scroll horizontally within their own area\.
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[293.83984375,347.54296875]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[293.83984375,347.54296875]} -->
 | Hallo | This is a test |
 | --- | --- |
 | abc | def |
 
 ### Rendered components and editing
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[241.33203125,401.553955078125]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[241.33203125,401.553955078125]} -->
 | Component | Appearance and behavior |
 | --- | --- |
 | Paragraphs and headings | One shared text engine\. Formatting changes preserve the selection and scroll anchor\. Heading changes immediately update the outline\. |

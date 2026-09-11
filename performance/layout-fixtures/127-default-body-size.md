@@ -1,6 +1,6 @@
 # Default reading size
 
-This is one working document for exploring Mineral’s implemented layout families. Read it wide, narrow, and with enlarged text: the same Markdown can become an open list, a measured row, a readable pair, a compact record, or a vertical stack without losing its source order.
+This is one working document for exploring Tachyon’s implemented layout families. Read it wide, narrow, and with enlarged text: the same Markdown can become an open list, a measured row, a readable pair, a compact record, or a vertical stack without losing its source order.
 
 The ordinary paragraph keeps the existing reading face while matching the size of the opening paragraph. Larger text must reflow naturally when the window becomes narrow and must keep the caret aligned with the visible words.
 

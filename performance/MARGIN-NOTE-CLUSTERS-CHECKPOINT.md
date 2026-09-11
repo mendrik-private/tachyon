@@ -107,7 +107,7 @@ document-view tests remain ignored. `git diff --check` passes. The focused
 margin-note run passes all 11 tests; the extended retained-row typing matrix
 passes both independently and in the full suite.
 
-Logs: `/tmp/mineral-note-cluster-{red,decision,focus-red,green,typing,check}.log`
+Logs: `/tmp/tachyon-note-cluster-{red,decision,focus-red,green,typing,check}.log`
 and the corresponding native capture logs. Crusty context `ctx_a29135bab6f2`,
 validation `task_f4fd0f4c16ef1ee8`: 37 existing advisory findings, no new or
 worsened findings. Existing advisory debt is not claimed resolved.

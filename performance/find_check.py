@@ -16,7 +16,7 @@ def validate_controls(nodes):
 
 
 def check(env, input_event, source_path, pid, output, probe_path, work, viewport):
-    if env.get('DBUS_SESSION_BUS_ADDRESS') != env.get('MINERAL_PRIVATE_ATSPI_BUS') or not env.get('MINERAL_PRIVATE_ATSPI_BUS'):
+    if env.get('DBUS_SESSION_BUS_ADDRESS') != env.get('TACHYON_PRIVATE_ATSPI_BUS') or not env.get('TACHYON_PRIVATE_ATSPI_BUS'):
         raise RuntimeError('Find checks require the private accessibility bus')
     original = source_path.read_bytes()
 
@@ -29,7 +29,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, viewport
         if control: input_event('key', 29, 0)
 
     def clipboard(text):
-        subprocess.run(['wl-copy', '--seat', 'mineral-test', '--type', 'text/plain'],
+        subprocess.run(['wl-copy', '--seat', 'tachyon-test', '--type', 'text/plain'],
                        input=text, env=env, text=True, check=True, timeout=5)
 
     def probe_nodes():
@@ -80,7 +80,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, viewport
         key(46, control=True)  # Ctrl+C
         deadline = time.monotonic() + 3
         while True:
-            result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'mineral-test'],
+            result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'tachyon-test'],
                                     env=env, text=True, capture_output=True, timeout=5)
             if result.returncode == 0 and result.stdout == expected:
                 return

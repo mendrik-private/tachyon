@@ -90,9 +90,9 @@ running furniture and print break hints. A real four-page A4 render retains
 selectable source-order text and explicitly saved table widths. The receiving
 browser still owns pagination; finite-page preview, PDF UI, complete masters,
 footnote/code/oversized-row continuations, project-font embedding, tagged PDF,
-real print equations and bounded Mineral convergence remain open.
+real print equations and bounded Tachyon convergence remain open.
 
-`NATIVE-IME-CHECKPOINT.md` adds one real cross-process Pinyin path with Mineral
+`NATIVE-IME-CHECKPOINT.md` adds one real cross-process Pinyin path with Tachyon
 on Wayland text-input-v3 and Fcitx5 on Sway input-method-v2, isolated inside a
 private Weston seat. The candidate panel aligns exactly below the published
 caret rectangle. Preedit leaves source untouched; commit retains explicitly
@@ -221,7 +221,7 @@ and automated evidence recorded here. Old passes are baselines, not sign-off.
 | P11 | Code logical splits, repeated label/language/continued/gutter | Open |
 | P12 | Anchor-page footnotes or explicit continuation/endnotes | Open |
 | P13 | Sparse endings reviewed, never delete/truncate to fill pages | Partial; deterministic four-page output retains all source content and its sparse endings were visually inspected. Automated sparse-ending review and layout alternatives remain open |
-| P14 | Reserved running header/footer/folio; converged totals/contents | Partial; browser/paged-renderer output reserves margins and computes a running title plus `page / pages` folios. Generated contents and Mineral-owned convergence remain open |
+| P14 | Reserved running header/footer/folio; converged totals/contents | Partial; browser/paged-renderer output reserves margins and computes a running title plus `page / pages` folios. Generated contents and Tachyon-owned convergence remain open |
 | P15 | Bounded pagination convergence and explicit unresolved constraints | Open |
 | P16 | Print type/borders, selectable text, semantic tables, real equations | Partial; paged HTML supplies print typography/borders, selectable source-order text, semantic tables, embedded PDF fallback fonts and visible lossless math source. Project-font embedding, tagged PDF and real typeset equations remain open |
 | N01 | Files, outline, active shape/rule, native navigation/focus | Partial; preserve product shell and test all states |

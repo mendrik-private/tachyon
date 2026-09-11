@@ -2,7 +2,7 @@
 
 A02's deletion invariant had a reproduced gap: removing a quote containing
 `[ref]: /local "Title"` left an untouched `Outside [link][ref].` paragraph with
-an unresolved reference. `/tmp/mineral-ref-before.log` records the failing
+an unresolved reference. `/tmp/tachyon-ref-before.log` records the failing
 source-preservation assertion.
 
 Import now records reference definitions inside source-backed roots. Extraction
@@ -25,7 +25,7 @@ LF/CRLF, multiline destinations and titles, exact resolved inline runs after
 reopen, no resurrected container, subsequent rebase/edit, and exact Undo/Redo.
 Negative cases cover fenced code, HTML, front matter, ordinary paragraph text
 and escaped text that resembles a definition; none becomes an active record.
-All 39 source-fidelity tests pass (`/tmp/mineral-ref-final-core.log`). Temporary
+All 39 source-fidelity tests pass (`/tmp/tachyon-ref-final-core.log`). Temporary
 reference-position probes were removed.
 
 This is deletion/replacement-boundary qualification, not completion of A02.
@@ -37,7 +37,7 @@ latency or memory qualification.
 
 Full `scripts/check.sh` passes 803 tests with two existing ignored tests, including
 formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-ref-final-check.log`). Diff whitespace checks pass. Crusty
+(`/tmp/tachyon-ref-final-check.log`). Diff whitespace checks pass. Crusty
 validation `task_1cf9e216b34c411e` for `ctx_a7d13d957457` completed with 75 existing
 advisory findings and zero new, worsened or resolved findings.
 
@@ -46,7 +46,7 @@ advisory findings and zero new, worsened or resolved findings.
 A subsequent regression split `Before` inside a surviving quote that also owned
 a reference definition. Canonical container output dropped the declaration and
 left the untouched outside link unresolved. The failing-before source/count
-assertion is recorded in `/tmp/mineral-regen-before.log`.
+assertion is recorded in `/tmp/tachyon-regen-before.log`.
 
 Reference records now retain their absolute source ranges as well as standalone
 syntax. A local patch that overlaps a declaration cannot reuse that source unit.
@@ -60,13 +60,13 @@ The two added regressions cover list/quote splits, leading definitions, heading
 changes, typing, LF/CRLF, conflicting labels within one owner, lifted footnotes,
 untouched setext headings/fences, exact reopened link runs and topology, successful
 rebasing, subsequent edits and exact Undo/Redo. All 41 source-fidelity tests pass
-(`/tmp/mineral-regen-matrix.log`). This supersedes the surviving-container gap for
+(`/tmp/tachyon-regen-matrix.log`). This supersedes the surviving-container gap for
 the covered structural and local rewrite cases. Duplicate-label precedence under
 arbitrary moves, partially overlapping source roots, loose-list persistence and
 the complete A02 structural matrix remain open. No new native/performance claim.
 
 The regeneration change passes full `scripts/check.sh`: 805 tests, two existing
 ignored tests, locked checks, formatting, strict Clippy, adapters and doctests
-(`/tmp/mineral-regen-check.log`). Diff whitespace checks pass. Crusty context
+(`/tmp/tachyon-regen-check.log`). Diff whitespace checks pass. Crusty context
 `ctx_48d978070376`, validation `task_ff07dc87bdcc13c6`: 75 existing advisory
 findings, zero new/worsened/resolved findings.

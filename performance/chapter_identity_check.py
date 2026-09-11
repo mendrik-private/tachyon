@@ -182,7 +182,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work):
     _capture(env, work, output, "before")
 
     subprocess.run(
-        ["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+        ["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
         input=TARGET, env=env, text=True, check=True, timeout=5,
     )
     key(33, control=True)  # Ctrl+F

@@ -92,9 +92,9 @@ All 23 resize-oracle tests and 19 capture-harness tests pass. The current Rust
 visible-caret/scrolled-away resize regression passes. The preceding full
 760-test Rust run remains historical evidence, not a rerun claimed here.
 `cargo fmt --all -- --check` and `git diff --check` pass. Logs include
-`/tmp/mineral-width-roundtrip-unit.log`, `/tmp/mineral-width-roundtrip-capture.log`,
-`/tmp/mineral-width-roundtrip-rust.log`, `/tmp/mineral-width-roundtrip-red.log`
-and `/tmp/mineral-live-record-red.log`.
+`/tmp/tachyon-width-roundtrip-unit.log`, `/tmp/tachyon-width-roundtrip-capture.log`,
+`/tmp/tachyon-width-roundtrip-rust.log`, `/tmp/tachyon-width-roundtrip-red.log`
+and `/tmp/tachyon-live-record-red.log`.
 
 Crusty validation `task_b619ab833b3aa753` for `ctx_83467251e81e` completed with
 75 existing advisory findings and zero new, worsened or resolved findings.

@@ -1,4 +1,4 @@
-"""Private-session AT-SPI integration checks for synthetic Mineral documents.
+"""Private-session AT-SPI integration checks for synthetic Tachyon documents.
 
 The probe never connects to the physical desktop's accessibility bus. The
 capture harness owns a separate D-Bus process group and passes its environment
@@ -48,7 +48,7 @@ def stable_traversal(visit, root, nodes, objects):
 def private_bus(environment, enabled=True):
     # Whitelist only accessibility activation. A normal session bus can launch
     # unrelated desktop services (including GVFS/FUSE) inside a test runtime.
-    with tempfile.TemporaryDirectory(prefix="mineral-atspi-bus-") as directory:
+    with tempfile.TemporaryDirectory(prefix="tachyon-atspi-bus-") as directory:
         services = Path(directory) / "services"
         services.mkdir()
         shutil.copyfile("/usr/share/dbus-1/services/org.a11y.Bus.service",
@@ -80,7 +80,7 @@ def _private_bus(environment, config, enabled):
         if not address.startswith("unix:") or bus.poll() is not None:
             raise RuntimeError("Invalid private accessibility session bus")
         env["DBUS_SESSION_BUS_ADDRESS"] = address
-        env["MINERAL_PRIVATE_ATSPI_BUS"] = address
+        env["TACHYON_PRIVATE_ATSPI_BUS"] = address
         for name in ("IsEnabled", "ScreenReaderEnabled"):
             subprocess.run([
                 "gdbus", "call", "--session", "--dest", "org.a11y.Bus",
@@ -104,7 +104,7 @@ def _private_bus(environment, config, enabled):
 
 
 def atspi_target(pid):
-    private_address = os.environ.get("MINERAL_PRIVATE_ATSPI_BUS")
+    private_address = os.environ.get("TACHYON_PRIVATE_ATSPI_BUS")
     if not private_address or os.environ.get("DBUS_SESSION_BUS_ADDRESS") != private_address:
         raise RuntimeError("Accessibility probes require the harness-owned private session bus")
     import gi
@@ -123,7 +123,7 @@ def atspi_target(pid):
                 target = child
                 break
         if time.monotonic() > deadline:
-            raise RuntimeError("Mineral did not publish an AT-SPI application tree")
+            raise RuntimeError("Tachyon did not publish an AT-SPI application tree")
         if target is None:
             time.sleep(0.05)
     return Atspi, target

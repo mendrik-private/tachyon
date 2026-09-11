@@ -98,7 +98,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let plan = AdaptivePlan::default();
             let dimensions = HashMap::new();
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let baseline = PublishedGeometry::build(GeometryInputs { projection: &projection, plan: &plan,
                 measurement: &measurement, images: &dimensions, width: 760., zoom: 1. });
             document.apply(EditCommand::ReplaceText { node_id: projection.segments()[0].node_id,
@@ -128,7 +128,7 @@ mod tests {
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let plan = AdaptivePlan::default();
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let dimensions = HashMap::new();
             let resource = hash(&resolved_image_resource("local.png", None));
             let red = blitz_dom::node::RasterImageData::new(1, 1, Arc::new(vec![255, 0, 0, 255]));
@@ -197,7 +197,7 @@ mod tests {
             let initial = PreparedDocumentView::prepare(&document);
             let windows = initial.adaptive.windows.clone();
             assert_eq!(windows.len(), 3);
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let prepare = |scope, previous: &PreparedDocumentView| {
                 PreparedDocumentView::prepare_snapshot_with_images(
                     &document.snapshot(), &HashMap::new(), None,
@@ -250,7 +250,7 @@ mod tests {
             let windows = initial.adaptive.windows.clone();
             assert_eq!(windows.len(), 2);
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let prepare = |scope, previous: &PreparedDocumentView| {
                 PreparedDocumentView::prepare_snapshot_with_images(
                     &document.snapshot(),
@@ -303,7 +303,7 @@ mod tests {
             let source = "# Title\n\nA short introduction.\n\nText with $x^2$.\n\n- North\n- South\n- East\n- West\n- Above\n- Below\n\n| Key | Value |\n| --- | --- |\n| Name | café |\n\n![Figure](figure.png)\n\n<details><summary>More</summary><p>Body</p></details>\n\n$$\nx^2 + y^2\n$$\n";
             let document = Document::from_markdown(source).unwrap();
             let snapshot = document.snapshot();
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let other_font = FontMeasurement::new(cx.text_system().clone(), "monospace".into(), 1.);
             let mut projection = TextProjection::from_snapshot(&snapshot);
             projection.preview_edit_node = None;

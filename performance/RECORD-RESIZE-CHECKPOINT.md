@@ -25,7 +25,7 @@ scrollable table, an active trailing header could disappear horizontally even
 though its source offset and vertical anchor survived. A reduced three-column
 table with explicit 400 px columns reproduces this without any record grammar.
 Its regression test failed because the active header was not painted within
-the resized viewport (`/tmp/mineral-header-reveal-red.log`).
+the resized viewport (`/tmp/tachyon-header-reveal-red.log`).
 
 Caret restoration now derives the horizontal target from the newly prepared
 cell bounds, native shaped caret position, alignment and table viewport. It
@@ -80,7 +80,7 @@ the native caret rectangle. Reading checks retain their visible heading anchor.
 ## Build and evidence
 
 Final immutable layout-validation runtime:
-`/tmp/mineral-header-reveal.IynIRn/mineral-final`, SHA-256
+`/tmp/tachyon-header-reveal.IynIRn/tachyon-final`, SHA-256
 `462dc128dd3c7e6b1c2a6e5e595a90eec572f1c52a697661b68107cba2b25f71`.
 Fixture122 source SHA-256:
 `c3ae9753a2fdec364181e33a95d8364cf8311ec09deeb22ea3c86de8a13d0e35`.
@@ -89,7 +89,7 @@ Fixture76 source SHA-256:
 
 `scripts/check.sh` passes formatting, locked all-target checks, strict Clippy,
 workspace/adapter tests and doctests: **770 passing Rust tests**, two existing
-ignored tests. Log: `/tmp/mineral-header-reveal-final-check.log`.
+ignored tests. Log: `/tmp/tachyon-header-reveal-final-check.log`.
 Both new resize regressions pass, including exact source/Undo and intentional
 horizontal-scroll preservation. All 27 resize-harness, 27 record-checker and
 19 capture-harness Python tests pass. `git diff --check` passes.

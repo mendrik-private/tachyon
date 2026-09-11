@@ -553,7 +553,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let layout = plan(&projection, &fonts, 1314., None, None);
             assert!(
                 layout.figure_flows.is_empty(),
@@ -588,7 +588,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Mineral".into(),
+                    "Spline Sans Tachyon".into(),
                     zoom,
                 );
                 let wide = plan(&projection, &fonts, 1314., None, None);
@@ -719,7 +719,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let body = projection
                 .segments()
                 .iter()
@@ -789,7 +789,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let caption = projection
                 .segments()
                 .iter()
@@ -860,7 +860,7 @@ mod tests {
             let document = Document::from_markdown(FIXTURE).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = plan(&projection, &fonts, 1280., None, None);
             assert_eq!(
                 plan.figure_flows.len(),
@@ -964,7 +964,7 @@ mod tests {
             let mut document = Document::from_markdown(FIXTURE).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let initial = plan(&projection, &fonts, 1280., None, None);
             let flow = initial.figure_flows.values().next().unwrap();
             let node = flow.text.sources[0].0;
@@ -1023,7 +1023,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for source in [
                 FIXTURE.replace(
                     "Botanical illustration of a flowering branch",
@@ -1085,7 +1085,7 @@ mod tests {
             let source = "## Gallery\n\n![Photo A](a.png)\n\nFigure 1. Morning.\n\nCredit: East trail\n\n![Photo B](b.png)\n\nFigure 2. Afternoon.\n\nCredit: West trail\n";
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for dimensions in [(1200, 600), (600, 300)] {
             let images = projection.image_segments().map(|s| (s.node_id, (s.context.image_source.clone().unwrap(), dimensions))).collect();
             let plan = arrangement::build_edit_locked_adaptive_plan(&projection, 1280., 1200., None, false, arrangement::LayoutMeasurement { text: &fonts, images: Some(&images), scope: None, resource_generation: 1 }, None);
@@ -1116,7 +1116,7 @@ mod tests {
             let source = FIXTURE.replace("A field notebook connects", "Figure 1. A botanical study.\n\nCredit: Field notebook\n\nA field notebook connects");
             let mut document = Document::from_markdown(source.as_str()).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let initial = plan(&projection, &fonts, 1280., None, None);
             let flow = initial.figure_flows.values().next().expect("captioned figure can wrap");
             assert_eq!(flow.labels.len(), 2);

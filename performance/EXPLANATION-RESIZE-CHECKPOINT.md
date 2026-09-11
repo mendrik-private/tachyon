@@ -60,7 +60,7 @@ No additional state field, source rewrite, width cap or dependency was added.
   restore exact original bytes.
 - `scripts/check.sh` passes format, locked all-target checks, strict Clippy,
   workspace tests and doctests: 709 passed, two existing ignored tests.
-  Log: `/tmp/mineral-explanation-resize-check.log`.
+  Log: `/tmp/tachyon-explanation-resize-check.log`.
 
 The UX skill informed independent full-width headings and content-fit recovery;
 Rust and diagnosis guidance informed the source-bound lock, explicit provisional

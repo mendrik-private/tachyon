@@ -75,7 +75,7 @@ pub(super) fn install(
             continue;
         }
         let ordinal = element
-            .attr(blitz_dom::LocalName::from("data-mineral-image"))
+            .attr(blitz_dom::LocalName::from("data-tachyon-image"))
             .and_then(|value| value.parse::<usize>().ok())
             .ok_or(HtmlError::Unsupported)?;
         let found = seen.get_mut(ordinal).ok_or(HtmlError::Unsupported)?;

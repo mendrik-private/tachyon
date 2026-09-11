@@ -16,7 +16,7 @@ fn main() {
 fn arguments() -> (usize, PathBuf, String) {
     let mut bytes = None;
     let mut output = None;
-    let mut image_source = "../visual-assets/mineral-strata.svg".to_owned();
+    let mut image_source = "../visual-assets/tachyon-strata.svg".to_owned();
     let mut args = env::args().skip(1);
     while let Some(argument) = args.next() {
         match argument.as_str() {
@@ -36,7 +36,7 @@ fn arguments() -> (usize, PathBuf, String) {
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: mineral-fixture --bytes N --output PATH [--image-source MARKDOWN_PATH]"
+                    "Usage: tachyon-fixture --bytes N --output PATH [--image-source MARKDOWN_PATH]"
                 );
                 std::process::exit(0);
             }
@@ -53,7 +53,7 @@ fn arguments() -> (usize, PathBuf, String) {
 fn fixture(target_bytes: usize, image_source: &str) -> String {
     let mut source = String::with_capacity(target_bytes);
     source.push_str(
-        "---\ntitle: Mineral release qualification\nfixture: deterministic-rich-v1\n---\n\n# Mineral release qualification\n\nThis document combines image-heavy sections, large tables, deep lists, Unicode 你好 مرحبا 🎉, and long code lines. It is intentionally editable and autosaved during compositor tests.\n\n",
+        "---\ntitle: Tachyon release qualification\nfixture: deterministic-rich-v1\n---\n\n# Tachyon release qualification\n\nThis document combines image-heavy sections, large tables, deep lists, Unicode 你好 مرحبا 🎉, and long code lines. It is intentionally editable and autosaved during compositor tests.\n\n",
     );
     let mut section = 1;
     while source.len() + 12_000 < target_bytes {
@@ -81,12 +81,12 @@ fn fixture(target_bytes: usize, image_source: &str) -> String {
 fn append_section(source: &mut String, section: usize, image_source: &str) {
     writeln!(source, "## Field section {section}\n").expect("string write");
     source.push_str(
-        "Mineral Markdown measures **rich editing**, *selection*, ~~strikethrough~~, `inline code`, and [links](https://example.com) while keeping raw source stable. Combining marks: e\u{301}; bidirectional text: العربية; CJK: 日本語.\n\n> The viewport should remain anchored while images and wrapped content are refined.\n\n",
+        "Tachyon measures **rich editing**, *selection*, ~~strikethrough~~, `inline code`, and [links](https://example.com) while keeping raw source stable. Combining marks: e\u{301}; bidirectional text: العربية; CJK: 日本語.\n\n> The viewport should remain anchored while images and wrapped content are refined.\n\n",
     );
     for image in 1..=8 {
         writeln!(
             source,
-            "![Mineral strata {section}.{image}]({image_source})\n"
+            "![Tachyon strata {section}.{image}]({image_source})\n"
         )
         .expect("string write");
     }
@@ -134,7 +134,7 @@ mod tests {
     fn fixtures_are_exact_size_and_cover_required_stressors() {
         let source = fixture(100 * 1024, "image.svg");
         assert_eq!(source.len(), 100 * 1024);
-        assert!(source.contains("![Mineral strata"));
+        assert!(source.contains("![Tachyon strata"));
         assert!(source.contains("| Sample | Frame |"));
         assert!(source.contains("                                            - ["));
         assert!(source.contains("```rust"));

@@ -653,23 +653,23 @@ def main():
         parser.error("--atspi-check uses the bounded synthetic fixture 27")
     if args.atspi_math_check and (args.fixture != "40-accessible-math.md" or args.atspi_check or args.atspi_html_check or args.atspi_gallery_check or args.perf_seconds):
         parser.error("math accessibility checks require fixture 40 and no other accessibility/performance check")
-    with tempfile.TemporaryDirectory(prefix="mineral-layout-") as directory, ExitStack() as resources:
+    with tempfile.TemporaryDirectory(prefix="tachyon-layout-") as directory, ExitStack() as resources:
         work = Path(directory)
         runtime = work / "runtime"
         runtime.mkdir(mode=0o700)
         env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY="layout",
                    XDG_STATE_HOME=str(work / "state"), XDG_CACHE_HOME=str(work / "cache"),
-                   MINERAL_WESTON_SCALE_120=str(args.scale))
-        env.pop("MINERAL_INSTANCE_MODE", None)
-        env.pop("MINERAL_INSTANCE_SOCKET", None)
-        env.pop("MINERAL_LAYOUT_TRACE", None)
+                   TACHYON_WESTON_SCALE_120=str(args.scale))
+        env.pop("TACHYON_INSTANCE_MODE", None)
+        env.pop("TACHYON_INSTANCE_SOCKET", None)
+        env.pop("TACHYON_LAYOUT_TRACE", None)
         from accessibility_probe import private_bus
         env = resources.enter_context(private_bus(env, enabled=args.html_clipboard_check or args.recovery_controls_check or args.unsaved_close_check or args.window_controls_check or args.titlebar_check or args.appearance_cycle or args.atspi_check or args.atspi_active or args.atspi_html_check or args.atspi_gallery_check or args.atspi_editorial_check or args.atspi_math_check or args.find_check or args.layout_recovery_check or args.resize_check or args.boundary_check or args.font_reflow_check or args.rtl_check or args.adaptive_check or args.chapter_identity_check or args.html_effects_check or bool(args.edit_compose_check) or bool(args.recorded_bugs_check)))
         if args.appearance:
             from theme_portal import settings_portal
             resources.enter_context(settings_portal(env, args.appearance))
         if args.layout_trace or args.atspi_activation_sample:
-            env["MINERAL_LAYOUT_TRACE"] = args.layout_trace or "summary"
+            env["TACHYON_LAYOUT_TRACE"] = args.layout_trace or "summary"
         # Fixture edits and autosave are confined to this copy.
         shutil.copytree(ROOT / "performance/layout-fixtures", work / "layout-fixtures")
         shutil.copytree(ROOT / "performance/visual-assets", work / "visual-assets")
@@ -681,7 +681,7 @@ def main():
             args.source_resource_dir) if source_origin else []
         if args.generated_bytes:
             args.fixture = "generated-scroll.md"
-            subprocess.run([str(ROOT / "target/release/mineral-fixture"), "--bytes", str(args.generated_bytes),
+            subprocess.run([str(ROOT / "target/release/tachyon-fixture"), "--bytes", str(args.generated_bytes),
                             "--output", str(work / "layout-fixtures" / args.fixture)], check=True)
         view_source_path = work / "layout-fixtures" / args.fixture
         effects_monitor = None
@@ -698,13 +698,13 @@ def main():
                                  and fixture_bytes >= 8 * 1024 * 1024 else
                                  20 if args.atspi_activation_sample else
                                  10 if args.atspi_active else 0)
-            env.update(MINERAL_PERF_OUTPUT=str(work / "perf.json"), MINERAL_PERF_SECONDS=str(args.perf_seconds),
-                       MINERAL_PERF_WARMUP_MS=str(round((max(5, args.startup_wait + 2 +
+            env.update(TACHYON_PERF_OUTPUT=str(work / "perf.json"), TACHYON_PERF_SECONDS=str(args.perf_seconds),
+                       TACHYON_PERF_WARMUP_MS=str(round((max(5, args.startup_wait + 2 +
                                                        activation_warmup)
                                                        + (2 * args.perf_sweep_seconds + 2 if args.perf_warm_sweep else 0)) * 1000)),
-                       MINERAL_PERF_REFRESH_HZ="120", MINERAL_PERF_RESIZE="false",
-                       MINERAL_PERF_LABEL="isolated-wayland-momentum", MINERAL_PERF_SCENARIO=f"bidirectional {args.perf_input} scrolling",
-                       MINERAL_PERF_INPUT_SOURCE="private Wayland seat on isolated Weston 14 headless GL output")
+                       TACHYON_PERF_REFRESH_HZ="120", TACHYON_PERF_RESIZE="false",
+                       TACHYON_PERF_LABEL="isolated-wayland-momentum", TACHYON_PERF_SCENARIO=f"bidirectional {args.perf_input} scrolling",
+                       TACHYON_PERF_INPUT_SOURCE="private Wayland seat on isolated Weston 14 headless GL output")
         modules = ROOT / "performance/wayland-harness/build"
         with (work / "weston.log").open("w") as log:
             weston = subprocess.Popen([
@@ -769,7 +769,7 @@ def main():
                         raise RuntimeError("View interaction changed the fixture's source bytes")
                 def planning_reports():
                     log.flush()
-                    prefix = "MINERAL_LAYOUT_TRACE "
+                    prefix = "TACHYON_LAYOUT_TRACE "
                     result = []
                     for line in (work / "weston.log").read_text().splitlines():
                         if line.startswith(prefix):
@@ -893,7 +893,7 @@ def main():
                     from layout_recovery_check import check
                     def validation_events():
                         log.flush()
-                        prefix = "MINERAL_LAYOUT_VALIDATION "
+                        prefix = "TACHYON_LAYOUT_VALIDATION "
                         return [line[len(prefix):] for line in (work / "weston.log").read_text().splitlines() if line.startswith(prefix)]
                     result = check(args.layout_recovery_check, env, input_event,
                                    work / "layout-fixtures" / args.fixture, app.pid, args.output,
@@ -1376,7 +1376,7 @@ def main():
                     # the app's clipboard publication. Wait for that evidence.
                     deadline = time.monotonic() + 3
                     while True:
-                        clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "mineral-test"], env=env, text=True,
+                        clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "tachyon-test"], env=env, text=True,
                                                    capture_output=True, timeout=5)
                         if not clipboard.returncode or time.monotonic() >= deadline or "Nothing is copied" not in clipboard.stderr:
                             break
@@ -1423,7 +1423,7 @@ def main():
                                      step_milli=round((distance + viewport["height"]) / ticks * 1000))
                         if distance <= 0:
                             raise RuntimeError("Full-document sweep requires complete scrollable geometry")
-                        time.sleep(max(0, app_started_at + int(env["MINERAL_PERF_WARMUP_MS"]) / 1000
+                        time.sleep(max(0, app_started_at + int(env["TACHYON_PERF_WARMUP_MS"]) / 1000
                                        - (2 * args.perf_sweep_seconds + 2 if args.perf_warm_sweep else 0)
                                        - time.monotonic()))
                     with subprocess.Popen([str(modules / "input-client"), "stream"], env=env,
@@ -1436,7 +1436,7 @@ def main():
                         deadline = max(
                             time.monotonic() + args.perf_seconds + 20
                             + (2 * args.perf_sweep_seconds if args.perf_warm_sweep else 0),
-                            app_started_at + int(env["MINERAL_PERF_WARMUP_MS"]) / 1000
+                            app_started_at + int(env["TACHYON_PERF_WARMUP_MS"]) / 1000
                             + args.perf_seconds + 20,
                         )
                         tick = 0
@@ -1447,7 +1447,7 @@ def main():
                                 amount *= 6
                             if sweep:
                                 if args.perf_warm_sweep and tick == 2 * sweep["ticks"]:
-                                    time.sleep(max(0, app_started_at + int(env["MINERAL_PERF_WARMUP_MS"]) / 1000
+                                    time.sleep(max(0, app_started_at + int(env["TACHYON_PERF_WARMUP_MS"]) / 1000
                                                    - time.monotonic()))
                                 amount = sweep["step_milli"] * (1 if (tick // sweep["ticks"]) % 2 == 0 else -1)
                                 if tick % sweep["ticks"] == 0:
@@ -1482,11 +1482,11 @@ def main():
                         }
                     if sweep:
                         from resize_layout_check import prefixed_records
-                        sweep["boundary_states"] = prefixed_records((work / "weston.log").read_bytes(), "MINERAL_RESIZE_STATE ")
+                        sweep["boundary_states"] = prefixed_records((work / "weston.log").read_bytes(), "TACHYON_RESIZE_STATE ")
                         sweep["boundary_inputs"] = sweep_samples
                         report["full_document_sweep"] = sweep
                     report["startup_wait_seconds"] = args.startup_wait
-                    report["configured_warmup_ms"] = int(env["MINERAL_PERF_WARMUP_MS"])
+                    report["configured_warmup_ms"] = int(env["TACHYON_PERF_WARMUP_MS"])
                     report["accessibility_readiness_seconds"] = accessibility_readiness_seconds
                     report["passes"] = (fps > 60 and report["draw"]["p99_ms"] < 1000 / 60
                                         and report["input"]["latency"]["samples"] > 0)
@@ -1738,7 +1738,7 @@ def main():
                     input_event("key", 28, 1)
                     input_event("key", 28, 0)
                     time.sleep(0.5)
-                    clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "mineral-test"],
+                    clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "tachyon-test"],
                                                env=env, text=True, capture_output=True, timeout=5)
                     copied = clipboard.returncode == 0 and clipboard.stdout == "https://example.test/reference"
                     unchanged = source_path.read_bytes() == original
@@ -1799,7 +1799,7 @@ def main():
                     if not args.html_direct_edit and (b"**A styled HTML fragment**" not in converted or b"[reference link](https://example.test/reference)" not in converted):
                         raise RuntimeError("HTML conversion lost rich text or its link")
                     if args.fixture == "30-html-images.md" and not args.html_direct_edit:
-                        required = [b"![Layered mineral strata](../visual-assets/mineral-strata.svg", b"](02-list-arrangements.md)", b"![Repeated source\\, second placement](../visual-assets/mineral-strata.svg)"]
+                        required = [b"![Layered tachyon strata](../visual-assets/tachyon-strata.svg", b"](02-list-arrangements.md)", b"![Repeated source\\, second placement](../visual-assets/tachyon-strata.svg)"]
                         if not all(marker in converted for marker in required):
                             args.output.with_suffix(".conversion-failed.md").write_bytes(converted)
                             raise RuntimeError("HTML image conversion lost an image, alt text or enclosing link")
@@ -1817,7 +1817,7 @@ def main():
                         screenshot, = capture.glob("*.png")
                         shutil.copyfile(screenshot, args.output.with_name(f"{args.output.stem}-preedit.png"))
                     if args.edit_paste is not None:
-                        subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+                        subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                                        input=args.edit_paste, text=True, env=env, check=True, timeout=5)
                         input_event("key", 29, 1)
                         input_event("key", 47, 1)
@@ -1829,7 +1829,7 @@ def main():
                         input_event("key", key, 0)
                     typed = wait_source(lambda value: value != converted)
                     if args.fixture == "30-html-images.md" and args.html_direct_edit:
-                        required = [b"![Layered mineral strata](../visual-assets/mineral-strata.svg", b"](02-list-arrangements.md)", b"![Repeated source\\, second placement](../visual-assets/mineral-strata.svg)"]
+                        required = [b"![Layered tachyon strata](../visual-assets/tachyon-strata.svg", b"](02-list-arrangements.md)", b"![Repeated source\\, second placement](../visual-assets/tachyon-strata.svg)"]
                         if not all(marker in typed for marker in required):
                             args.output.with_suffix(".conversion-failed.md").write_bytes(typed)
                             raise RuntimeError("First text edit lost an HTML image or its link")
@@ -1937,7 +1937,7 @@ def main():
                         input_event("key", 29, 0)
                         deadline = time.monotonic() + 3
                         while True:
-                            clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "mineral-test"],
+                            clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "tachyon-test"],
                                                        env=env, text=True, capture_output=True, timeout=5)
                             if clipboard.stdout == args.copy_selected or time.monotonic() >= deadline:
                                 break
@@ -2009,13 +2009,13 @@ def main():
                             input_event("key", 1, 1)  # Escape
                             input_event("key", 1, 0)
                             time.sleep(1.2)
-                            subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+                            subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                                            input="composition-cancel-sentinel", text=True, env=env, check=True, timeout=5)
                             for code, value in [(29, 1), (46, 1), (46, 0), (29, 0)]:
                                 input_event("key", code, value)
                             deadline = time.monotonic() + 3
                             while True:
-                                clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "mineral-test"],
+                                clipboard = subprocess.run(["wl-paste", "--no-newline", "--seat", "tachyon-test"],
                                                            env=env, text=True, capture_output=True, timeout=5)
                                 if clipboard.stdout == args.copy_selected or time.monotonic() >= deadline:
                                     break
@@ -2038,7 +2038,7 @@ def main():
                         input_event("key", key, 1)
                         input_event("key", key, 0)
                     else:
-                        subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+                        subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                                        input=args.edit_paste, text=True, env=env, check=True, timeout=5)
                         input_event("key", 29, 1)
                         if args.edit_markdown:
@@ -2257,7 +2257,7 @@ def main():
                     shutil.copyfile(work / "weston.log", args.log_output)
                 if args.layout_trace:
                     log.flush()
-                    prefix = "MINERAL_LAYOUT_TRACE "
+                    prefix = "TACHYON_LAYOUT_TRACE "
                     reports = [json.loads(line[len(prefix):]) for line in (work / "weston.log").read_text().splitlines()
                                if line.startswith(prefix)]
                     result = dict(binary_sha256=binary_hash, fixture=args.fixture, width=args.width,

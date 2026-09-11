@@ -40,10 +40,10 @@ checked. Existing heading/break/gallery/five-paragraph negative tests remain.
 
 Both final regressions were rerun against the restored old 420-byte predicates
 and failed for missing structural/measured alternatives:
-`/tmp/mineral-extended-final-red.log`. Final `scripts/check.sh` passes formatting,
+`/tmp/tachyon-extended-final-red.log`. Final `scripts/check.sh` passes formatting,
 locked pins/metadata, all-target check, strict Clippy and 699 tests: 117 core,
 29 source-fidelity, 11 tree, 502 view (2 existing ignored), 1 consumer, 39 app,
-plus doctests. Log: `/tmp/mineral-extended-check.log`. `git diff --check` is clean.
+plus doctests. Log: `/tmp/tachyon-extended-check.log`. `git diff --check` is clean.
 
 ## Native evidence
 
@@ -79,13 +79,13 @@ Inspected `layout-previews/` artifacts:
   within the changed paragraph. Initial expectations omitted comma escapes;
   corrected after inspecting `escape_inline`, with the whole-file oracle kept.
   No serializer change was made. Initial oracle logs are retained as
-  `/tmp/mineral-extended-{table,code}-edit-oracle.log`.
+  `/tmp/tachyon-extended-{table,code}-edit-oracle.log`.
 - `extended-combined-final`, 1600×1700 light: existing technical peer layout
   retained, all seven authored copy markers once/in canonical order, source
   bytes unchanged. This is a marker-order check, not whole-clipboard equality.
 
 All read-only final captures retain original source bytes. Native logs use
-`/tmp/mineral-extended-*.log`; focused tests and captures are not release
+`/tmp/tachyon-extended-*.log`; focused tests and captures are not release
 performance qualification. UX guidance shaped the comparison against existing
 better layouts and preserved reading measures; Rust guidance shaped bounded
 measurement and focused-growth/full-source tests.

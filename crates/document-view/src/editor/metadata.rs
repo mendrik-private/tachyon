@@ -258,7 +258,7 @@ mod tests {
             let document = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for (width, strip, stacked) in [
                 (1280., true, false),
                 (480., false, false),
@@ -291,7 +291,7 @@ mod tests {
                     assert_eq!(columns.stacked(), stacked, "width {width}");
                     let segment = projection.segment_for_node(node).unwrap();
                     let style = gpui::TextStyle {
-                        font_family: "Spline Sans Mineral".into(),
+                        font_family: "Spline Sans Tachyon".into(),
                         ..Default::default()
                     };
                     let label =
@@ -302,11 +302,11 @@ mod tests {
                         label.len(),
                         &style,
                         false,
-                        MineralPalette::LIGHT,
+                        TachyonPalette::LIGHT,
                     );
                     assert!(
                         runs.iter()
-                            .all(|run| run.font.family.as_ref() == "Spline Sans Mineral"),
+                            .all(|run| run.font.family.as_ref() == "Spline Sans Tachyon"),
                         "metadata labels must not inherit feature serif"
                     );
                     let own = lines
@@ -375,7 +375,7 @@ mod tests {
             let mut document = Document::from_markdown(SOURCE).unwrap();
             let before = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let initial = build_measured_adaptive_plan(&before, 1280., 1000., None, false, &fonts);
             let node = before
                 .segments()
@@ -426,7 +426,7 @@ mod tests {
     #[gpui::test]
     fn property_hard_breaks_and_many_values_stay_complete_rows(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let source = "## Properties\n\n- **Location:** North wing  \n  Second floor\n- **Owner:** Editorial\n";
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());

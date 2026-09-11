@@ -91,7 +91,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
         evidence["cards"] = bounds
         # Find selects exact authored content, then native typing and undo must
         # preserve the original list and every unrelated source byte.
-        subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+        subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                        input="Application:", text=True, env=env, check=True, timeout=5)
         key(33, control=True)
         key(47, control=True)
@@ -132,7 +132,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
         key(46, control=True)
         deadline = time.monotonic() + 3
         while True:
-            clipboard = subprocess.run(["wl-paste", "--seat", "mineral-test", "--no-newline"],
+            clipboard = subprocess.run(["wl-paste", "--seat", "tachyon-test", "--no-newline"],
                                        env=env, capture_output=True, text=True, timeout=5)
             if not clipboard.returncode:
                 break
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     import os
     import sys
     import gi
-    if not os.environ.get("MINERAL_PRIVATE_ATSPI_BUS") or os.environ.get("MINERAL_PRIVATE_ATSPI_BUS") != os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+    if not os.environ.get("TACHYON_PRIVATE_ATSPI_BUS") or os.environ.get("TACHYON_PRIVATE_ATSPI_BUS") != os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
         raise RuntimeError("Native focus check requires the private accessibility bus")
     gi.require_version("Atspi", "2.0")
     from gi.repository import Atspi

@@ -75,7 +75,7 @@ def check(env, input_event, source_path, pid, probe_path, log_path):
         return json.loads(result.stdout)
 
     def state():
-        prefix = "MINERAL_RESIZE_STATE "
+        prefix = "TACHYON_RESIZE_STATE "
         before = sum(
             line.startswith(prefix) for line in log_path.read_text().splitlines()
         )

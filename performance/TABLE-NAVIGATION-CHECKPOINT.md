@@ -11,7 +11,7 @@ painted caret bounds, and requires unchanged Markdown throughout.
 
 The test failed in 0.03 seconds after compilation, with “Tab must reveal the
 selected cell, not leave the caret offscreen”
-(`/tmp/mineral-table-navigation-red.log`). Ranked hypotheses were missing
+(`/tmp/tachyon-table-navigation-red.log`). Ranked hypotheses were missing
 reveal, stale layout focus, and a later paint/reflow overwrite. Adding the
 existing `keep_offset_visible` call after structural selection made the same
 test pass. Render already synchronizes layout focus; no extra layout-lock or
@@ -55,14 +55,14 @@ this turn does not change that previously verified interaction contract.
 ## Verification
 
 Immutable native runtime:
-`/tmp/mineral-table-navigation.3lcBv8/mineral-final`
+`/tmp/tachyon-table-navigation.3lcBv8/tachyon-final`
 SHA-256: `22847f213094d447ae12fb3ec86d23606595e3899c1754678a3e70531ff799d8`.
 Fixture122 remains
 `c3ae9753a2fdec364181e33a95d8364cf8311ec09deeb22ea3c86de8a13d0e35`.
 
 `scripts/check.sh` passes formatting, locked checks, strict Clippy, 771 Rust
 tests, the existing two ignored tests, adapter checks and doc tests
-(`/tmp/mineral-table-navigation-check.log`). Python checks pass: 28 resize,
+(`/tmp/tachyon-table-navigation-check.log`). Python checks pass: 28 resize,
 20 capture and 3 paired-record geometry tests. `git diff --check` is clean.
 
 Twelve unique native cases pass: body/header × width/height × 100/150/200%.

@@ -601,7 +601,7 @@ impl RichDocumentEditor {
 
     pub(super) fn find_bar(
         &mut self,
-        palette: MineralPalette,
+        palette: TachyonPalette,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         self.find.visible.then(|| {
@@ -897,7 +897,7 @@ mod tests {
     fn find_reveals_a_clipped_table_cell_without_page_scroll(cx: &mut gpui::TestAppContext) {
         cx.update(init);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[2000.0,2000.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[2000.0,2000.0]} -->\n",
             "| first | last |\n| --- | --- |\n| left | right target |\n"
         );
         let (editor, cx) = cx.add_window_view(|window, cx| {

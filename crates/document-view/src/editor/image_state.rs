@@ -9,7 +9,7 @@ pub(super) struct Presentation {
     width: f32,
     height: f32,
     zoom: f32,
-    palette: MineralPalette,
+    palette: TachyonPalette,
     editor: gpui::WeakEntity<RichDocumentEditor>,
 }
 
@@ -19,7 +19,7 @@ impl Presentation {
         width: f32,
         height: f32,
         zoom: f32,
-        palette: MineralPalette,
+        palette: TachyonPalette,
         editor: gpui::WeakEntity<RichDocumentEditor>,
     ) -> Self {
         Self {
@@ -206,7 +206,7 @@ mod tests {
 
     #[gpui::test]
     fn narrow_cell_keeps_visible_description_and_contained_recovery(cx: &mut gpui::TestAppContext) {
-        const SOURCE: &str = "# Before\n\n<!-- mineral-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[200,360]} -->\n<table><tr><td><p><img src=\"missing.png\" alt=\"A trail map with two observation points\"></p></td><td><p>Neighbor</p></td></tr></table>\n";
+        const SOURCE: &str = "# Before\n\n<!-- tachyon-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[200,360]} -->\n<table><tr><td><p><img src=\"missing.png\" alt=\"A trail map with two observation points\"></p></td><td><p>Neighbor</p></td></tr></table>\n";
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::init_editor(cx);

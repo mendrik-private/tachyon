@@ -283,6 +283,3 @@ Git source URLs as distinct crates even when they resolve to the same commit.
 Tachyon is dual-licensed under [MIT](LICENSE-MIT) or
 [Apache-2.0](LICENSE-APACHE), at your option. The bundled fonts retain the
 licenses recorded in `assets/fonts/`.
-
-The application was previously named Mineral. Existing workspace and recovery data
-remain under the `mineral-markdown` state directory so the rename preserves them.

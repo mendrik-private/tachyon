@@ -1,4 +1,4 @@
-/* Command-line client for the private mineral_input_v1 control global. */
+/* Command-line client for the private tachyon_input_v1 control global. */
 
 #include <errno.h>
 #include <stdbool.h>
@@ -10,7 +10,7 @@
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 
-static const struct wl_message mineral_input_requests[] = {
+static const struct wl_message tachyon_input_requests[] = {
 	{ "move", "ii", NULL },
 	{ "button", "uu", NULL },
 	{ "key", "uu", NULL },
@@ -18,11 +18,11 @@ static const struct wl_message mineral_input_requests[] = {
 	{ "continuous_scroll", "ii", NULL },
 };
 
-static const struct wl_interface mineral_input_interface = {
-	.name = "mineral_input_v1",
+static const struct wl_interface tachyon_input_interface = {
+	.name = "tachyon_input_v1",
 	.version = 1,
 	.method_count = 5,
-	.methods = mineral_input_requests,
+	.methods = tachyon_input_requests,
 	.event_count = 0,
 	.events = NULL,
 };
@@ -40,9 +40,9 @@ registry_global(void *data, struct wl_registry *registry, uint32_t name,
 	struct client_state *state = data;
 
 	(void)version;
-	if (strcmp(interface, mineral_input_interface.name) == 0)
+	if (strcmp(interface, tachyon_input_interface.name) == 0)
 		state->input = (struct wl_proxy *)wl_registry_bind(
-			registry, name, &mineral_input_interface, 1);
+			registry, name, &tachyon_input_interface, 1);
 }
 
 static void
@@ -122,7 +122,7 @@ main(int argc, char *argv[])
 	state.registry = wl_display_get_registry(state.display);
 	wl_registry_add_listener(state.registry, &registry_listener, &state);
 	if (wl_display_roundtrip(state.display) < 0 || !state.input) {
-		fprintf(stderr, "mineral_input_v1 is unavailable\n");
+		fprintf(stderr, "tachyon_input_v1 is unavailable\n");
 		return 1;
 	}
 

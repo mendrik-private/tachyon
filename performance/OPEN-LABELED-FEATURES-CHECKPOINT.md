@@ -36,14 +36,14 @@ planner, retained focused slots and canonical ranges, not a parallel layout.
 `cargo test -p document-view --locked labeled_features_use_open_measured_geometry
 -- --nocapture` reproduced the actual full-page fixture with six `Top` slots.
 A three-feature excerpt reproduced the same defect without surrounding sections.
-Logs: `/tmp/mineral-open-labels-red.log` and
-`/tmp/mineral-open-labels-minimal-red.log`. An initial artificial two-item input
+Logs: `/tmp/tachyon-open-labels-red.log` and
+`/tmp/tachyon-open-labels-minimal-red.log`. An initial artificial two-item input
 chose label rows instead of a grid; it was not evidence for the card defect.
 
 The first styling change passed the inset assertion, but an expanded measured
 height assertion correctly failed: actual 48 px, candidate 96 px. The remaining
 48 px was obsolete enclosure padding in list candidate measurement.
-`/tmp/mineral-open-labels-measure-red.log` records that failure. Correcting the
+`/tmp/tachyon-open-labels-measure-red.log` records that failure. Correcting the
 measurement makes both the isolated excerpt and unchanged complete page pass.
 
 Two new native-font tests cover actual plan selection, zero open inset,
@@ -56,12 +56,12 @@ four-column exclusions and labeled-composition regressions still run.
 The initial full suite found one historical regression explicitly requiring
 enclosure padding. Its expectation now requires open, markerless alignment;
 the underlying layout/identity check remains. No production failure is hidden
-by that update. Initial log: `/tmp/mineral-open-labels-qualified-check.log`.
+by that update. Initial log: `/tmp/tachyon-open-labels-qualified-check.log`.
 
 Final `scripts/check.sh` exits 0: formatting, locked source pins/metadata,
 all-target check, Clippy, 116 core tests, 25 source-fidelity tests, 11 tree tests,
 **493 document-view tests (2 ignored)**, one external-consumer test, 39 app tests
-and doctests. Log: `/tmp/mineral-open-labels-qualified-check-final.log`.
+and doctests. Log: `/tmp/tachyon-open-labels-qualified-check-final.log`.
 `git diff --check` passes.
 
 ## Native evidence

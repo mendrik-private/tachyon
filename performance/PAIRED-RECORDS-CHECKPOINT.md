@@ -34,11 +34,11 @@ weakening the test. Mock text tests are not native glyph evidence.
 
 `scripts/check.sh` passes formatting, locked all-target checking, strict Clippy,
 workspace and adapter tests, and doctests: **768 passing Rust tests**, two
-existing ignored tests. Log: `/tmp/mineral-paired-records-check-final.log`.
+existing ignored tests. Log: `/tmp/tachyon-paired-records-check-final.log`.
 All 24 record-checker Python unit tests and `git diff --check` pass.
 
 Immutable final layout-validation binary:
-`/tmp/mineral-paired-records.jtFREc/mineral-final`, SHA-256
+`/tmp/tachyon-paired-records.jtFREc/tachyon-final`, SHA-256
 `f07b9a1f0f953aff1baa0da26e23ba74918ce8de3c7e6fbb317dc57feaf0c67d`.
 Fixture `layout-fixtures/122-paired-records.md` SHA-256:
 `c3ae9753a2fdec364181e33a95d8364cf8311ec09deeb22ea3c86de8a13d0e35`.

@@ -37,7 +37,7 @@ and caret-reveal path introduced for row history.
   ignored.
 - The immediately preceding production state passed `scripts/check.sh` with
   formatting, locked checks, strict Clippy, 833 Rust tests, adapter tests and
-  doctests; `/tmp/mineral-document-boundary-check.log` records that run. This
+  doctests; `/tmp/tachyon-document-boundary-check.log` records that run. This
   slice adds only the passing regression and checkpoint.
 - `cargo fmt --all` and `git diff --check` pass.
 

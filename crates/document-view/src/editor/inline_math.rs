@@ -122,7 +122,7 @@ pub(super) fn layout(
         {
             let source = &projection.text()[source_range.clone()];
             let Ok(light) =
-                crate::math::inline_formula(source, MineralPalette::for_dark(false).text)
+                crate::math::inline_formula(source, TachyonPalette::for_dark(false).text)
             else {
                 continue;
             };
@@ -130,7 +130,7 @@ pub(super) fn layout(
                 continue;
             }
             let dark =
-                crate::math::inline_formula(source, MineralPalette::for_dark(true).text).ok()?;
+                crate::math::inline_formula(source, TachyonPalette::for_dark(true).text).ok()?;
             Content::Formula { light, dark }
         } else {
             continue;
@@ -511,7 +511,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[1];
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for width in [140., 360., 760., 1200.] {
                 let lines = layout(
                     &projection,
@@ -576,7 +576,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[1];
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let lines = layout(
                 &projection,
                 segment,
@@ -697,7 +697,7 @@ mod tests {
                 .unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             assert_eq!(projection.preview_edit_node, Some(node));
             let first = &projection.segments()[1];
             let second = &projection.segments()[2];

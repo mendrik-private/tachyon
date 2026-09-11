@@ -4,7 +4,7 @@ A figure belongs to its local container. Its description should remain readable 
 
 ## A narrow reference column
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[200,360]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[200,360]} -->
 <table>
 <thead><tr><th>Figure</th><th>Explanation</th></tr></thead>
 <tbody>

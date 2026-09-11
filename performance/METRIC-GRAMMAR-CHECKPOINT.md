@@ -66,7 +66,7 @@ Final release SHA-256:
 `774f5e588b81369c01af4870d0c971f911590a71d2f5ae60fb68d842cb4c1585`.
 Fixture SHA-256:
 `ffe74bc75fe5aedbfd864359c05c8d9f3d02859942672c37edd0ae516dac78ca`.
-Immutable native binary: `/tmp/mineral-metric-weston.AT7TBa/tachyon-final`.
+Immutable native binary: `/tmp/tachyon-metric-weston.AT7TBa/tachyon-final`.
 `scripts/check.sh` passes locked metadata/check, formatting, Clippy with
 warnings denied, all workspace tests and doctests: **560 tests pass**, two
 existing view tests ignored. See `layout-previews/metric-grammar-checks.log`.

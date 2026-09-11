@@ -4,7 +4,7 @@ Each target retains its original text and local scroll owner.
 
 ## Markdown table
 
-<!-- mineral-table:v1 {"border":"PhysicalPixel","widths":[2000.0,2000.0]} -->
+<!-- tachyon-table:v1 {"border":"PhysicalPixel","widths":[2000.0,2000.0]} -->
 | First | Last |
 | --- | ---: |
 | left table target | right table target |

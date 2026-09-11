@@ -79,7 +79,7 @@ Three new native-font Rust tests cover:
 
 `scripts/check.sh` passes locked metadata, formatting, all-target check,
 warnings-denied Clippy, **721 Rust tests**, two existing ignored and doctests.
-Final log: `/tmp/mineral-table-balance-final-check.log`. The focused table run
+Final log: `/tmp/tachyon-table-balance-final-check.log`. The focused table run
 passed 57 tests before the final semantics/explicit-width test was added; the
 full suite includes it. `git diff --check` also passes.
 

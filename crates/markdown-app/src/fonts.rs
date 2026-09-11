@@ -11,19 +11,19 @@ pub fn register(cx: &mut App) {
         include_bytes!("../../../assets/fonts/LiberationSerif-Italic.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/LiberationSerif-Bold.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/LiberationSerif-BoldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Mineral-H1-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Mineral-H1-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Mineral-H2-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Mineral-H2-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Mineral-H3-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Mineral-H3-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-Oblique.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-SemiboldOblique.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSansMono-Mineral-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSansMono-Mineral-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSansMono-Mineral-Italic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H1-Semibold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H1-SemiboldItalic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H2-Semibold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H2-SemiboldItalic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H3-Semibold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-H3-SemiboldItalic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Regular.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Semibold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Oblique.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-SemiboldOblique.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Semibold.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Italic.ttf").as_slice(),
     ]
     .into_iter()
     .map(Cow::Borrowed)
@@ -39,8 +39,8 @@ pub fn register(cx: &mut App) {
 
 fn alternate_body_fonts() -> Vec<Cow<'static, [u8]>> {
     [
-        include_bytes!("../../../assets/fonts/NotoSans-Mineral-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/NotoSans-Mineral-Italic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/NotoSans-Tachyon-Regular.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/NotoSans-Tachyon-Italic.ttf").as_slice(),
     ]
     .into_iter()
     .map(Cow::Borrowed)
@@ -66,10 +66,10 @@ pub fn register_delayed_alternate_for_validation(cx: &mut App) -> bool {
 #[cfg(test)]
 mod tests {
     const BODY_FONTS: [&[u8]; 4] = [
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-Regular.ttf"),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-Semibold.ttf"),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-Oblique.ttf"),
-        include_bytes!("../../../assets/fonts/SplineSans-Mineral-SemiboldOblique.ttf"),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Regular.ttf"),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Semibold.ttf"),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-Oblique.ttf"),
+        include_bytes!("../../../assets/fonts/SplineSans-Tachyon-SemiboldOblique.ttf"),
     ];
 
     #[test]

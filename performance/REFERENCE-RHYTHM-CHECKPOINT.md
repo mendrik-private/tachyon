@@ -42,7 +42,7 @@ No source, model, renderer typography, gutter or component-inset change.
 - Focused `rhythm` tests: four passed, including the existing opening-rhythm
   controls. `scripts/check.sh` exited 0: format, locked pins/checks, strict
   Clippy, 705 Rust tests (two ignored), and doc tests. Logs:
-  `/tmp/mineral-reference-rhythm-{red,tests,check}.log`.
+  `/tmp/tachyon-reference-rhythm-{red,tests,check}.log`.
 
 ## Native evidence
 
@@ -78,7 +78,7 @@ Captures in `layout-previews/`:
 
 Read-only sources stay unchanged. Narrow and dark-200 captures verify all six
 heading clipboard markers once in source order, not whole-clipboard equality.
-Logs: `/tmp/mineral-reference-rhythm-*.log`. Native debug captures do not qualify
+Logs: `/tmp/tachyon-reference-rhythm-*.log`. Native debug captures do not qualify
 release performance or the full grammar/RTL/IME/structural-edit matrix.
 
 UX guidance shaped the distinction between reference siblings and chapters;

@@ -7,7 +7,7 @@ use crate::{
     Table, TextSelection,
 };
 
-pub const RICH_CLIPBOARD_MIME: &str = "application/x-mineral-markdown-fragment+json;version=1";
+pub const RICH_CLIPBOARD_MIME: &str = "application/x-tachyon-fragment+json;version=1";
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ClipboardPayload {

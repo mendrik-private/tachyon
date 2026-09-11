@@ -14,7 +14,7 @@ while open and clears it on dismissal. It retains the existing menu actions.
 
 `scripts/check.sh` passed: 787 tests passed, two existing tests ignored, with
 formatting, locked checks, strict Clippy and doctests passing. Log:
-`/tmp/mineral-title-menu-full-check.log`. `git diff --check` passed.
+`/tmp/tachyon-title-menu-full-check.log`. `git diff --check` passed.
 
 Release binary SHA-256:
 `809a65732f1a7b210bc3775c72d1f23a9713cb45ccc80acc5ea1ba16d27f0dda`.
@@ -23,7 +23,7 @@ Shift+Tab navigation to the application menu, Space opening the menu, Escape,
 pointer Close and exact unchanged document bytes. The normal, hover, pressed,
 focus and menu screenshots were inspected. Artifacts:
 `performance/layout-previews/title-menu-keyboard*`; execution log:
-`/tmp/mineral-title-menu-native.log`.
+`/tmp/tachyon-title-menu-native.log`.
 
 The first checkpoint left pressed feedback, native window operations and
 effective display scales unqualified; the following checks resolve those gaps.
@@ -68,8 +68,8 @@ inspected. The compositor presents these scaled buffers at logical output size;
 the coordinate-scale assertion prevents a 100% fallback from qualifying.
 
 Full checks pass again: 787 tests, two existing ignored tests; log
-`/tmp/mineral-fractional-precedence-check.log`. Capture-harness tests: 23 passed,
-log `/tmp/mineral-title-controls-python.log`. Crusty validation
+`/tmp/tachyon-fractional-precedence-check.log`. Capture-harness tests: 23 passed,
+log `/tmp/tachyon-title-controls-python.log`. Crusty validation
 `task_7cc64cd404b27637` / `ctx_6533b7086827` reports 75 existing findings, zero delta.
 
 ## Pointer controls and accessible unsaved-close dialog
@@ -100,9 +100,9 @@ screenshots were inspected. This checks the file outcome, not recovery-journal
 cleanup or shared-session discard semantics.
 
 Full final checks: 787 tests pass, two existing ignored; log
-`/tmp/mineral-close-dialog-final-check.log`. Capture harness: 23 tests pass,
-`/tmp/mineral-close-dialog-python-final.log`. Native logs:
-`/tmp/mineral-title-unsaved-{save,discard,narrow}.log`.
+`/tmp/tachyon-close-dialog-final-check.log`. Capture harness: 23 tests pass,
+`/tmp/tachyon-close-dialog-python-final.log`. Native logs:
+`/tmp/tachyon-title-unsaved-{save,discard,narrow}.log`.
 Crusty `task_204823a80edd2c57` / `ctx_b09bef4fdb87` completed with 75 existing
 findings and zero architecture delta. `git diff --check` passed.
 
@@ -157,7 +157,7 @@ their existing persistence work, rather than being claimed by these UI checks.
 
 Final `scripts/check.sh`: 788 tests passed, two existing ignored, formatting,
 locked checks, strict Clippy and doctests passed; log
-`/tmp/mineral-title-final-menu-check.log`. Capture tests: 23 passed. Appearance
+`/tmp/tachyon-title-final-menu-check.log`. Capture tests: 23 passed. Appearance
 tests: six passed, including rejection of matching chrome pixels outside the
 title-bar region. `git diff --check` passed. Architecture validations retain
 75 existing findings with zero new/worsened/resolved findings.

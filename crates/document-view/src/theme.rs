@@ -1,8 +1,8 @@
-/// Shared Mineral design tokens used by both the document renderer and the
+/// Shared Tachyon design tokens used by both the document renderer and the
 /// application chrome. Keeping the palette in one crate prevents the shell
 /// and the rich surface from drifting when the OS appearance changes.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct MineralPalette {
+pub struct TachyonPalette {
     pub page: u32,
     pub panel: u32,
     pub surface: u32,
@@ -29,7 +29,7 @@ pub struct MineralPalette {
     pub syntax_number: u32,
 }
 
-impl MineralPalette {
+impl TachyonPalette {
     pub const DARK: Self = Self {
         page: 0x0f202d,
         panel: 0x0c1b27,
@@ -227,27 +227,27 @@ mod tests {
 
     #[test]
     fn palettes_keep_the_contract_tokens_and_distinct_appearances() {
-        assert_eq!(MineralPalette::LIGHT.page, 0xfaf9f6);
-        assert_eq!(MineralPalette::LIGHT.text, 0x36423e);
-        assert_eq!(MineralPalette::LIGHT.accent, 0x3f6247);
-        assert_eq!(MineralPalette::DARK.page, 0x0f202d);
-        assert_eq!(MineralPalette::DARK.text, 0xd7e0e7);
-        assert_eq!(MineralPalette::DARK.heading, 0xf2eadc);
-        assert_eq!(MineralPalette::DARK.accent, 0xdda43d);
-        assert_ne!(MineralPalette::LIGHT, MineralPalette::DARK);
-        assert_eq!(MineralPalette::with_alpha(0xdda43d, 0x24), 0xdda43d24);
+        assert_eq!(TachyonPalette::LIGHT.page, 0xfaf9f6);
+        assert_eq!(TachyonPalette::LIGHT.text, 0x36423e);
+        assert_eq!(TachyonPalette::LIGHT.accent, 0x3f6247);
+        assert_eq!(TachyonPalette::DARK.page, 0x0f202d);
+        assert_eq!(TachyonPalette::DARK.text, 0xd7e0e7);
+        assert_eq!(TachyonPalette::DARK.heading, 0xf2eadc);
+        assert_eq!(TachyonPalette::DARK.accent, 0xdda43d);
+        assert_ne!(TachyonPalette::LIGHT, TachyonPalette::DARK);
+        assert_eq!(TachyonPalette::with_alpha(0xdda43d, 0x24), 0xdda43d24);
     }
 
     #[test]
     fn grammar_signal_surfaces_are_exact_and_distinct() {
         use document_core::AlertKind::*;
         assert_eq!(
-            MineralPalette::DARK.signal(&Tip).ink,
-            MineralPalette::DARK.success
+            TachyonPalette::DARK.signal(&Tip).ink,
+            TachyonPalette::DARK.success
         );
         assert_ne!(
-            MineralPalette::DARK.signal(&Tip).ink,
-            MineralPalette::DARK.signal(&Warning).ink
+            TachyonPalette::DARK.signal(&Tip).ink,
+            TachyonPalette::DARK.signal(&Warning).ink
         );
         for (kind, ink, paper) in [
             (Note, 0x225c83, 0xedf4f9),
@@ -256,7 +256,7 @@ mod tests {
             (Warning, 0x875500, 0xfff4df),
             (Caution, 0x9b302d, 0xfbedea),
         ] {
-            let style = MineralPalette::LIGHT.signal(&kind);
+            let style = TachyonPalette::LIGHT.signal(&kind);
             assert_eq!((style.ink, style.paper), (ink, paper));
             assert_ne!(style.rule, style.ink);
             assert_ne!(style.rule, style.paper);

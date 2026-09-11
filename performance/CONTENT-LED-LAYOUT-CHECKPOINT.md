@@ -92,7 +92,7 @@ expansion, growth beyond the nomination budget, retained column widths and
 exact Undo. These are mock-shaping regressions, not native-font qualification.
 `scripts/check.sh` passes formatting, all-target checks, strict Clippy,
 **737 Rust tests (two existing ignored)** and documentation tests. Final log:
-`/tmp/mineral-content-led-final-check.log`.
+`/tmp/tachyon-content-led-final-check.log`.
 
 The UX skill drove actual-footprint alignment and width/zoom checks; Rust
 guidance kept this in the source-backed planner with existing measurement and

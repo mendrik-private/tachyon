@@ -10,7 +10,7 @@
     "weston": "14.0.2 headless GL",
     "rustc": "1.98.0",
     "build": "locked release",
-    "fonts": "bundled Mineral",
+    "fonts": "bundled Tachyon",
     "window": [
       1280,
       1000

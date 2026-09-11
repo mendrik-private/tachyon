@@ -34,7 +34,7 @@ pub(super) fn render(
     zoom: f32,
     width: f32,
     enabled: bool,
-    palette: MineralPalette,
+    palette: TachyonPalette,
     editor: gpui::WeakEntity<RichDocumentEditor>,
 ) -> Option<AnyElement> {
     let label = label(image)?;

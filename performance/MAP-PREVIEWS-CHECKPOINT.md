@@ -96,6 +96,6 @@ checks use real key-down/up events, not preferred text-input simulation.
 
 `scripts/check.sh` passes formatting, workspace checks, warning-free Clippy,
 734 Rust tests with two existing ignored tests, and doc tests. Log:
-`/tmp/mineral-map-final-check.log`. Crusty preparation `ctx_5b188deebc95` and
+`/tmp/tachyon-map-final-check.log`. Crusty preparation `ctx_5b188deebc95` and
 validation report 37 existing inferred architecture findings, none new,
 worsened or resolved. E12 is partial; the full audit remains active.

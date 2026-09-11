@@ -1,6 +1,6 @@
 # Performance qualification
 
-Measured 2026-09-06 with the optimized `mineral-perf` binary. Each row contains
+Measured 2026-09-06 with the optimized `tachyon-perf` binary. Each row contains
 30 paired samples. `Open + prepare` times `Document::from_markdown` plus
 `PreparedDocumentView::prepare` in the same iteration, including the fixture
 clone that hands ownership to the document. It is the CPU-side gate for a fully
@@ -42,10 +42,10 @@ Raw reports:
 Reproduce the CPU scenarios:
 
 ```sh
-cargo build --release --bin mineral-perf
-target/release/mineral-perf --bytes 102400 --runs 30
-target/release/mineral-perf --bytes 1048576 --runs 30
-target/release/mineral-perf --bytes 10485760 --runs 30
+cargo build --release --bin tachyon-perf
+target/release/tachyon-perf --bytes 102400 --runs 30
+target/release/tachyon-perf --bytes 1048576 --runs 30
+target/release/tachyon-perf --bytes 10485760 --runs 30
 ```
 
 The separate end-to-end startup and 120 Hz compositor interaction matrix has

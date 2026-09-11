@@ -58,7 +58,7 @@ content fingerprints distinguish replacements that reuse length or timestamps.
 `scripts/check.sh` passes 832 tests with two existing ignored tests, including
 locked workspace checks, formatting, strict Clippy, the patched accessibility
 adapter suites and doctests. The complete log is
-`/tmp/mineral-a05-check.log`; the two Unix-socket tests were run outside the
+`/tmp/tachyon-a05-check.log`; the two Unix-socket tests were run outside the
 filesystem sandbox because the sandbox denies socket binding. `git diff
 --check` is clean.
 

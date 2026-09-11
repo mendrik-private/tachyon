@@ -64,7 +64,7 @@ the final caption-semantics checker rather than accepted as equivalent.
 Release SHA-256:
 `5c66c0d8e9b943736622a3e3b04e579d4c5cd3c6787305afa7d6c6f0645edab1`.
 Immutable binary:
-`/tmp/mineral-caption-weston.EmVYGg/tachyon-verified`.
+`/tmp/tachyon-caption-weston.EmVYGg/tachyon-verified`.
 Fixture SHA-256:
 `009bd19857fe6303c3293f5c38d607fbd09631e6eef830a10707fbfd0688b451`.
 

@@ -4,7 +4,7 @@ This synthetic document checks loaded resources, source order, and conversion wi
 
 Six independent ideas can share a readable page while images keep their complete composition\.
 
-![Layered mineral strata](../visual-assets/mineral-strata.svg "Original composition")![Repeated source\, second placement](../visual-assets/mineral-strata.svg)
+![Layered tachyon strata](../visual-assets/tachyon-strata.svg "Original composition")![Repeated source\, second placement](../visual-assets/tachyon-strata.svg)
 
 **A styled HTML fragment** with a [reference link](https://example.test/reference)\.
 

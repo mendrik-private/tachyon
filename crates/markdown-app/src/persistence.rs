@@ -221,7 +221,7 @@ fn atomic_save_with_hook(
         .unwrap_or_else(|| OsStr::new("document.md"));
     let sequence = SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let temporary = parent.join(format!(
-        ".{}.mineral-save-{}-{sequence}",
+        ".{}.tachyon-save-{}-{sequence}",
         filename.to_string_lossy(),
         std::process::id()
     ));
@@ -348,7 +348,7 @@ pub(crate) fn atomic_write_new_with_outcome(
         .unwrap_or_else(|| OsStr::new("document.md"));
     let sequence = SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     let temporary = parent.join(format!(
-        ".{}.mineral-copy-{}-{sequence}",
+        ".{}.tachyon-copy-{}-{sequence}",
         filename.to_string_lossy(),
         std::process::id()
     ));
@@ -428,7 +428,7 @@ impl RecoveryJournal {
     #[must_use]
     pub fn for_current_user() -> Self {
         Self {
-            directory: state_root().join("mineral-markdown/recovery"),
+            directory: state_root().join("tachyon/recovery"),
         }
     }
 
@@ -530,7 +530,7 @@ impl RecoveryJournal {
 
     fn path_for(&self, source_path: &Path) -> PathBuf {
         let mut hasher = Sha256::new();
-        hasher.update(b"mineral-recovery-v1\0");
+        hasher.update(b"tachyon-recovery-v1\0");
         #[cfg(unix)]
         {
             use std::os::unix::ffi::OsStrExt as _;
@@ -617,7 +617,7 @@ impl WorkspaceStateStore {
     #[must_use]
     pub fn for_current_user() -> Self {
         Self {
-            path: state_root().join("mineral-markdown/workspace.json"),
+            path: state_root().join("tachyon/workspace.json"),
         }
     }
 
@@ -675,7 +675,7 @@ mod tests {
 
     fn temporary_directory(label: &str) -> PathBuf {
         let directory = std::env::temp_dir().join(format!(
-            "mineral-markdown-{label}-{}-{}",
+            "tachyon-{label}-{}-{}",
             std::process::id(),
             SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
@@ -799,7 +799,7 @@ mod tests {
                 .expect("entry")
                 .file_name()
                 .to_string_lossy()
-                .contains("mineral-save")
+                .contains("tachyon-save")
         }));
         fs::remove_dir_all(directory).expect("cleanup isolated test directory");
         fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");
@@ -1000,7 +1000,7 @@ mod tests {
                     .expect("entry")
                     .file_name()
                     .to_string_lossy()
-                    .contains("mineral-save")
+                    .contains("tachyon-save")
             }));
             fs::remove_dir_all(directory).expect("cleanup isolated test directory");
             fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");

@@ -18,7 +18,7 @@ Two new tests cover repeated splits between nonempty paragraphs under LF/CRLF,
 multiple empty live caret nodes, exact nonempty reopen order, selection/revision
 preservation, rebase deferral, later typing into an empty host, full Undo/Redo, and
 an all-empty document followed by typing and exact Undo. All 48 source-fidelity
-tests pass (`/tmp/mineral-empty-core.log`).
+tests pass (`/tmp/tachyon-empty-core.log`).
 
 This qualifies top-level Markdown editing placeholders. It does not discard
 structural list markers, empty table cells, or explicit empty paragraphs in rich
@@ -28,6 +28,6 @@ native/performance claim is made.
 
 Full `scripts/check.sh` passes 813 tests with two existing ignored tests, including
 locked checks, formatting, strict Clippy, adapters and doctests
-(`/tmp/mineral-empty-check.log`). Diff whitespace checks pass. Crusty context
+(`/tmp/tachyon-empty-check.log`). Diff whitespace checks pass. Crusty context
 `ctx_0d605d2cfb82`, validation `task_7afcc6952a789c03`, completed with 75 existing
 advisory findings and zero new, worsened or resolved findings.

@@ -71,7 +71,7 @@ mod tests {
                 let document = Document::from_markdown(source.as_str()).unwrap();
                 let projection = TextProjection::from_snapshot(&document.snapshot());
                 for zoom in [1., 1.5, 2.] {
-                    let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), zoom);
+                    let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
                     let plan = build_measured_adaptive_plan(&projection, 360., 1000., None, false, &fonts);
                     let lines = build_measured_visual_lines(&projection, &HashMap::new(), 360., &plan, Some(&fonts));
                     let deepest = projection.segments().last().unwrap();
@@ -104,7 +104,7 @@ mod tests {
                 for zoom in [1., 1.5, 2.] {
                     let fonts = FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Mineral".into(),
+                        "Spline Sans Tachyon".into(),
                         zoom,
                     );
                     let plan = build_measured_adaptive_plan(

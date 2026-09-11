@@ -26,7 +26,7 @@ Supporting material belongs with the instruction it explains. A narrow window sh
 
                 > Retain the original observation and the conditions under which it was collected. A later review needs both the measurement and its context.
 
-                ![Layered mineral strata](../visual-assets/mineral-strata.svg)
+                ![Layered tachyon strata](../visual-assets/tachyon-strata.svg)
 
                 Keep this explanation with the code, comparison and figure above. None of the supporting material changes the order of the survey record.
               - Record the remaining question before leaving this branch.

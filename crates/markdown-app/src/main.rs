@@ -14,8 +14,8 @@ use std::{
 use document_core::{Document, Revision, SourceIdentity};
 use document_view::{
     ButtonAccessibilityExt as _, DocumentSessionId, EditorEvent, EditorScrollAnchor,
-    EditorViewState, MineralPalette, OutlineEntry, PreparedDocumentView, ResponsiveLayout,
-    RichDocumentEditor, SharedDocumentSession, init_editor, project_outline,
+    EditorViewState, OutlineEntry, PreparedDocumentView, ResponsiveLayout, RichDocumentEditor,
+    SharedDocumentSession, TachyonPalette, init_editor, project_outline,
 };
 use futures::{
     StreamExt as _,
@@ -58,10 +58,10 @@ mod persistence;
 #[global_allocator]
 static GLOBAL_ALLOCATOR: mimalloc3::MiMalloc = mimalloc3::MiMalloc;
 
-const WINDOW_KEY_CONTEXT: &str = "MineralWindow";
+const WINDOW_KEY_CONTEXT: &str = "TachyonWindow";
 
 gpui::actions!(
-    mineral_window,
+    tachyon_window,
     [
         NewDocumentAction,
         OpenFileAction,
@@ -85,7 +85,7 @@ gpui::actions!(
 
 #[cfg(feature = "layout-validation")]
 gpui::actions!(
-    mineral_window_validation,
+    tachyon_window_validation,
     [
         UseAlternateBodyFontForValidation,
         RestoreBodyFontForValidation,
@@ -136,7 +136,7 @@ fn main() {
         return;
     }
     if let instance::LaunchMode::Client(socket) = &launch_mode {
-        let request = if std::env::var_os("MINERAL_INSTANCE_SHUTDOWN").is_some() {
+        let request = if std::env::var_os("TACHYON_INSTANCE_SHUTDOWN").is_some() {
             instance::Request::Shutdown
         } else {
             let Some(path) = initial_paths.first() else {
@@ -196,7 +196,7 @@ fn main() {
         cx.set_reduce_motion(prefers_reduced_motion());
         fonts::register(cx);
         gpui_component::init(cx);
-        sync_mineral_component_theme(None, cx);
+        sync_tachyon_component_theme(None, cx);
         init_editor(cx);
         cx.bind_keys([
             KeyBinding::new("ctrl-n", NewDocumentAction, Some(WINDOW_KEY_CONTEXT)),
@@ -323,7 +323,7 @@ fn new_untitled_recovery_key() -> PathBuf {
         .unwrap_or_default()
         .as_nanos();
     PathBuf::from(format!(
-        "mineral-untitled-v1/{}-{created}",
+        "tachyon-untitled-v1/{}-{created}",
         std::process::id()
     ))
 }
@@ -339,7 +339,7 @@ fn start_document_preload(
     let path = path.to_path_buf();
     let recovery = RecoveryJournal::for_current_user();
     std::thread::Builder::new()
-        .name("mineral-initial-load".into())
+        .name("tachyon-initial-load".into())
         .spawn(move || {
             let _ = sender.send(load_document(path, recovery, trace_started_at));
         })
@@ -452,7 +452,7 @@ fn spawn_instance_listener(
 }
 
 fn startup_trace(started_at: Instant, label: &str) {
-    if std::env::var_os("MINERAL_STARTUP_TRACE").is_some() {
+    if std::env::var_os("TACHYON_STARTUP_TRACE").is_some() {
         eprintln!(
             "startup {label}: {:.3} ms",
             started_at.elapsed().as_secs_f64() * 1_000.
@@ -875,7 +875,7 @@ impl SessionRegistry {
 }
 
 fn prefers_reduced_motion() -> bool {
-    let explicit = std::env::var("MINERAL_REDUCED_MOTION").ok();
+    let explicit = std::env::var("TACHYON_REDUCED_MOTION").ok();
     let gtk_animations = std::env::var("GTK_ENABLE_ANIMATIONS").ok();
     reduced_motion_from_values(explicit.as_deref(), gtk_animations.as_deref())
 }
@@ -898,9 +898,9 @@ fn reduced_motion_from_values(explicit: Option<&str>, gtk_animations: Option<&st
         })
 }
 
-fn sync_mineral_component_theme(window: Option<&mut gpui::Window>, cx: &mut App) {
+fn sync_tachyon_component_theme(window: Option<&mut gpui::Window>, cx: &mut App) {
     Theme::sync_system_appearance(window, cx);
-    let palette = MineralPalette::for_dark(Theme::global(cx).is_dark());
+    let palette = TachyonPalette::for_dark(Theme::global(cx).is_dark());
     {
         let theme = Theme::global_mut(cx);
         let colors = &mut theme.colors;
@@ -939,10 +939,10 @@ fn sync_mineral_component_theme(window: Option<&mut gpui::Window>, cx: &mut App)
         colors.sidebar_accent_foreground = rgb(palette.text).into();
         colors.title_bar = rgb(palette.panel).into();
         colors.title_bar_border = rgb(palette.border).into();
-        colors.overlay = gpui::rgba(MineralPalette::with_alpha(palette.page, 0x99)).into();
+        colors.overlay = gpui::rgba(TachyonPalette::with_alpha(palette.page, 0x99)).into();
         theme.tokens = (&theme.colors).into();
-        theme.font_family = "Spline Sans Mineral".into();
-        theme.mono_font_family = "Spline Sans Mono Mineral".into();
+        theme.font_family = "Spline Sans Tachyon".into();
+        theme.mono_font_family = "Spline Sans Mono Tachyon".into();
         theme.radius = px(8.);
         theme.radius_lg = px(8.);
     }
@@ -1128,9 +1128,9 @@ impl MarkdownWindow {
             completion: startup_completion,
         } = instrumentation;
         startup_trace(startup_trace_started_at, "view-new-start");
-        sync_mineral_component_theme(Some(window), cx);
+        sync_tachyon_component_theme(Some(window), cx);
         cx.observe_window_appearance(window, |_, window, cx| {
-            sync_mineral_component_theme(Some(window), cx);
+            sync_tachyon_component_theme(Some(window), cx);
             cx.notify();
         })
         .detach();
@@ -3616,7 +3616,7 @@ impl Render for MarkdownWindow {
                 completion,
             });
         }
-        let palette = MineralPalette::for_dark(cx.theme().is_dark());
+        let palette = TachyonPalette::for_dark(cx.theme().is_dark());
         let width: f32 = window.bounds().size.width.into();
         let wide_navigation = width >= 800.;
         let navigation_visible = navigation_is_visible(
@@ -3908,9 +3908,9 @@ impl Render for MarkdownWindow {
                             }),
                     ),
             );
-        let mut body_font = font("Spline Sans Mineral");
+        let mut body_font = font("Spline Sans Tachyon");
         body_font.fallbacks = Some(FontFallbacks::from_fonts(vec![
-            "Noto Sans Mineral".into(),
+            "Noto Sans Tachyon".into(),
             "Noto Sans".into(),
             "DejaVu Sans".into(),
         ]));
@@ -4155,20 +4155,20 @@ impl Render for MarkdownWindow {
                     .on_action(cx.listener(
                         |_: &mut Self, _: &UseAlternateBodyFontForValidation, _, cx| {
                             let loaded = fonts::register_delayed_alternate_for_validation(cx);
-                            Theme::global_mut(cx).font_family = "Noto Sans Mineral".into();
+                            Theme::global_mut(cx).font_family = "Noto Sans Tachyon".into();
                             Theme::sync_base(cx);
                             cx.refresh_windows();
                             eprintln!(
-                                "MINERAL_FONT_VALIDATION font=Noto Sans Mineral loaded={loaded}"
+                                "TACHYON_FONT_VALIDATION font=Noto Sans Tachyon loaded={loaded}"
                             );
                         },
                     ))
                     .on_action(cx.listener(
                         |_: &mut Self, _: &RestoreBodyFontForValidation, _, cx| {
-                            Theme::global_mut(cx).font_family = "Spline Sans Mineral".into();
+                            Theme::global_mut(cx).font_family = "Spline Sans Tachyon".into();
                             Theme::sync_base(cx);
                             cx.refresh_windows();
-                            eprintln!("MINERAL_FONT_VALIDATION font=Spline Sans Mineral");
+                            eprintln!("TACHYON_FONT_VALIDATION font=Spline Sans Tachyon");
                         },
                     ))
                     .on_action(cx.listener(
@@ -4179,7 +4179,7 @@ impl Render for MarkdownWindow {
                             let rtl_line_bounds = this.editor.read(cx).validation_rtl_line_bounds();
                             let focused = this.editor.focus_handle(cx).is_focused(window);
                             eprintln!(
-                                "MINERAL_RESIZE_STATE {}",
+                                "TACHYON_RESIZE_STATE {}",
                                 serde_json::json!({
                                     "selection_start": state.selection.start,
                                     "selection_end": state.selection.end,
@@ -4197,21 +4197,21 @@ impl Render for MarkdownWindow {
                         |_: &mut Self, _: &ResizeNarrowForValidation, window, _| {
                             let height = window.bounds().size.height;
                             window.resize(size(px(720.), height));
-                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=narrow width=720");
+                            eprintln!("TACHYON_LAYOUT_VALIDATION resize=narrow width=720");
                         },
                     ))
                     .on_action(cx.listener(
                         |_: &mut Self, _: &ResizeWideForValidation, window, _| {
                             let height = window.bounds().size.height;
                             window.resize(size(px(1360.), height));
-                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=wide width=1360");
+                            eprintln!("TACHYON_LAYOUT_VALIDATION resize=wide width=1360");
                         },
                     ))
                     .on_action(cx.listener(
                         |_: &mut Self, _: &ResizeExtraWideForValidation, window, _| {
                             let height = window.bounds().size.height;
                             window.resize(size(px(1710.), height));
-                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=extra-wide width=1710");
+                            eprintln!("TACHYON_LAYOUT_VALIDATION resize=extra-wide width=1710");
                         },
                     ))
                     .on_action(cx.listener(
@@ -4230,7 +4230,7 @@ impl Render for MarkdownWindow {
                             let width = (f32::from(bounds.size.width) - 8.).max(420.);
                             window.resize(size(px(width), bounds.size.height));
                             eprintln!(
-                                "MINERAL_LAYOUT_VALIDATION resize=step-narrower width={width}"
+                                "TACHYON_LAYOUT_VALIDATION resize=step-narrower width={width}"
                             );
                         },
                     ))
@@ -4239,7 +4239,7 @@ impl Render for MarkdownWindow {
                             let bounds = window.bounds();
                             let width = f32::from(bounds.size.width) + 8.;
                             window.resize(size(px(width), bounds.size.height));
-                            eprintln!("MINERAL_LAYOUT_VALIDATION resize=step-wider width={width}");
+                            eprintln!("TACHYON_LAYOUT_VALIDATION resize=step-wider width={width}");
                         },
                     ));
                 scene
@@ -4443,7 +4443,7 @@ mod tests {
     #[test]
     fn paged_html_export_creates_and_atomically_replaces_the_target() {
         let root = std::env::temp_dir().join(format!(
-            "mineral-static-export-{}-{}",
+            "tachyon-static-export-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -4475,7 +4475,7 @@ mod tests {
 
     #[test]
     fn duplicate_paths_reuse_one_document_and_save_claim() {
-        let path = PathBuf::from("/tmp/mineral-shared.md");
+        let path = PathBuf::from("/tmp/tachyon-shared.md");
         let identity = test_identity(path.clone());
         let mut registry = SessionRegistry::default();
         let first = registry.attach(
@@ -4511,7 +4511,7 @@ mod tests {
 
     #[test]
     fn stale_save_completion_cannot_update_a_replacement_session() {
-        let path = PathBuf::from("/tmp/mineral-replaced-save.md");
+        let path = PathBuf::from("/tmp/tachyon-replaced-save.md");
         let mut registry = SessionRegistry::default();
         let old = registry.attach(
             path.clone(),
@@ -4541,8 +4541,8 @@ mod tests {
 
     #[test]
     fn registry_prunes_clean_sessions_after_the_last_view_releases_them() {
-        let first_path = PathBuf::from("/tmp/mineral-pruned-first.md");
-        let second_path = PathBuf::from("/tmp/mineral-pruned-second.md");
+        let first_path = PathBuf::from("/tmp/tachyon-pruned-first.md");
+        let second_path = PathBuf::from("/tmp/tachyon-pruned-second.md");
         let mut registry = SessionRegistry::default();
         let first = registry.attach(
             first_path.clone(),
@@ -4564,7 +4564,7 @@ mod tests {
 
     #[test]
     fn explicit_detach_releases_idle_session_before_view_clone_drops() {
-        let path = PathBuf::from("/tmp/mineral-detached.md");
+        let path = PathBuf::from("/tmp/tachyon-detached.md");
         let mut registry = SessionRegistry::default();
         let attachment = registry.attach(
             path.clone(),
@@ -4581,7 +4581,7 @@ mod tests {
 
     #[test]
     fn adopting_a_saved_revision_preserves_newer_dirty_content() {
-        let path = PathBuf::from("/tmp/mineral-adopted.md");
+        let path = PathBuf::from("/tmp/tachyon-adopted.md");
         let mut registry = SessionRegistry::default();
         let attachment = registry.attach(
             path.clone(),
@@ -4752,7 +4752,7 @@ mod tests {
     #[test]
     fn navigation_only_descends_into_expanded_folders() {
         let root = std::env::temp_dir().join(format!(
-            "mineral-navigation-{}-{}",
+            "tachyon-navigation-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

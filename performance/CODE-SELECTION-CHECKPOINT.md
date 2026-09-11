@@ -31,8 +31,8 @@ document model and selection-independent text shaping are unchanged.
 - Original executable selection failed at 1.40:1; expanding the regression
   exposed ordinary light code failing at 4.28:1. Both tests pass after the fix,
   with each tested glyph run at least 4.5:1 against its painted selection fill.
-  Red logs: `/tmp/mineral-code-selection-{red,expanded-red,cell-red}.log`.
-  Green focused log: `/tmp/mineral-code-selection-tests.log`.
+  Red logs: `/tmp/tachyon-code-selection-{red,expanded-red,cell-red}.log`.
+  Green focused log: `/tmp/tachyon-code-selection-tests.log`.
 
 The contrast calculation uses underlying sRGB colors, not anti-aliased edge
 pixels, following [W3C contrast guidance](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
@@ -80,7 +80,7 @@ Captures under `layout-previews/`:
   An independently constructed whole-file expectation matches the autosaved
   result, and Undo restores the exact original bytes after a one-second idle.
 
-Native logs: `/tmp/mineral-code-selection-*.log`. Inactive windows and rectangular
+Native logs: `/tmp/tachyon-code-selection-*.log`. Inactive windows and rectangular
 whole-cell selection were checked by actual GPUI drawing tests, not by native
 input screenshots. This is not release-performance qualification.
 
@@ -91,7 +91,7 @@ so the pinned GPUI sources supplied the drawing-test API.
 
 Full `scripts/check.sh` exited 0: format, dependency pins, locked workspace
 checks, strict Clippy, 701 passing Rust tests (two ignored), and doc tests.
-Log: `/tmp/mineral-code-selection-check.log`. Passing automated checks do not
+Log: `/tmp/tachyon-code-selection-check.log`. Passing automated checks do not
 override the failed native 200% light layout described above.
 
 Crusty validation `task_d3e9baf7b3539c1e` for `ctx_cd54bbbd3bf6` completed:

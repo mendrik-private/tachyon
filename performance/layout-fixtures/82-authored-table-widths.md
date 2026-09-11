@@ -4,7 +4,7 @@ Saved column widths must agree with text wrapping and pointer targets. Wider win
 
 ## Fixed columns
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->
 | Setting | Explanation |
 | --- | --- |
 | Source files | Keep the original Markdown and its supporting resources together. |
@@ -19,7 +19,7 @@ Saved column widths must agree with text wrapping and pointer targets. Wider win
 
 ## One fixed column
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,null]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,null]} -->
 | Setting | Explanation |
 | --- | --- |
 | Workspace | The automatic column keeps its resolved intrinsic width. |

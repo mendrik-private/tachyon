@@ -83,7 +83,7 @@ release performance qualification. Prefixes are under `layout-previews/`.
 
 `scripts/check.sh` passes: formatting, locked all-target checks, strict Clippy,
 747 workspace tests plus five adapter tests (**752**, two existing ignored),
-and doc tests. Log: `/tmp/mineral-specification-example-check.log`.
+and doc tests. Log: `/tmp/tachyon-specification-example-check.log`.
 Seventeen capture-harness tests pass. Crusty `ctx_da07eb3e5ef2`, validation
 `task_c925eb812f4ca3b1`, reports 75 existing advisory findings, none new,
 worsened or resolved.

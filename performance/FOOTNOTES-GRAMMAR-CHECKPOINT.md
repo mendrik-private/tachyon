@@ -37,7 +37,7 @@ The written grammar is authoritative; raster boards are visual specimens.
 Final native evidence below uses release SHA-256
 `9511507bf8f74e4a7c4248e63fe34f4934ce5bf53794bb45fc50e8cea92fb201`.
 The immutable test copy is
-`/tmp/mineral-footnotes-repaired.CLld2v/tachyon-canonical`.
+`/tmp/tachyon-footnotes-repaired.CLld2v/tachyon-canonical`.
 Fixture `layout-fixtures/66-footnotes.md` has SHA-256
 `c65a88f5495219f39b61054e1ceff08a59bc969c316665e02802afa397e04f9a`.
 Later shared-target builds must not inherit these results.

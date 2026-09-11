@@ -11,7 +11,7 @@ def recovered(source):
 
 
 def seed_recovery(source, work):
-    key = hashlib.sha256(b'mineral-recovery-v1\0' + bytes(source)).hexdigest()
+    key = hashlib.sha256(b'tachyon-recovery-v1\0' + bytes(source)).hexdigest()
     directory = work / 'state/tachyon/recovery'
     directory.mkdir(parents=True)
     record = dict(source_path=str(source), revision=1, markdown=recovered(source.read_text()),
@@ -20,7 +20,7 @@ def seed_recovery(source, work):
 
 
 def check(choice, env, input_event, pid, source, probe, output, work):
-    if not env.get('MINERAL_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['MINERAL_PRIVATE_ATSPI_BUS']:
+    if not env.get('TACHYON_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['TACHYON_PRIVATE_ATSPI_BUS']:
         raise RuntimeError('Status inspection requires the private accessibility bus')
     original = source.read_text()
     draft = recovered(original)

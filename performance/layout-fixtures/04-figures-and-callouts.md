@@ -4,7 +4,7 @@ A pair of neighboring figures can share a row. The full image remains visible, a
 
 ## Related figures
 
-![Layered green geological strata with document blocks](../visual-assets/mineral-strata.svg)
+![Layered green geological strata with document blocks](../visual-assets/tachyon-strata.svg)
 
 ![Three layout candidates arranged from one column to three columns](layout-candidates.svg)
 

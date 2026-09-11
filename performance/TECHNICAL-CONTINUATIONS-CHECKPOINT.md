@@ -73,7 +73,7 @@ focused-window, resource-generation and Undo assertions remain intact.
 
 `scripts/check.sh` passes metadata, formatting, all-target checks, strict
 Clippy, **723 Rust tests (two ignored)** and doctests. Final log:
-`/tmp/mineral-technical-tail-final-check.log`. Later changes to the scoped
+`/tmp/tachyon-technical-tail-final-check.log`. Later changes to the scoped
 test fixture affect tests only, not the captured runtime.
 
 This completes a bounded technical-composition case, not P02 or A07. Full

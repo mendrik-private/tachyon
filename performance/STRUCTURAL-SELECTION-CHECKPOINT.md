@@ -28,8 +28,8 @@ remaining audit. No native or performance claim is made.
 
 `scripts/check.sh` passes 821 tests with two existing ignored tests, including
 formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a04-selection-check.log`). The focused matrix passes in
-`/tmp/mineral-a04-table-matrix.log`; diff whitespace checks are clean.
+(`/tmp/tachyon-a04-selection-check.log`). The focused matrix passes in
+`/tmp/tachyon-a04-table-matrix.log`; diff whitespace checks are clean.
 Crusty context: `ctx_702998f7f349`.
 
 ## Rectangular endpoints and deleted-table caret
@@ -45,19 +45,19 @@ are checked for every case. Existing production transforms pass this matrix.
 
 A separate regression reproduced deleting a rectangularly selected table sending
 the caret to the first paragraph rather than its following neighbor
-(`/tmp/mineral-a04-table-delete-before.log`). Reconciliation now resolves the
+(`/tmp/tachyon-a04-table-delete-before.log`). Reconciliation now resolves the
 original anchor cell's text position and applies the existing text neighbor
 repair policy. The regression checks the following paragraph's start, collapsed
 selection, exact Undo source/rectangle, and immediate typing after Redo.
 
 The rectangular matrix and deletion regression pass in
-`/tmp/mineral-a04-rect-fixed.log`. A04 remains active for remaining block/container
+`/tmp/tachyon-a04-rect-fixed.log`. A04 remains active for remaining block/container
 deletion and public mutation-boundary audit; this is not native or performance
 qualification.
 
 Expanded `scripts/check.sh` passes 823 tests with two existing ignored tests,
 including formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a04-rect-check.log`). Diff whitespace checks are clean.
+(`/tmp/tachyon-a04-rect-check.log`). Diff whitespace checks are clean.
 Crusty context: `ctx_281379a40a83`.
 
 ## Container deletion and explicit endpoint boundaries
@@ -78,7 +78,7 @@ preserves published revision, source and selection. A subsequent valid reversed
 selection retains its endpoint affinities, and Undo reaches the original state.
 
 All six structural-selection tests pass in
-`/tmp/mineral-a04-boundary-matrix.log`. No production change was necessary for
+`/tmp/tachyon-a04-boundary-matrix.log`. No production change was necessary for
 these cases. A04 remains active pending the complete public mutation/invariant
 and requirement audit.
 
@@ -91,13 +91,13 @@ from the functional matrix.
 
 The expanded `scripts/check.sh` passes 825 tests with two existing ignored tests,
 including formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a04-container-check.log`). Diff whitespace checks are clean.
+(`/tmp/tachyon-a04-container-check.log`). Diff whitespace checks are clean.
 Crusty context: `ctx_185631129c41`.
 
 ## Nested text validation cost
 
 A test-only thread-local counter at the actual `validate_tree` entry point
-reproduced the nested typing scan (`/tmp/mineral-a04-validation-before.log`).
+reproduced the nested typing scan (`/tmp/tachyon-a04-validation-before.log`).
 The regression covers quote/list/table paragraphs and quoted code, verifies no
 full-tree validation during typing, retains both leaf and ancestor dirty IDs,
 checks immutable unrelated siblings, valid selection, saved content and exact
@@ -110,7 +110,7 @@ and IDs; RichText mutation validates ranges and selection reconciliation still
 validates endpoints. Ancestor dirty propagation remains independent and
 unchanged. Structural edits, preview conversions and transient-host retirement
 retain the conservative path. This supersedes the top-level-only validation gap
-above. The focused regression passes in `/tmp/mineral-a04-validation-fixed.log`.
+above. The focused regression passes in `/tmp/tachyon-a04-validation-fixed.log`.
 
 This establishes removal of the specific validation scan, not overall constant
 time editing: ancestor reconstruction, change tracking and other costs remain.
@@ -118,14 +118,14 @@ A04 still needs its final mutation-boundary/requirement audit.
 
 `scripts/check.sh` passes 826 tests with two existing ignored tests, including
 formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a04-validation-check.log`). Diff whitespace checks are clean.
+(`/tmp/tachyon-a04-validation-check.log`). Diff whitespace checks are clean.
 Crusty context: `ctx_9aec632d759d`.
 
 ## Composition mutation boundary
 
 The boundary audit found `validate_composition_range` also scanned the entire
 tree at every same-leaf composition begin. Extending the actual scan-counter
-regression reproduced this (`/tmp/mineral-a04-ime-before.log`). Same-leaf ranges
+regression reproduced this (`/tmp/tachyon-a04-ime-before.log`). Same-leaf ranges
 now validate endpoints against the actual baseline, including a converted
 preview baseline, without constructing a structural probe. Cross-node ranges
 retain replacement probing and full shape/ID validation.
@@ -138,13 +138,13 @@ commit or cancel, malformed UTF-8 endpoint rejection before ownership is taken,
 atomic rejection of structural commands during composition, valid provisional
 carets, one-step Undo/Redo after commit, exact source/selection restoration, and
 immediate typing afterwards. All seven structural-selection tests pass in
-`/tmp/mineral-a04-ime-matrix.log`; the counter regression passes separately in
-`/tmp/mineral-a04-ime-fixed.log`.
+`/tmp/tachyon-a04-ime-matrix.log`; the counter regression passes separately in
+`/tmp/tachyon-a04-ime-fixed.log`.
 
 A04 remains active for the final requirement audit; no native IME or end-to-end
 performance claim is made.
 
 Composition qualification: `scripts/check.sh` passes 827 tests with two existing
 ignored tests, including formatting, locked checks, strict Clippy, adapters and
-doctests (`/tmp/mineral-a04-ime-check.log`). Diff whitespace checks are clean.
+doctests (`/tmp/tachyon-a04-ime-check.log`). Diff whitespace checks are clean.
 Crusty context: `ctx_2547a757f45d`.

@@ -19,7 +19,7 @@ Bundle fonts locally with their licenses. Generate static Fraunces instances dur
 
 The following light palette is an adaptation for this application:
 
-<!-- mineral-table:v1 {"border":"Dotted","widths":[380.078125,230.203125]} -->
+<!-- tachyon-table:v1 {"border":"Dotted","widths":[380.078125,230.203125]} -->
 | Token | Value |
 | --- | --- |
 | Page \/ navigation background | `#FCFBF8` \/ `#F3F2ED` |

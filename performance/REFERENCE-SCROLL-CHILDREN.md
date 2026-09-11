@@ -12,7 +12,7 @@ synthetic semantic publication 9.89%, memmove 8.35%, memcmp 4.77%, and adapter
 node_updated 2.53%, alongside consumer text traversal and raster work. These
 aggregate samples do not isolate the cause of individual slow frames.
 Raw profile: `performance/results/reference-scroll-2026-09-10/reference-actions-profile.perf`;
-decoded report: `/tmp/mineral-actions-profile.txt`.
+decoded report: `/tmp/tachyon-actions-profile.txt`.
 
 Source inspection found `NodeWrapper::notify_children_changes` doing two nested
 linear membership scans over filtered child lists even when only the document's
@@ -34,7 +34,7 @@ and 3,000 unchanged children during parent translation. Existing Unicode text
 notification tests also pass. This is an event-correctness test, not a timing
 oracle. `scripts/check.sh` passes 787 Rust tests, two existing ignored tests,
 formatting, locked checks, strict Clippy, adapter/publication suites and doctests.
-Logs: `/tmp/mineral-child-test.log`, `/tmp/mineral-child-check.log`.
+Logs: `/tmp/tachyon-child-test.log`, `/tmp/tachyon-child-check.log`.
 
 Native `children-document` (fixture 27, 1920x1100) passes offscreen reveal,
 canonical identity/order, task toggle, exact undo and complete reactivation.
@@ -44,13 +44,13 @@ sidecars are in `performance/layout-previews/`.
 
 ## Full-reference first traversal
 
-Baseline SHA-256 (`/tmp/mineral-before-child-diff`):
+Baseline SHA-256 (`/tmp/tachyon-before-child-diff`):
 `61cef2e4561e086554ecb7a24e8b31b60d757cc4c4f51dd9712b4cd450ba60fe`.
 Candidate SHA-256:
 `b52b9dee36ead964b2d02b81545b81bb25ae451362852db455cf0b0766c142e2`.
 Both are locked Rust 1.98 release, thin LTO, one codegen unit, layout-validation,
 `-C strip=none`, 21px body text, retained debug snapshot and shared action map.
-Release log: `/tmp/mineral-child-release.log`.
+Release log: `/tmp/tachyon-child-release.log`.
 
 Protocol: full example/reference.md, exact authored relative resources, private
 Weston GL 1440x1000 / 100%, requested 120Hz, scale 1, active AT-SPI, continuous

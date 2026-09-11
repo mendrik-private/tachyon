@@ -305,7 +305,7 @@ impl DiskImageCache {
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
             .unwrap_or_else(std::env::temp_dir)
-            .join("mineral-markdown/images");
+            .join("tachyon/images");
         Self {
             directory,
             max_bytes,
@@ -721,7 +721,7 @@ mod tests {
     #[test]
     fn disk_cache_evicts_the_oldest_record() {
         let directory = std::env::temp_dir().join(format!(
-            "mineral-image-cache-{}-{}",
+            "tachyon-image-cache-{}-{}",
             std::process::id(),
             now_unix_ms()
         ));
@@ -782,7 +782,7 @@ mod tests {
     #[test]
     fn cached_images_revalidate_and_remain_available_offline() {
         let directory = std::env::temp_dir().join(format!(
-            "mineral-image-revalidation-{}-{}",
+            "tachyon-image-revalidation-{}-{}",
             std::process::id(),
             now_unix_ms()
         ));

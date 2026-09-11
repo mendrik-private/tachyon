@@ -2,16 +2,16 @@
 
 ## Result
 
-Mineral now has a repeatable native-system-IME qualification path. The harness
+Tachyon now has a repeatable native-system-IME qualification path. The harness
 nests Sway 1.11 and Fcitx5 5.1.19 with Pinyin inside a private Weston 14 seat.
-Mineral connects through Wayland `zwp_text_input_v3`; Fcitx connects to Sway
+Tachyon connects through Wayland `zwp_text_input_v3`; Fcitx connects to Sway
 through `zwp_input_method_v2`. All synthetic keyboard input remains inside the
 private Weston seat and never reaches the physical desktop.
 
 The checkpoint edits the first header of a table with explicitly saved
 `[160, 320]` logical-pixel widths. Provisional `ni` preedit leaves the saved
 source byte-exact. Fcitx's candidate panel begins at `(265, 85)`, exactly below
-Mineral's final `(265, 64, 0, 21)` cursor rectangle, and spans
+Tachyon's final `(265, 64, 0, 21)` cursor rectangle, and spans
 `(265, 85)–(567, 117)`. Space commits one non-ASCII character, `𡬗`, at source
 offset 73 while retaining the saved widths. Ctrl+Z restores the exact original
 source. A second `ni` followed by Escape also restores the exact source and
@@ -50,7 +50,7 @@ python3 performance/native_ime_check.py
 The system path needs Weston 14, Sway 1.11 with wlroots 0.19, Fcitx5 5.1.19,
 the Pinyin/libime data packages and Pillow. `--runtime-prefix PATH` can point at
 a local package extraction containing Sway and Fcitx when they are unavailable
-system-wide. The recorded run used `/tmp/mineral-ime-root`; it was neither
+system-wide. The recorded run used `/tmp/tachyon-ime-root`; it was neither
 committed nor installed into the host system.
 
 The successful run used binary SHA-256
@@ -74,7 +74,7 @@ the cancellation Done event. The JSON report is the machine-readable oracle.
 
 - `python3 -m py_compile performance/native_ime_check.py` passed.
 - `python3 performance/native_ime_check.py --runtime-prefix
-  /tmp/mineral-ime-root` passed the native protocol, source, width and geometry
+  /tmp/tachyon-ime-root` passed the native protocol, source, width and geometry
   oracles above.
 - `scripts/check.sh` passed formatting, locked checks, strict Clippy, all 847
   Rust tests, adapter tests and doctests; two native-font integration tests were

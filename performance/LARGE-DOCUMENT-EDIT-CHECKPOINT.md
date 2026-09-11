@@ -61,7 +61,7 @@ complete release matrix remains open.
   Property-only revisions preserve native identity and publish sparse updates;
   topology changes replace the retained subtree.
 - The Unix accessibility adapter computes incremental text notifications
-  directly from Mineral's marked canonical text run, preserving exact Unicode
+  directly from Tachyon's marked canonical text run, preserving exact Unicode
   offsets without concatenating the semantic document tree.
 
 No diagnostic timing environment variables or debug prints remain in the

@@ -30,7 +30,7 @@ reading-edge alignment continues to apply only to auto-sized tables.
   ignored.
 - `scripts/check.sh`: formatting, locked checks, strict Clippy, 833 Rust tests,
   adapter tests and doctests passed; the same 2 tests were ignored. Log:
-  `/tmp/mineral-document-boundary-check.log`.
+  `/tmp/tachyon-document-boundary-check.log`.
 - `git diff --check` passed.
 
 This is deterministic GPUI coverage at two text scales. It does not claim a

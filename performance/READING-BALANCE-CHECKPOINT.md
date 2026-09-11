@@ -84,6 +84,6 @@ the full grammar, native font/state matrix, paged layout or export.
 
 `scripts/check.sh` passes: formatting, workspace check, warning-free Clippy,
 729 Rust tests with two existing ignored tests, and doc tests. Final log:
-`/tmp/mineral-reading-balance-final-check.log`. Crusty validation against
+`/tmp/tachyon-reading-balance-final-check.log`. Crusty validation against
 `ctx_83866e87fe70` reports 37 existing architecture findings with none new,
 worsened or resolved. A07 and the wider audit remain active.

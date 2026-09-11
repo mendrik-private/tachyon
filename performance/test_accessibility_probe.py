@@ -49,7 +49,7 @@ class AccessibilityProbeTests(unittest.TestCase):
 
     def test_probe_refuses_unowned_session(self):
         for environment in ({}, {"DBUS_SESSION_BUS_ADDRESS": "unix:path=/not-a-private-bus"},
-                            {"DBUS_SESSION_BUS_ADDRESS": "one", "MINERAL_PRIVATE_ATSPI_BUS": "two"}):
+                            {"DBUS_SESSION_BUS_ADDRESS": "one", "TACHYON_PRIVATE_ATSPI_BUS": "two"}):
             with self.subTest(environment=environment), patch.dict(os.environ, environment, clear=True):
                 with self.assertRaisesRegex(RuntimeError, "harness-owned private session bus"):
                     snapshot(0)

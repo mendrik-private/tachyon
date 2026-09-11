@@ -17,7 +17,7 @@ use document_core::{BlockNode, inert_html_fragment};
 use gpui::{Image, ImageFormat};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::MineralPalette;
+use crate::TachyonPalette;
 
 mod accessibility;
 mod fonts;
@@ -588,10 +588,10 @@ fn render_at_width(
 ) -> Result<HtmlPreview, HtmlError> {
     let fragment = inert_html_fragment(source).ok_or(HtmlError::Unsupported)?;
     images::key(&fragment, resources)?;
-    let palette = MineralPalette::LIGHT;
+    let palette = TachyonPalette::LIGHT;
     let fonts = fonts::context();
     let css = format!(
-        "html {{ background: #{:06x} !important; color: #{:06x}; font: 16px/1.5 'Spline Sans Mineral', sans-serif; }}\n\
+        "html {{ background: #{:06x} !important; color: #{:06x}; font: 16px/1.5 'Spline Sans Tachyon', sans-serif; }}\n\
          body {{ margin: 0; padding: 0; }}\n\
          p {{ margin: 0 0 16px; }}\n\
          table {{ border-collapse: separate; border-spacing: 0; margin: 0 0 16px; border: solid #{:06x}; border-width: 1px 0 0 1px; }}\n\
@@ -608,7 +608,7 @@ fn render_at_width(
          details[open] > summary {{ margin-bottom: 8px; }}\n\
          details > p:last-child {{ margin-bottom: 0; }}\n\
          a {{ color: #{:06x}; }}\n\
-         code, pre, kbd {{ font-family: 'Spline Sans Mono Mineral', monospace; }}\n\
+         code, pre, kbd {{ font-family: 'Spline Sans Mono Tachyon', monospace; }}\n\
          * {{ animation: none !important; transition: none !important; }}",
         palette.page,
         palette.text,
@@ -647,13 +647,13 @@ fn render_at_width(
     while let Some(id) = stack.pop() {
         let node = doc.get_node(id).ok_or(HtmlError::Unsupported)?;
         stack.extend(node.children.iter().rev().copied());
-        if let Some(name) = node.attr("data-mineral-anchor".into())
+        if let Some(name) = node.attr("data-tachyon-anchor".into())
             && !name.is_empty()
         {
             authored_anchors.push((id, name.to_owned()));
         }
         if let Some(ordinal) = node
-            .attr("data-mineral-link".into())
+            .attr("data-tachyon-link".into())
             .and_then(|ordinal| ordinal.parse::<usize>().ok())
             && let Some(target) = fragment.link_targets().get(ordinal)
             && !target.is_empty()
@@ -1827,7 +1827,7 @@ mod tests {
         let mut reader = decoder.read_info().unwrap();
         let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
         reader.next_frame(&mut pixels).unwrap();
-        let color = MineralPalette::LIGHT.text.to_be_bytes();
+        let color = TachyonPalette::LIGHT.text.to_be_bytes();
         assert!(
             pixels
                 .as_chunks::<4>()

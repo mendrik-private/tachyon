@@ -8,7 +8,7 @@ from prose_flow_check import ink_lines
 from reference_prose_flow_check import bounds, capture
 
 
-MARKERS = ("Mineral is a native", "The current implementation")
+MARKERS = ("Tachyon is a native", "The current implementation")
 
 
 def semantics(nodes):
@@ -26,7 +26,7 @@ def semantics(nodes):
 
 def pair_geometry(prefix, nodes):
     # The title and lead share a prefix; select the authored heading exactly.
-    title, = [node["bounds"] for node in nodes if node["role"] == "heading" and node["name"] == "Mineral"]
+    title, = [node["bounds"] for node in nodes if node["role"] == "heading" and node["name"] == "Tachyon"]
     lead, overview = [bounds(nodes, marker) for marker in MARKERS]
     assert lead["y"] == overview["y"]
     assert overview["x"] - lead["x"] - lead["width"] == 24

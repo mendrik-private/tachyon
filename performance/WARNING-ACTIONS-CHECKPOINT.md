@@ -52,7 +52,7 @@ root/node ownership. The current gallery preview restores full plan initializati
 - `scripts/check.sh` exits 0: formatting, pinned/locked metadata and all-target
   checks, strict Clippy, 474 view tests (two ignored), 116 core, 25 source-fidelity,
   11 tree-selection, one external-link and 39 app tests, plus doctests.
-  Log: `/tmp/mineral-warning-actions-qualified-check.log`. `git diff --check` passes.
+  Log: `/tmp/tachyon-warning-actions-qualified-check.log`. `git diff --check` passes.
 - Crusty contexts `ctx_83f1f740661c` and `ctx_a6ebe08d18d2`, implementation
   validation `task_aff0c1d92ae4eb6d`: completed, 36 existing advisory findings,
   none new or worsened. No new dependencies or source-serialization changes.

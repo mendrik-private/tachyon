@@ -2,7 +2,7 @@ Code with room to read
 Line numbers are a reading aid, not part of the source. Light configuration panes and dark executable examples share the same spacing, baseline and copy behavior.
 Example: Typed configuration
 export const config = {
-  name: 'mineral',
+  name: 'tachyon',
   version: '1.0.0',
   environment: 'production',
   port: 8080,
@@ -16,7 +16,7 @@ export const config = {
 
 Example: Deployment settings
 app:
-  name: mineral
+  name: tachyon
   version: 1.0.0
   environment: production
   enabled: true

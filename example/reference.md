@@ -1,6 +1,6 @@
-# Mineral layout reference
+# Tachyon layout reference
 
-This is one working document for exploring Mineral’s implemented layout families. Read it wide, narrow, and with enlarged text: the same Markdown can become an open list, a measured row, a readable pair, a compact record, or a vertical stack without losing its source order.
+This is one working document for exploring Tachyon’s implemented layout families. Read it wide, narrow, and with enlarged text: the same Markdown can become an open list, a measured row, a readable pair, a compact record, or a vertical stack without losing its source order.
 
 The opening itself is a lead-and-overview specimen. The catalogue brings together typography, structured lists, editorial cards, prose columns, technical evidence, images, quotations, and supporting notes. Use the document outline to move between the numbered chapters. The examples retain the structures used by the existing layout fixtures rather than introducing a separate layout language.
 
@@ -15,7 +15,7 @@ The opening itself is a lead-and-overview specimen. The catalogue brings togethe
 
 ## Jump to a family
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[null,509.1892395019531]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[null,509.1892395019531]} -->
 | Family | Start here |
 | --- | --- |
 | Lists and relationships | [Features numbered grids steps and tasks](#03-features-numbered-grids-steps-and-tasks) · [Deep trees with readable context](#11-deep-trees-with-readable-context) · [Horizontal and vertical timelines](#17-horizontal-and-vertical-timelines) |
@@ -501,7 +501,7 @@ Supporting material belongs with the instruction it explains. A narrow window sh
 
                 > Retain the original observation and the conditions under which it was collected. A later review needs both the measurement and its context.
 
-                ![Layered mineral strata](../performance/visual-assets/mineral-strata.svg)
+                ![Layered tachyon strata](../performance/visual-assets/tachyon-strata.svg)
 
                 Keep this explanation with the code, comparison and figure above. None of the supporting material changes the order of the survey record.
               - Record the remaining question before leaving this branch.
@@ -571,7 +571,7 @@ An item does not need an invented paragraph title. Keep its authored code, headi
                 record(accepted);
                 ```
                 - Code-led explanation preserves the measurement and the reasoning behind the decision. Keep the remaining questions with the original source, even when this branch is viewed in a narrow window.
-              - ![Layered mineral strata](../performance/visual-assets/mineral-strata.svg)
+              - ![Layered tachyon strata](../performance/visual-assets/tachyon-strata.svg)
                 - Figure-led explanation describes the layers without substituting a generated title for the authored image description.
           - Return to the interpretation summary.
   - Return to the archive summary.
@@ -1590,7 +1590,7 @@ Saved column widths must agree with text wrapping and pointer targets. Wider win
 
 ## Fixed columns
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->
 | Setting | Explanation |
 | --- | --- |
 | Source files | Keep the original Markdown and its supporting resources together. |
@@ -1605,7 +1605,7 @@ Saved column widths must agree with text wrapping and pointer targets. Wider win
 
 ## One fixed column
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,null]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,null]} -->
 | Setting | Explanation |
 | --- | --- |
 | Workspace | The automatic column keeps its resolved intrinsic width. |
@@ -1710,7 +1710,7 @@ An image belongs to its column. Its aspect ratio, inset and neighboring text mus
 
 ## Authored columns
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[240,360]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[240,360]} -->
 <table>
 <thead><tr><th>Figure</th><th>Notes</th></tr></thead>
 <tbody>
@@ -1812,7 +1812,7 @@ Line numbers are a reading aid, not part of the source. Light configuration pane
 
 ```typescript
 export const config = {
-  name: 'mineral',
+  name: 'tachyon',
   version: '1.0.0',
   environment: 'production',
   port: 8080,
@@ -1829,7 +1829,7 @@ export const config = {
 
 ```yaml
 app:
-  name: mineral
+  name: tachyon
   version: 1.0.0
   environment: production
   enabled: true
@@ -2299,7 +2299,7 @@ A figure belongs to its local container. Its description should remain readable 
 
 ## A narrow reference column
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[200,360]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[200,360]} -->
 <table>
 <thead><tr><th>Figure</th><th>Explanation</th></tr></thead>
 <tbody>

@@ -44,7 +44,7 @@ all editing operations are constant time or that native IME behavior was tested.
 
 Final validation: `scripts/check.sh` passes 827 tests with two existing ignored
 tests, including formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a04-final-check.log`). This includes the strengthened 300-step
+(`/tmp/tachyon-a04-final-check.log`). This includes the strengthened 300-step
 mutation sequence, opaque-only import cases, seven structural-selection tests,
 and the validation-entry regression. `git diff --check` is clean. Crusty context
 `ctx_ac6ac3ecd700`; the final advisory result is recorded in the work item.

@@ -28,7 +28,7 @@ No additional search index or persistent state is introduced.
   Escape/document copy, nested disclosure reveal, selected HTML editing and one
   exact undo, followed by no-results and a fresh successful query.
 - The native check fails on pre-change binary b52b9dee with `Expected one
-  actionable button: Search document`; log `/tmp/mineral-title-search-before.log`.
+  actionable button: Search document`; log `/tmp/tachyon-title-search-before.log`.
 - Current release `title-search-regular`, `title-search-narrow` and
   `title-search-small-200` pass at 1440x1100 / 100%, 600x1100 / 100%, and
   480x1100 / 200% document zoom. Every find report checks unchanged source through
@@ -57,7 +57,7 @@ Release SHA-256:
 `e04ba1394e7e71b236a5259a0032f7e5c8d89fe25cd33e3ef075951743894ead`.
 `scripts/check.sh` passes 787 Rust tests (two existing ignored), formatting,
 locked checks, strict Clippy, adapter/publication suites and doctests. Logs:
-`/tmp/mineral-title-search-check.log`, `/tmp/mineral-title-search-release.log`.
+`/tmp/tachyon-title-search-check.log`, `/tmp/tachyon-title-search-release.log`.
 Python find-oracle tests: 3 passed; capture harness tests: 23 passed.
 `git diff --check` passes.
 

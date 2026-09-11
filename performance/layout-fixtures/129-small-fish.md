@@ -1,6 +1,6 @@
-# Mineral layout reference
+# Tachyon layout reference
 
-This is one working document for exploring Mineral’s implemented layout families. Read it wide, narrow, and with enlarged text: the same Markdown can become an open list, a measured row, a readable pair, a compact record, or a vertical stack without losing its source order.
+This is one working document for exploring Tachyon’s implemented layout families. Read it wide, narrow, and with enlarged text: the same Markdown can become an open list, a measured row, a readable pair, a compact record, or a vertical stack without losing its source order.
 
 The opening itself is a lead-and-overview specimen. The catalogue brings together typography, structured lists, editorial cards, prose columns, technical evidence, images, quotations, and supporting notes. Use the document outline to move between the numbered chapters. The examples retain the structures used by the existing layout fixtures rather than introducing a separate layout language.
 

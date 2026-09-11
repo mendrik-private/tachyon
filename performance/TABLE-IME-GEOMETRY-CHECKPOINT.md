@@ -36,7 +36,7 @@ The regression now verifies:
 - Focused composition filter: 19 passed.
 - `scripts/check.sh`: formatting, locked checks, strict Clippy, 835 Rust tests,
   adapter tests and doctests passed; 2 existing native-font tests were ignored.
-  Log: `/tmp/mineral-table-ime-check.log`.
+  Log: `/tmp/tachyon-table-ime-check.log`.
 - `git diff --check` passed.
 
 Native input-method integration, candidate popup placement, RTL preedit,

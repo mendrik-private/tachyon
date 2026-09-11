@@ -144,7 +144,7 @@ fn recognized_table_metadata(node: &AstNode<'_>) -> Option<ImportedTableMetadata
     };
     let literal = html.literal.trim();
     let payload = literal
-        .strip_prefix("<!-- mineral-table:v1 ")?
+        .strip_prefix("<!-- tachyon-table:v1 ")?
         .strip_suffix(" -->")?;
     let mut object =
         serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(payload).ok()?;
@@ -1917,7 +1917,7 @@ fn table_metadata(table: &Table, newline: &str) -> Result<String, DocumentError>
     let metadata = serde_json::to_string(&metadata)
         .map_err(|error| DocumentError::Markdown(error.to_string()))?;
     let metadata = metadata.replace("--", "\\u002d\\u002d");
-    Ok(format!("<!-- mineral-table:v1 {metadata} -->{newline}"))
+    Ok(format!("<!-- tachyon-table:v1 {metadata} -->{newline}"))
 }
 
 pub(crate) fn serialize_inline(text: &RichText) -> String {
@@ -3534,7 +3534,7 @@ mod tests {
             Some(crate::TableBorder::None),
         ] {
             let source = border.map_or_else(|| body.to_owned(), |border|
-                format!("<!-- mineral-table:v1 {{\"border\":{},\"widths\":[null,null]}} -->\n{body}", serde_json::to_string(&border).unwrap()));
+                format!("<!-- tachyon-table:v1 {{\"border\":{},\"widths\":[null,null]}} -->\n{body}", serde_json::to_string(&border).unwrap()));
             let mut document = Document::from_markdown(source.clone()).unwrap();
             let snapshot = document.snapshot();
             let BlockNode::Table(table) = snapshot.blocks().get(0).unwrap().as_ref() else {
@@ -3558,7 +3558,7 @@ mod tests {
             let serialized = document.snapshot().serialize().unwrap();
             if border.is_none() {
                 assert!(
-                    !serialized.contains("mineral-table"),
+                    !serialized.contains("tachyon-table"),
                     "plain Markdown needs no presentation annotation"
                 );
             }
@@ -3579,7 +3579,7 @@ mod tests {
     #[test]
     fn table_metadata_round_trips_width_border_and_unknown_fields() {
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"PhysicalPixel\",",
+            "<!-- tachyon-table:v1 {\"border\":\"PhysicalPixel\",",
             "\"widths\":[120.0,null],\"future\":{\"mode\":7}} -->\n",
             "| a | b |\n| --- | --- |\n| c | d |\n"
         );
@@ -3780,7 +3780,7 @@ mod tests {
     #[test]
     fn block_rich_html_table_reopens_with_metadata_and_alignment() {
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"PhysicalPixel\",",
+            "<!-- tachyon-table:v1 {\"border\":\"PhysicalPixel\",",
             "\"widths\":[120.0,null],\"future\":\"\\u002d\\u002d>\"} -->\n",
             "| Head | More |\n",
             "| --- | --- |\n",
@@ -3901,7 +3901,7 @@ mod tests {
     #[test]
     fn authored_html_table_retains_header_rows_rich_blocks_and_unknown_metadata() {
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",",
             "\"widths\":[140.0,null],\"future\":{\"mode\":7}} -->\n",
             "<table>\n",
             "<tr><th align=\"center\">Primary</th><th>Other</th></tr>\n",
@@ -4120,11 +4120,11 @@ mod tests {
     #[test]
     fn malformed_table_metadata_remains_preserved_source() {
         for prefix in [
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[-1]} -->\n",
-            "<!-- mineral-table:v2 {\"border\":\"Dotted\",\"widths\":[120]} -->\n",
-            "<!-- mineral-table:v1 not-json -->\n",
-            "<!-- mineral-table:v1 {\"widths\":[120]} -->\n",
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[-1]} -->\n",
+            "<!-- tachyon-table:v2 {\"border\":\"Dotted\",\"widths\":[120]} -->\n",
+            "<!-- tachyon-table:v1 not-json -->\n",
+            "<!-- tachyon-table:v1 {\"widths\":[120]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[]} -->\n",
         ] {
             for body in [
                 "| a |\n| --- |\n| b |\n",

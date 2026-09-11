@@ -78,7 +78,7 @@ serialization, with a red-capable worker test and native replay.
 - `scripts/check.sh` exits 0: formatting, locked all-target checks, strict Clippy,
   470 view tests passing (two ignored), 116 core, 25 source-fidelity, 11
   tree-selection, one external-link and 39 app tests, plus doctests.
-  Log: `/tmp/mineral-shared-gallery-qualified-check.log`. `git diff --check` passes.
+  Log: `/tmp/tachyon-shared-gallery-qualified-check.log`. `git diff --check` passes.
 - Crusty preparation `task_844f851f2d3509e2`, context `ctx_6c68b9302ee7`,
   implementation validation `task_3aaf978f70b50209`: completed, 36 existing advisory
   findings, none new or worsened. No dependencies were added.

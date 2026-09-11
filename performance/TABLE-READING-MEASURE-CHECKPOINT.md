@@ -43,7 +43,7 @@ Native artifacts are `performance/layout-previews/table-reading-*`:
 
 `scripts/check.sh` passes: 782 Rust tests, two existing ignored tests, locked
 checks, formatting, strict Clippy, adapter tests and doctests. Log:
-`/tmp/mineral-table-reading-check.log`. `git diff --check` passes.
+`/tmp/tachyon-table-reading-check.log`. `git diff --check` passes.
 Crusty `ctx_bcd3d679c9dc` / `task_89ce22d7208c9930`: 75 existing advisory
 findings, none new/worsened/resolved; stale indexed guidance only.
 

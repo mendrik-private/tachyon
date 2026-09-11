@@ -1,5 +1,5 @@
-// Mineral patch: resolve glyphless text hits from the cluster's first style.
-// See ../../MINERAL-PATCHES.md for the base version, rationale and tests.
+// Tachyon patch: resolve glyphless text hits from the cluster's first style.
+// See ../../TACHYON-PATCHES.md for the base version, rationale and tests.
 use crate::Document;
 use crate::layout::damage::HoistedPaintChildren;
 use bitflags::bitflags;

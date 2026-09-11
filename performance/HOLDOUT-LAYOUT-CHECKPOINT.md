@@ -96,7 +96,7 @@ The corrected marker check passes without changing the README.
 
 `python3 -m unittest discover -s performance -p test_capture_layout.py` passes
 16 tests, including unchanged/changed/deleted origin cases and the existing
-private-copy/source-isolation checks. Log: `/tmp/mineral-holdout-tests.log`.
+private-copy/source-isolation checks. Log: `/tmp/tachyon-holdout-tests.log`.
 Native code editing compares the entire autosaved file, not only the inserted
 marker. The capture origin reader is read-only and reports unavailable originals
 without masking the independent private-copy result.

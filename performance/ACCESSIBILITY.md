@@ -1,6 +1,6 @@
 # Accessibility verification
 
-Mineral exposes its GPUI scene through AccessKit's Linux AT-SPI adapter. The
+Tachyon exposes its GPUI scene through AccessKit's Linux AT-SPI adapter. The
 document surface is one multiline text input with text selection and caret
 state. Its virtualized visible children carry structural roles rather than a
 flat list of labels: headings, paragraphs, links, lists and list items, code,

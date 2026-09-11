@@ -22,7 +22,7 @@ The regression failed before the mapping and covers all three property states:
 
 ```sh
 cargo test --locked -p accesskit_atspi_common expansion_maps -- --nocapture
-python3 performance/capture-layout.py --fixture 28-accessible-html.md --width 1280 --height 1000 --startup-wait 8 --atspi-html-check --output /tmp/mineral-expanded.png
+python3 performance/capture-layout.py --fixture 28-accessible-html.md --width 1280 --height 1000 --startup-wait 8 --atspi-html-check --output /tmp/tachyon-expanded.png
 ```
 
 The native check requires expanded/collapsed state, state-change notifications,
@@ -58,7 +58,7 @@ before the mapping and passes after it. Native verification uses only the
 harness-owned accessibility bus:
 
 ```sh
-python3 performance/capture-layout.py --fixture 40-accessible-math.md --width 768 --height 1200 --startup-wait 8 --atspi-math-check --output /tmp/mineral-math.png
+python3 performance/capture-layout.py --fixture 40-accessible-math.md --width 768 --height 1200 --startup-wait 8 --atspi-math-check --output /tmp/tachyon-math.png
 ```
 
 The probe reconstructs fractions, indexed radicals/scripts, matrices and limit
@@ -130,14 +130,14 @@ Remove this override when upstream reports equivalent AT-SPI states.
 
 ## Retained large-document text (2026-09-11)
 
-Mineral publishes one marked, full-document `TextRun` before its semantic
+Tachyon publishes one marked, full-document `TextRun` before its semantic
 object roots and an empty terminal `TextRun`. The terminal node bounds
 AccessKit consumer versions that initialize both ends of their text iterator.
 The adapter's equivalent text-capability check uses a forward descendant walk,
-so an editor update finds Mineral's first run at constant structural depth
+so an editor update finds Tachyon's first run at constant structural depth
 instead of searching the complete semantic subtree.
 
-When both old and new first runs carry the Mineral marker and their values are
+When both old and new first runs carry the Tachyon marker and their values are
 equal, child-only editor updates skip document-string reconstruction. A
 wholesale text-length change above 64 KiB does not emit that payload as one
 AT-SPI insertion/removal event; smaller and incremental Unicode edits retain
@@ -159,7 +159,7 @@ removed/inserted payloads. Unmarked trees keep the general consumer traversal.
 multibyte character inside a 1 MiB run, requires zero document-range
 comparisons, and checks the emitted Unicode events.
 
-Accessibility may activate before Mineral's first authoritative font layout
+Accessibility may activate before Tachyon's first authoritative font layout
 commits. The editor now publishes one empty `TextRun` during that interval, so
 the adapter registers its AT-SPI `Text` interface with a valid degenerate range
 in the initial object-server snapshot. The measured retained document replaces

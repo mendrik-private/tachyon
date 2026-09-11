@@ -341,7 +341,7 @@ An optional Tachyon table comment records **authored widths**, rather than an
 automatic layout choice. `null` leaves a column automatic:
 
 ```markdown
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,null]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,null]} -->
 | Setting | Explanation |
 | --- | --- |
 | Storage | Keep documents in their original folder. |

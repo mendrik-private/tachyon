@@ -52,7 +52,7 @@ pair footprints (560/440 and 653.5/468px), no edit lock, and a change penalty of
 a genuine visual preference. A figure pair leaving that wrap no longer pays
 the backing-stack change penalty. Actual focus locks still apply. The same
 sequence passes with the original source restored exactly; debug output was
-removed. Logs: `/tmp/mineral-supporting-pair-{negotiation,return-probe,minimal-red,
+removed. Logs: `/tmp/tachyon-supporting-pair-{negotiation,return-probe,minimal-red,
 negotiation-green}.log`.
 
 Four added native-font tests cover initial pairing, 100/150/200% measured
@@ -106,7 +106,7 @@ include headings and pass; the intermediate failure is not claimed a pass.
 
 `scripts/check.sh` exits 0: locked metadata/source pins, formatting, workspace
 all-target check, strict Clippy, **718 passing Rust tests**, two existing ignored
-view tests, and doctests. Log: `/tmp/mineral-supporting-pair-check.log`.
+view tests, and doctests. Log: `/tmp/tachyon-supporting-pair-check.log`.
 The focused figure run and new negotiation regression also pass separately.
 Crusty context `ctx_009c8be1320a`, validation `task_e1534e324376379b`: 37 existing
 advisory findings, no new or worsened findings. No existing debt is claimed fixed.

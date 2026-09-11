@@ -50,7 +50,7 @@ impl RichDocumentEditor {
         ))
     }
 
-    pub(super) fn table_resize_feedback(&self, palette: MineralPalette) -> Option<AnyElement> {
+    pub(super) fn table_resize_feedback(&self, palette: TachyonPalette) -> Option<AnyElement> {
         let drag = self.table_resize_drag?;
         let guide = self.table_resize_guide()?;
         // The guide is provisional view state. Reflow and source persistence
@@ -97,7 +97,7 @@ mod tests {
     use crate::init_editor;
 
     const SOURCE: &str = concat!(
-        "<!-- mineral-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[100,180]} -->\n",
+        "<!-- tachyon-table:v1 {\"border\":\"LogicalPixel\",\"widths\":[100,180]} -->\n",
         "| A | B |\n| --- | --- |\n| one | two |\n",
     );
 

@@ -8,7 +8,7 @@ the contract. Existing heuristic grids are not the completed measured planner.
 
 ## Integration and baseline (WP-01)
 
-Mineral is a native Rust/GPUI Wayland document editor. The intended visual
+Tachyon is a native Rust/GPUI Wayland document editor. The intended visual
 language remains warm light, Fraunces headings, Spline Sans body at 18 logical
 pixels, and Spline Sans Mono code. The document is the work surface; there is no
 replacement app shell or web editor. Files and Outline remain the existing panes.
@@ -318,7 +318,7 @@ source assertions both failed; see `spec-preview-cancel-before.cancel.json` and
 `spec-preview-cancel-before-cancelled.png` in `layout-previews/`.
 
 The pinned `gpui_linux` crate is now a local patch, with its original Apache
-license and provenance in `vendor/gpui_linux/README.mineral.md`. Its source differs
+license and provenance in `vendor/gpui_linux/README.tachyon.md`. Its source differs
 from the pinned upstream only in a guarded Escape branch: discard the backend
 preedit, reset XKB composition, and deliver Escape without committing text. The
 editor's existing cancellation transaction restores content and selection. The
@@ -769,8 +769,8 @@ has the following native evidence, using private Weston input and copied fixture
 Reproduce the native edit check:
 
 ```sh
-python3 performance/capture-layout.py --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 8 --select 310 649 310 649 --edit-check --edit-within '\frac{1}{2}' --output /tmp/mineral-fraction.png
-python3 performance/capture-layout.py --fixture 40-accessible-math.md --width 1280 --height 1400 --startup-wait 8 --zoom-steps 10 --atspi-math-check --output /tmp/mineral-fraction-200.png
+python3 performance/capture-layout.py --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 8 --select 310 649 310 649 --edit-check --edit-within '\frac{1}{2}' --output /tmp/tachyon-fraction.png
+python3 performance/capture-layout.py --fixture 40-accessible-math.md --width 1280 --height 1400 --startup-wait 8 --zoom-steps 10 --atspi-math-check --output /tmp/tachyon-fraction-200.png
 ```
 
 This resolves this specific clipping defect, not the remaining full mathematical
@@ -824,7 +824,7 @@ private Weston/Wayland input, a private AT-SPI bus/clipboard and a copied fixtur
   warning-denied Clippy, formatting and diff checks clean. The normal launcher
   was rebuilt without the feature as
   `e431c52088d37a58452cbd167dd3b9b42f409347d41bd23cfb13d0711ae3df9a`;
-  executable inspection confirms no `MINERAL_LAYOUT_VALIDATION` instrumentation.
+  executable inspection confirms no `TACHYON_LAYOUT_VALIDATION` instrumentation.
 - The same normal release passes the isolated 10 MiB continuous-scroll gate at
   **109.8 FPS, 4.19 ms draw p99** (1728×1080, 166.7% compositor scale, 120 Hz,
   ten measured seconds after warm-up;
@@ -838,8 +838,8 @@ cargo build --release -p markdown-app --bin tachyon --features layout-validation
 validation_run=$(mktemp -d)
 install -m755 target/release/tachyon "$validation_run/tachyon"
 cargo build --release -p markdown-app --bin tachyon
-python3 performance/capture-layout.py --binary "$validation_run/tachyon" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check panic --output /tmp/mineral-panic.png
-python3 performance/capture-layout.py --binary "$validation_run/tachyon" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check timeout --output /tmp/mineral-timeout.png
+python3 performance/capture-layout.py --binary "$validation_run/tachyon" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check panic --output /tmp/tachyon-panic.png
+python3 performance/capture-layout.py --binary "$validation_run/tachyon" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check timeout --output /tmp/tachyon-timeout.png
 ```
 
 This supplies native evidence for the reading-mode AT-15 fault cases; it is not
@@ -1773,7 +1773,7 @@ two installed-font tests ignored; all-target compiler and warning-denied Clippy
 checks, formatting, whitespace checks and five Python harness tests pass.
 Release `1be4b45ef17d1a5afb4b2716033aefc45bfc5051af9a49cd1e74e77245eb9ab5`
 was visually inspected at 1280×1400, 360×1400 and 1280×1400/200% text
-(`spec-rich-cells-complete-{wide,narrow,scaled}.png`). Spline Sans Mineral body
+(`spec-rich-cells-complete-{wide,narrow,scaled}.png`). Spline Sans Tachyon body
 and Fraunces headings use the existing light design tokens; the wide shell
 retains Files/Outline, and the narrow shell hides navigation. The actual native
 view shows 9/10 in the cell and an intact outer 1 before the final table, with
@@ -2449,7 +2449,7 @@ Expandable+Expanded. The existing state-set diff publishes notifications.
 No application content, labels, roles or disclosure-action implementation were
 changed; disclosures are not misrepresented as checkboxes or pressed buttons.
 The vendored package retains its original source notices and licenses, with
-provenance, tests and the removal condition in `MINERAL-PATCHES.md`.
+provenance, tests and the removal condition in `TACHYON-PATCHES.md`.
 
 `performance/html_accessibility_check.py` now requires correct state for the
 initially closed, authored-open and revealed nested disclosures, plus stable
@@ -2523,7 +2523,7 @@ win and invalidating the fragment's complete text correspondence. The local
 `blitz-dom` **0.3.0-beta.2** patch uses `cluster.first_style()` instead; only
 `src/node/node.rs` differs from the published Rust sources. The upstream base,
 licenses, rationale and removal condition are retained in
-`vendor/blitz-dom/MINERAL-PATCHES.md`.
+`vendor/blitz-dom/TACHYON-PATCHES.md`.
 
 The direct-hit regression failed before the patch and passes after it. A
 separate test caught click positions inside a combining grapheme. Immutable
@@ -2855,7 +2855,7 @@ content coverage requirement is waived by the warm reuse result.
 ### Authored HTML IDs and disclosure reveal
 
 The inert sanitizer carries supported elements' authored IDs in an escaped,
-reserved `data-mineral-anchor` attribute, never as DOM/native IDs. Authored copies
+reserved `data-tachyon-anchor` attribute, never as DOM/native IDs. Authored copies
 of that reserved attribute, scripts and handlers remain excluded; the resource
 provider still denies all requests.
 Blitz preparation retains source-order targets, closed ancestor ordinals and
@@ -3220,7 +3220,7 @@ configured dimensions and scale: [run 1](layout-previews/spec-disclosures-html-s
 [run 2](layout-previews/spec-disclosures-html-scroll-2.json). Reproduce with:
 
 ```sh
-python3 performance/capture-layout.py --fixture 21-disclosure-stress.md --width 1728 --height 1080 --scale 200 --perf-seconds 10 --output /tmp/mineral-html-scroll.json
+python3 performance/capture-layout.py --fixture 21-disclosure-stress.md --width 1728 --height 1080 --scale 200 --perf-seconds 10 --output /tmp/tachyon-html-scroll.json
 ```
 
 These are warm retained-rendering results after the existing five-second
@@ -4074,7 +4074,7 @@ user's physical session and documents are untouched.
 Reproduce the previously failing native gap click:
 
 ```sh
-python3 performance/capture-layout.py --fixture 10-html-fragments.md --width 1920 --height 1080 --zoom-steps 10 --convert-html-check 1120 781 --html-direct-edit --html-edit-within 'ordinary rich text' --output /tmp/mineral-html-direct.png
+python3 performance/capture-layout.py --fixture 10-html-fragments.md --width 1920 --height 1080 --zoom-steps 10 --convert-html-check 1120 781 --html-direct-edit --html-edit-within 'ordinary rich text' --output /tmp/tachyon-html-direct.png
 ```
 
 After all builds and native edit captures finished, two sequential 10 MiB
@@ -4598,10 +4598,10 @@ Temporary diagnostic logging was removed from the Rust renderer.
 Reproduction examples:
 
 ```sh
-python3 performance/capture-layout.py --fixture 05-product-specification.md --width 360 --height 900 --edit-check --output /tmp/mineral-narrow.png
-python3 performance/capture-layout.py --fixture 05-product-specification.md --width 1920 --height 1080 --zoom-steps 10 --edit-check --output /tmp/mineral-text-200.png
-python3 performance/capture-layout.py --fixture 05-product-specification.md --width 1920 --height 1080 --select 600 980 600 980 --edit-check --output /tmp/mineral-card-edit.png
-python3 performance/capture-layout.py --width 1728 --height 1080 --scale 200 --generated-bytes 10485760 --perf-seconds 10 --output /tmp/mineral-scroll.png
+python3 performance/capture-layout.py --fixture 05-product-specification.md --width 360 --height 900 --edit-check --output /tmp/tachyon-narrow.png
+python3 performance/capture-layout.py --fixture 05-product-specification.md --width 1920 --height 1080 --zoom-steps 10 --edit-check --output /tmp/tachyon-text-200.png
+python3 performance/capture-layout.py --fixture 05-product-specification.md --width 1920 --height 1080 --select 600 980 600 980 --edit-check --output /tmp/tachyon-card-edit.png
+python3 performance/capture-layout.py --width 1728 --height 1080 --scale 200 --generated-bytes 10485760 --perf-seconds 10 --output /tmp/tachyon-scroll.png
 ```
 
 The harness copies synthetic fixtures into a temporary workspace before editing;
@@ -4698,8 +4698,8 @@ it never types into the user's document or unlocks/operates the physical session
 
 - `48-typography-direction-overflow.md` is a bounded synthetic body-font,
   200%-text, Arabic/Hebrew and long-unbroken-content fixture. F6/F7 switch the
-  component theme between bundled `Noto Sans Mineral` and
-  `Spline Sans Mineral` only in a `layout-validation` build; no font or layout
+  component theme between bundled `Noto Sans Tachyon` and
+  `Spline Sans Tachyon` only in a `layout-validation` build; no font or layout
   control is exposed in the production UI. A font mismatch creates a new
   immutable `FontMeasurement`, clears the table lock, advances geometry and
   runs a committed measured plan rather than reusing a previous font's cache.
@@ -4929,8 +4929,8 @@ it never types into the user's document or unlocks/operates the physical session
 - The retained production matrix uses binary SHA-256
   `b473c707192ec449e0d33cba11312863f4b64df336594a77d44dc2fbe126dfc5`,
   isolated Weston 14 headless GL/Wayland with kiosk shell at 120 Hz, 100% display
-  scale, bundled **Spline Sans Mineral**, **Spline Sans Mono Mineral**, and
-  **Fraunces Mineral**, and `47-editorial-composition.md`. Every run verifies the
+  scale, bundled **Spline Sans Tachyon**, **Spline Sans Mono Tachyon**, and
+  **Fraunces Tachyon**, and `47-editorial-composition.md`. Every run verifies the
   copied fixture remains byte-identical.
 - Reviewed captures at **360, 768, 1280, and 1920×900 logical px** show the same
   authored hierarchy and consistent content leading edges. At 360 the navigation
@@ -4961,7 +4961,7 @@ AT-19.
 
 ### Native direction, delayed fonts, and current renderer closure
 
-- The validation build now omits **Noto Sans Mineral** from startup and registers
+- The validation build now omits **Noto Sans Tachyon** from startup and registers
   its two bundled faces only when the native F6 acceptance action runs after the
   document is visible. The first action records `loaded=true`; applying the same
   environment again records `loaded=false`, so the oracle distinguishes a real

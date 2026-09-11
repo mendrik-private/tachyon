@@ -64,8 +64,8 @@ def check_cycle(env, pid, work, output, probe_path, source_path, initial,
     def copy_selection():
         if not selected:
             return None
-        sentinel = b"__MINERAL_THEME_SELECTION_PROBE__"
-        subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+        sentinel = b"__TACHYON_THEME_SELECTION_PROBE__"
+        subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                        input=sentinel, env=env, check=True, timeout=5)
         input_event("key", 29, 1)
         input_event("key", 46, 1)
@@ -73,7 +73,7 @@ def check_cycle(env, pid, work, output, probe_path, source_path, initial,
         input_event("key", 29, 0)
         deadline = time.monotonic() + 3
         while True:
-            copied = subprocess.run(["wl-paste", "--seat", "mineral-test", "--no-newline", "--type", "text/plain"],
+            copied = subprocess.run(["wl-paste", "--seat", "tachyon-test", "--no-newline", "--type", "text/plain"],
                                     env=env, check=True, capture_output=True, timeout=5).stdout
             if copied != sentinel or time.monotonic() >= deadline:
                 break

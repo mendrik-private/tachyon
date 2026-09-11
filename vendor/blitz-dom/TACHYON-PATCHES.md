@@ -10,10 +10,10 @@ Only `src/node/node.rs` is changed. `Node::hit_inner` uses Parley's
 cluster to have a glyph. A ligature continuation has text and advance but may
 have no glyph of its own. Previously, clicking it returned `None` early and
 incorrectly hit an ancestor; one combining accent could therefore disable
-Mineral's verified direct editing for an entire HTML fragment.
+Tachyon's verified direct editing for an entire HTML fragment.
 
 This leaves paint-order traversal, clipping, pointer-events handling and
-per-cluster geometry unchanged. It does not accept ancestor hits in Mineral
+per-cluster geometry unchanged. It does not accept ancestor hits in Tachyon
 or normalize canonical text. Tests exercise the complete dependency graph:
 
 ```sh
@@ -23,7 +23,7 @@ cargo test --locked -p document-view installed_ -- --ignored
 ```
 
 The installed-font integration tests require Noto CJK, Arabic and Color Emoji
-coverage. The combining-accent regression uses Mineral's bundled Latin font
+coverage. The combining-accent regression uses Tachyon's bundled Latin font
 and does not require those installed fonts. Remove this local patch when a
 compatible published Blitz version uses cluster-owned hit-test styles; rerun
 the regressions and native HTML edit/undo checks before doing so.

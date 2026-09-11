@@ -2,7 +2,7 @@
 
 2026-09-10, A03. Replacing cell text with a bare newline and changing its border
 reproduced the newline becoming a space on reopen
-(`/tmp/mineral-a03-break-before.log`). Raw HTML text passed through an
+(`/tmp/tachyon-a03-break-before.log`). Raw HTML text passed through an
 intermediate Markdown paragraph, whose soft-break import normalizes to a space.
 
 Canonical HTML now wraps whitespace-sensitive non-code runs in a text-only span
@@ -27,7 +27,7 @@ qualification, with no new native or performance claim.
 
 `scripts/check.sh` passes 818 tests with two existing ignored tests, including
 formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a03-break-check.log`). All 53 source-fidelity tests pass; diff
+(`/tmp/tachyon-a03-break-check.log`). All 53 source-fidelity tests pass; diff
 whitespace checks are clean. Crusty context: `ctx_f13e8dc96aac`.
 
 ## Styled runs and code qualification
@@ -37,11 +37,11 @@ eight values under LF/CRLF (96 combinations). It verifies complete-model source
 rebasing, which checks rich runs and link destinations as well as text/topology,
 and restores formatting operations through Undo/Redo too. The expanded test
 reproduced multiline inline code ending the table's Markdown HTML block at a
-blank line (`/tmp/mineral-a03-styled-before.log`). Encoding CR/LF as numeric
+blank line (`/tmp/tachyon-a03-styled-before.log`). Encoding CR/LF as numeric
 entities fixes this while retaining literal code characters; all 96 cases pass.
 
 A separate presentation-edit regression reproduced the same truncation for a
-code block inside a table cell (`/tmp/mineral-a03-codeblock-before.log`). Block
+code block inside a table cell (`/tmp/tachyon-a03-codeblock-before.log`). Block
 code and inline code now share literal HTML text escaping with numeric newlines.
 The LF/CRLF fixture checks blank lines, trailing newline, language, a following
 paragraph, complete-model rebase and exact Undo/Redo.
@@ -52,5 +52,5 @@ performance claim is added.
 
 Expanded validation: `scripts/check.sh` passes 819 tests with two existing
 ignored tests, including locked checks, formatting, strict Clippy, adapters and
-doctests (`/tmp/mineral-a03-styled-check.log`). All 54 source-fidelity tests pass;
+doctests (`/tmp/tachyon-a03-styled-check.log`). All 54 source-fidelity tests pass;
 diff whitespace checks are clean. Crusty context: `ctx_1673cf260581`.

@@ -27,14 +27,14 @@ spec.loader.exec_module(qualification)
 def sample(fixture, output, env, seconds, label):
     state = Path(env["XDG_STATE_HOME"]) / label
     state.mkdir(parents=True, exist_ok=True)
-    environment = dict(env, MINERAL_PERF_OUTPUT=str(output), MINERAL_PERF_SECONDS=str(seconds),
+    environment = dict(env, TACHYON_PERF_OUTPUT=str(output), TACHYON_PERF_SECONDS=str(seconds),
                        XDG_STATE_HOME=str(state),
-                       MINERAL_PERF_WARMUP_MS="2500", MINERAL_PERF_REFRESH_HZ="120",
-                       MINERAL_PERF_LABEL=label, MINERAL_PERF_RESIZE="false",
-                       MINERAL_PERF_SCENARIO="continuous bidirectional vertical wheel scrolling",
-                       MINERAL_PERF_INPUT_SOURCE="temporary kernel uinput device on active Mutter Wayland display")
-    environment.pop("MINERAL_INSTANCE_MODE", None)
-    environment.pop("MINERAL_INSTANCE_SOCKET", None)
+                       TACHYON_PERF_WARMUP_MS="2500", TACHYON_PERF_REFRESH_HZ="120",
+                       TACHYON_PERF_LABEL=label, TACHYON_PERF_RESIZE="false",
+                       TACHYON_PERF_SCENARIO="continuous bidirectional vertical wheel scrolling",
+                       TACHYON_PERF_INPUT_SOURCE="temporary kernel uinput device on active Mutter Wayland display")
+    environment.pop("TACHYON_INSTANCE_MODE", None)
+    environment.pop("TACHYON_INSTANCE_SOCKET", None)
     load_before = os.getloadavg()
     process = subprocess.Popen([str(qualification.APP), str(fixture)], env=environment,
                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
@@ -92,7 +92,7 @@ def main():
     report = {"method": __doc__, "environment": qualification.environment_report(),
               "binary_sha256": hashlib.sha256(qualification.APP.read_bytes()).hexdigest(),
               "fixtures": {}, "reports": []}
-    with tempfile.TemporaryDirectory(prefix="mineral-scroll-") as directory:
+    with tempfile.TemporaryDirectory(prefix="tachyon-scroll-") as directory:
         work = Path(directory)
         env = qualification.app_environment(work / "state", work / "cache", work / "shader-cache")
         fixtures = {}

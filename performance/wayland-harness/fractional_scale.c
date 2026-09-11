@@ -11,13 +11,13 @@ struct weston_compositor {
 	struct wl_display *wl_display;
 };
 
-struct mineral_fractional_scale {
+struct tachyon_fractional_scale {
 	uint32_t scale_120;
 	struct wl_global *global;
 };
 
-struct mineral_fractional_surface {
-	struct mineral_fractional_scale *state;
+struct tachyon_fractional_surface {
+	struct tachyon_fractional_scale *state;
 	struct wl_resource *resource;
 	struct wl_event_source *timer;
 };
@@ -25,7 +25,7 @@ struct mineral_fractional_surface {
 static int
 repeat_preferred_scale(void *data)
 {
-	struct mineral_fractional_surface *surface = data;
+	struct tachyon_fractional_surface *surface = data;
 	struct wl_event_source *timer = surface->timer;
 
 	surface->timer = NULL;
@@ -39,7 +39,7 @@ repeat_preferred_scale(void *data)
 static void
 fractional_scale_resource_destroyed(struct wl_resource *resource)
 {
-	struct mineral_fractional_surface *surface =
+	struct tachyon_fractional_surface *surface =
 		wl_resource_get_user_data(resource);
 
 	if (surface->timer)
@@ -71,9 +71,9 @@ manager_get_fractional_scale(struct wl_client *client,
 			     uint32_t id,
 			     struct wl_resource *surface)
 {
-	struct mineral_fractional_scale *state =
+	struct tachyon_fractional_scale *state =
 		wl_resource_get_user_data(manager_resource);
-	struct mineral_fractional_surface *fractional_surface;
+	struct tachyon_fractional_surface *fractional_surface;
 	struct wl_resource *resource;
 	struct wl_event_loop *event_loop;
 
@@ -124,8 +124,8 @@ bind_manager(struct wl_client *client, void *data, uint32_t version, uint32_t id
 __attribute__((visibility("default"))) int
 wet_module_init(struct weston_compositor *compositor, int *argc, char *argv[])
 {
-	struct mineral_fractional_scale *state;
-	const char *configured = getenv("MINERAL_WESTON_SCALE_120");
+	struct tachyon_fractional_scale *state;
+	const char *configured = getenv("TACHYON_WESTON_SCALE_120");
 	char *end = NULL;
 	unsigned long parsed = configured ? strtoul(configured, &end, 10) : 120;
 

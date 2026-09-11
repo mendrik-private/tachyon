@@ -61,15 +61,15 @@ the seam, the test went red with zero rails: candidates were rejected as
 recognized margin notes closes that gap. The initial semantic test incorrectly
 searched only top-level nodes; its corrected recursive oracle verifies the
 actual nested paragraph nodes. Those test-development failures are retained in
-`/tmp/mineral-margin-red.log`, `/tmp/mineral-margin-candidates.log` and
-`/tmp/mineral-margin-focused.log`, not represented as production failures.
+`/tmp/tachyon-margin-red.log`, `/tmp/tachyon-margin-candidates.log` and
+`/tmp/tachyon-margin-focused.log`, not represented as production failures.
 
 `cargo test -p document-view --locked margin_note -- --nocapture` passes six
-tests (`/tmp/mineral-margin-complete-focused.log`). The final `scripts/check.sh`
+tests (`/tmp/tachyon-margin-complete-focused.log`). The final `scripts/check.sh`
 exits 0: formatting, source pins/locked metadata, all-target check and Clippy,
 116 core tests, 25 source-fidelity tests, 11 tree tests, **491 document-view
 tests (2 ignored)**, 1 external-consumer test, 39 app tests and doctests.
-Log: `/tmp/mineral-margin-qualified-check.log`. `git diff --check` passes.
+Log: `/tmp/tachyon-margin-qualified-check.log`. `git diff --check` passes.
 
 ## Native evidence
 

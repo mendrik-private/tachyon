@@ -30,7 +30,7 @@ def main():
     binary_sha256 = hashlib.sha256(binary.read_bytes()).hexdigest()
     cases = []
 
-    with tempfile.TemporaryDirectory(prefix="mineral-a07-matrix-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="tachyon-a07-matrix-") as temporary:
         temporary = Path(temporary)
         for width in WIDTHS:
             for scale in SCALES:

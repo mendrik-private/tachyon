@@ -4,7 +4,7 @@ An image belongs to its column. Its aspect ratio, inset and neighboring text mus
 
 ## Authored columns
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[240,360]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[240,360]} -->
 <table>
 <thead><tr><th>Figure</th><th>Notes</th></tr></thead>
 <tbody>

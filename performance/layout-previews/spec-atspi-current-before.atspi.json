@@ -3,7 +3,7 @@
     {
       "parent": null,
       "role": "application",
-      "name": "mineral-markdown",
+      "name": "tachyon",
       "interfaces": [
         "Accessible",
         "Application"

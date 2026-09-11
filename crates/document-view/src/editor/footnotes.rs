@@ -32,7 +32,7 @@ pub(super) struct ReferencePresentation {
 impl ReferencePresentation {
     pub fn element(
         self,
-        palette: MineralPalette,
+        palette: TachyonPalette,
         cx: &mut Context<RichDocumentEditor>,
     ) -> AnyElement {
         div()
@@ -45,7 +45,7 @@ impl ReferencePresentation {
             .top(self.bounds.top())
             .w(self.bounds.size.width)
             .h(self.bounds.size.height)
-            .font_family("Spline Sans Mineral")
+            .font_family("Spline Sans Tachyon")
             .text_size(px(self.font_size * 0.7))
             .line_height(px(self.font_size * 0.8))
             .text_color(rgb(palette.accent))
@@ -184,7 +184,7 @@ impl RichDocumentEditor {
     pub(super) fn render_footnote_numbers(
         &self,
         visible: &[usize],
-        palette: MineralPalette,
+        palette: TachyonPalette,
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         visible
@@ -242,7 +242,7 @@ impl RichDocumentEditor {
                                         .flex()
                                         .items_center()
                                         .gap(px(4. * self.zoom_factor))
-                                        .font_family("Spline Sans Mineral")
+                                        .font_family("Spline Sans Tachyon")
                                         .text_size(px(13. * self.zoom_factor))
                                         .line_height(px(16. * self.zoom_factor))
                                         .child(
@@ -384,7 +384,7 @@ mod tests {
             .unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for segment in projection
                 .segments()
                 .iter()
@@ -429,7 +429,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[1];
             for zoom in [1., 1.5, 2.] {
-                let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), zoom);
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
                 for width in [140., 360., 760., 1200.] {
                     let lines = inline_math::layout(&projection, segment, segment.projection_range(), width, 16., &fonts).unwrap();
                     assert_eq!(lines.first().unwrap().range.start, segment.projection_start());

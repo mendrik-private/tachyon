@@ -480,7 +480,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             fonts.measure_tables(&mut projection);
             let width = 1314.;
             let plan = arrangement::build_measured_adaptive_plan(
@@ -624,7 +624,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let mut projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             fonts.measure_tables(&mut projection);
             let width = 1314.;
             let plan = arrangement::build_measured_adaptive_plan(
@@ -693,7 +693,7 @@ mod tests {
             let document = Document::from_markdown(source().as_str()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let width = 1600.;
             let plan = arrangement::build_measured_adaptive_plan(
                 &projection,
@@ -768,7 +768,7 @@ mod tests {
             let document = Document::from_markdown(source.as_str()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = arrangement::build_measured_adaptive_plan(
                 &projection,
                 1280.,
@@ -886,7 +886,7 @@ mod tests {
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Mineral".into(),
+                    "Spline Sans Tachyon".into(),
                     1.,
                 );
                 let plan = arrangement::build_measured_adaptive_plan(
@@ -1026,7 +1026,7 @@ mod tests {
                 let projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Mineral".into(),
+                    "Spline Sans Tachyon".into(),
                     1.,
                 );
                 let plan = arrangement::build_measured_adaptive_plan(
@@ -1051,7 +1051,7 @@ mod tests {
             let mut document = Document::from_markdown(source()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = arrangement::build_measured_adaptive_plan(
                 &projection,
                 1280.,
@@ -1104,7 +1104,7 @@ mod tests {
             let mut document = Document::from_markdown(source()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = arrangement::build_measured_adaptive_plan(
                 &projection,
                 1280.,
@@ -1158,7 +1158,7 @@ mod tests {
             let document = Document::from_markdown(source()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for (width, height) in [(550., 900.), (899., 900.), (1280., 250.)] {
                 let plan = arrangement::build_measured_adaptive_plan(
                     &projection,

@@ -6,7 +6,7 @@ Line numbers are a reading aid, not part of the source. Light configuration pane
 
 ```typescript
 export const config = {
-  name: 'mineral',
+  name: 'tachyon',
   version: '1.0.0',
   environment: 'production',
   port: 8080,
@@ -23,7 +23,7 @@ export const config = {
 
 ```yaml
 app:
-  name: mineral
+  name: tachyon
   version: 1.0.0
   environment: production
   enabled: true

@@ -11,8 +11,8 @@ only `A undo/redo` at width 90: `["A undo", "/redo"]`.
 
 Command: `cargo test -p document-view --locked punctuation_wrap_does_not_start -- --nocapture`.
 The original and minimized runs fail deterministically in milliseconds after
-compilation (`/tmp/mineral-punctuation-red.log` and
-`/tmp/mineral-punctuation-minimal-red.log`). Targeted probes show the same
+compilation (`/tmp/tachyon-punctuation-red.log` and
+`/tmp/tachyon-punctuation-minimal-red.log`). Targeted probes show the same
 boundary with final-line refinement disabled; raw GPUI reports byte offset 6.
 Changing only `/` to `_` removes that boundary. The root cause is GPUI's native
 word-wrap policy, not a source rewrite, source-offset translation, or our
@@ -38,7 +38,7 @@ The expanded test caught a second defect: snapping a native wrap backward to
 preserve an emoji cluster could leave the following line too wide. Validation
 now checks the resulting line advances as well as boundary legality before
 keeping a native wrap. The strict width/grapheme test went red before this
-correction (`/tmp/mineral-punctuation-emoji-red.log`) and green afterward.
+correction (`/tmp/tachyon-punctuation-emoji-red.log`) and green afterward.
 
 Unicode permits appropriate breaks **after** a slash; this patch does not promise
 to keep every slash-separated expression on one line. See the primary
@@ -60,11 +60,11 @@ Three new tests exercise actual FontMeasurement behavior:
   single indivisible grapheme may exceed the measure.
 
 The focused `punctuation_` run passes four tests (three new and the existing
-footnote punctuation test): `/tmp/mineral-punctuation-final-focused.log`.
+footnote punctuation test): `/tmp/tachyon-punctuation-final-focused.log`.
 The final `scripts/check.sh` exits 0: formatting, pinned/locked metadata,
 all-target check and Clippy, 116 core tests, 25 source-fidelity tests, 11 tree
 tests, 485 document-view tests (2 ignored), 1 external-consumer test, 39 app
-tests and doctests. Log: `/tmp/mineral-punctuation-qualified-check.log`.
+tests and doctests. Log: `/tmp/tachyon-punctuation-qualified-check.log`.
 `git diff --check` passes. Crusty validation of `ctx_68bc929cb76b` reports 36
 existing advisory findings and no new or worsened findings.
 

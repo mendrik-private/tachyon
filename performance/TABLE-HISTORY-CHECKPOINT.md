@@ -53,7 +53,7 @@ screenshots accompany the reports; the enlarged deletion screenshot was
 visually inspected.
 
 The pre-fix binary `22847f21...` passes this native case at 100% but fails the
-identical 200% Undo check. See `/tmp/mineral-table-history-before-200.log` and
+identical 200% Undo check. See `/tmp/tachyon-table-history-before-200.log` and
 the `table-history-before-200-*` captures. This is specifically an enlarged
 text negative control; no native failure is claimed for its 100% run.
 
@@ -69,7 +69,7 @@ python3 performance/capture-layout.py --fixture 122-paired-records.md \
 
 `scripts/check.sh` passes with 773 Rust tests, two existing ignored tests,
 formatting, locked checks, strict Clippy, adapter tests and doctests. Log:
-`/tmp/mineral-session-resume-final-check.log`. The capture harness's 20 Python
+`/tmp/tachyon-session-resume-final-check.log`. The capture harness's 20 Python
 tests and recorded-table oracle's four tests pass; `git diff --check` is clean.
 Crusty context `ctx_34d71c405bd2`, validation `task_60da3a964bf102fd` reports
 75 existing advisory findings and no new, worsened, or resolved findings.

@@ -4,7 +4,7 @@ A minimized A02 regression split `After` after a quote containing a footnote.
 The model held a quote, a lifted definition, and the following paragraph. Saving
 emitted the original quote (already containing the definition) followed by a
 second canonical copy of the definition. The failing test observed two `[^n]:`
-markers; `/tmp/mineral-boundary-before.log` records the exact duplicate output.
+markers; `/tmp/tachyon-boundary-before.log` records the exact duplicate output.
 
 Source import now records fully contained top-level source ownership: the lifted
 semantic root belongs to the enclosing source unit. During structural saving,
@@ -24,8 +24,8 @@ simultaneous note edits and splits, subsequent save/rebase/edit, original setext
 heading spelling, and exact Undo/Redo. All 37 source-fidelity tests pass. Full
 `scripts/check.sh` passes 801 tests with two existing ignored tests, including
 formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-boundary-check.log`). A later multiple-note extension to the same
-regression passes separately (`/tmp/mineral-boundary-multiple.log`); no production
+(`/tmp/tachyon-boundary-check.log`). A later multiple-note extension to the same
+regression passes separately (`/tmp/tachyon-boundary-multiple.log`); no production
 code changed after the full check. Diff whitespace checks pass.
 
 ## Remaining A02 scope

@@ -42,8 +42,8 @@ slot. The reproducer stayed red after removing everything except title and
 two paragraphs. `editor/prose_flow.rs` now refuses an **unfocused** cached flow
 when a newly measured row owns its source. Held editing still retains its flow.
 The minimized and full tests pass; temporary geometry instrumentation is removed.
-Logs: `/tmp/mineral-opening-minimal-red.log`, `-minimal-green.log` and
-`/tmp/mineral-opening-geometry-red.log`.
+Logs: `/tmp/tachyon-opening-minimal-red.log`, `-minimal-green.log` and
+`/tmp/tachyon-opening-geometry-red.log`.
 
 ## Final native evidence
 
@@ -91,7 +91,7 @@ the flow-retention fix; final claims use the verified prefixes above.
 
 `scripts/check.sh` passes formatting, workspace all-target checking, strict
 Clippy, 744 workspace tests plus five adapter tests (**749**, two existing
-ignored), and doc tests. Log: `/tmp/mineral-opening-final-check.log`.
+ignored), and doc tests. Log: `/tmp/tachyon-opening-final-check.log`.
 Seventeen capture-harness and thirteen resize-oracle Python tests pass; the
 resize oracle now includes both opening paragraphs and its authored soft breaks.
 

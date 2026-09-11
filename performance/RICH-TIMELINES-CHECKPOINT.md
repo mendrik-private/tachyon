@@ -49,8 +49,8 @@ and Undo assertions. This was a test expectation correction, not missing text.
 `scripts/check.sh` passes: formatting, locked all-target check, strict Clippy,
 workspace tests, adapter tests and doctests. There are **759 passing Rust tests**
 and two existing ignored tests. All 18 capture-harness Python tests pass.
-Logs: `/tmp/mineral-rich-timeline-check.log` and
-`/tmp/mineral-rich-timeline-python.log`.
+Logs: `/tmp/tachyon-rich-timeline-check.log` and
+`/tmp/tachyon-rich-timeline-python.log`.
 
 Native captures use isolated Weston and active AT-SPI, not the user's desktop:
 

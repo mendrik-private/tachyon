@@ -19,7 +19,7 @@ Undo and the original fixture104 full-file native caption expectation.
 ## Implementation and regression
 
 The minimized one-cell caption test reproduced whole-table rewriting before
-the fix (`/tmp/mineral-html-cell-red.log`). Imported rich cells are converted
+the fix (`/tmp/tachyon-html-cell-red.log`). Imported rich cells are converted
 through temporary Markdown; those offsets do not address original HTML.
 
 `markdown::html_source` now extracts strict lexical paragraph-body addresses
@@ -62,13 +62,13 @@ Both prove one-second idle autosave and exact-byte Undo. Both idle PNGs were
 inspected: captions and neighboring text remain readable, and the loaded SVG
 retains complete proportions. AT-SPI failure-panel bounds/descriptions match
 the preceding wide baseline exactly: (271,363,176,180) and (295,645,152,180).
-Logs: `/tmp/mineral-html-cell-native.log` and
-`/tmp/mineral-html-cell-neighbor.log`.
+Logs: `/tmp/tachyon-html-cell-native.log` and
+`/tmp/tachyon-html-cell-neighbor.log`.
 
 `scripts/check.sh` passes formatting, locked dependency checks, workspace/all
 targets check, strict Clippy and tests: 117 core, 29 source-fidelity, 11 tree
 selection, 500 document-view (2 existing ignored), 1 consumer, 39 app and docs.
-Log: `/tmp/mineral-html-cell-check.log`.
+Log: `/tmp/tachyon-html-cell-check.log`.
 
 ## Boundaries
 

@@ -35,7 +35,7 @@ def is_grid(nodes):
 
 
 def check(kind, env, input_event, source_path, pid, output, probe_path, work, events):
-    if not env.get('MINERAL_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['MINERAL_PRIVATE_ATSPI_BUS']:
+    if not env.get('TACHYON_PRIVATE_ATSPI_BUS') or env.get('DBUS_SESSION_BUS_ADDRESS') != env['TACHYON_PRIVATE_ATSPI_BUS']:
         raise RuntimeError('Recovery checks require the private accessibility bus')
     if source_path.resolve().parent != (work / 'layout-fixtures').resolve():
         raise RuntimeError('Recovery checks require a harness-owned fixture copy')
@@ -48,7 +48,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, ev
         for modifier in reversed(modifiers): input_event('key', modifier, 0)
 
     def clipboard(text):
-        subprocess.run(['wl-copy', '--seat', 'mineral-test', '--type', 'text/plain'],
+        subprocess.run(['wl-copy', '--seat', 'tachyon-test', '--type', 'text/plain'],
                        input=text, env=env, text=True, check=True, timeout=5)
 
     def nodes():
@@ -111,7 +111,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, ev
     clipboard('recovery-copy-sentinel')
     key(46, (29,))
     def copied():
-        result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'mineral-test'],
+        result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'tachyon-test'],
                                 env=env, capture_output=True, text=True, timeout=5)
         return result.stdout if result.returncode == 0 and result.stdout != 'recovery-copy-sentinel' else None
     text = wait(copied, 'source-order copy')

@@ -2,9 +2,9 @@
 
 The first complete figure links to an authored heading below. The second figure is not a link. Their descriptions must remain available in source order in both paired and stacked layouts.
 
-[![Linked landscape description](../visual-assets/mineral-strata.svg)](#gallery-destination "Read the destination")
+[![Linked landscape description](../visual-assets/tachyon-strata.svg)](#gallery-destination "Read the destination")
 
-![Unlinked landscape description](../visual-assets/mineral-strata.svg)
+![Unlinked landscape description](../visual-assets/tachyon-strata.svg)
 
 ## Reading interval
 

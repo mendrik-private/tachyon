@@ -530,7 +530,7 @@ mod tests {
             let key = Key::new(&projection, segment, &HashMap::new(), 760., &[], None).unwrap();
             let weak = key.leaf.0.clone();
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let lines = build_visual_lines_for_segment_uncached(
                 &projection,
                 segment,
@@ -582,7 +582,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let segment = &projection.segments()[0];
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let counts = diagnostics::MeasurementScope::new();
             for _ in 0..2 {
                 let lines = build_visual_lines_for_segment(
@@ -631,7 +631,7 @@ mod tests {
             assert!(segment.projection_local_start() > 0);
             let original_local = segment.projection_local_start();
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let counts = diagnostics::MeasurementScope::new();
             let before = measurement.segment_geometry(
                 &projection,

@@ -1,4 +1,4 @@
-# Mineral Markdown implementation audit
+# Tachyon implementation audit
 
 > Historical baseline: this report records defects reproduced before the
 > implementation work. It is intentionally preserved as the task-by-task
@@ -40,7 +40,7 @@ Line numbers below describe the inspected checkout. Use the named functions as a
 | `cargo test --workspace --all-targets --locked` | Passed: 28 core + 26 view + 22 app tests; performance binary has 0 tests |
 | `cargo fmt --all -- --check` | Passed |
 | `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
-| `cargo build --release --locked --bin tachyon --bin mineral-perf` | Passed |
+| `cargo build --release --locked --bin tachyon --bin tachyon-perf` | Passed |
 | Additional temporary regression probes against the compiled core library | 7 deliberately failing checks; failures listed below |
 | Native release app in isolated Weston | Launched and inspected at 1280×720 and 640×480; real Wayland pointer/key input exercised |
 | AT-SPI inspection | Tree exists, but editor text was unavailable and semantic document nodes reported identical 1×1 bounds |
@@ -53,8 +53,8 @@ Native tests used a disposable Markdown file and isolated `XDG_STATE_HOME`/`XDG_
 Commands executed after the release build:
 
 ```sh
-target/release/mineral-perf --bytes 102400 --runs 30
-target/release/mineral-perf --bytes 10485760 --runs 10
+target/release/tachyon-perf --bytes 102400 --runs 30
+target/release/tachyon-perf --bytes 10485760 --runs 10
 ```
 
 Environment reported by the harness: Rust 1.98.0 (`88d9e12ae`, 2026-08-18), GNOME Wayland, balanced power profile. The isolated visual session used headless Weston with the GL renderer and kiosk shell. These are CPU-stage measurements, not display presentation measurements.
@@ -500,7 +500,7 @@ Use rope byte/UTF-16 metrics for validation/conversion where possible; `RichText
 
 ### A19 — P2: make validation repeatable and tied to actual workflows
 
-**Evidence:** the repository has no checked-in CI configuration or integration fixture suite. Existing tests are inline and valuable, but seven targeted audit probes still fail. `mineral-perf` is a CPU helper benchmark, not the presentation/input harness required by `plan.md`.
+**Evidence:** the repository has no checked-in CI configuration or integration fixture suite. Existing tests are inline and valuable, but seven targeted audit probes still fail. `tachyon-perf` is a CPU helper benchmark, not the presentation/input harness required by `plan.md`.
 
 **Implement:**
 
@@ -532,7 +532,7 @@ Use rope byte/UTF-16 metrics for validation/conversion where possible; `RichText
 
 ## 5. Concrete visual specification for the implementation
 
-This section applies the accepted `plan.md` direction. It is not a new visual concept or permission for a toolkit rewrite. The [original visual reference](https://www.whichai.dev/with-design-skill/opus-5/4) was fetched; use its typography/mineral character together with the editor-specific dimensions already agreed in `plan.md`.
+This section applies the accepted `plan.md` direction. It is not a new visual concept or permission for a toolkit rewrite. The [original visual reference](https://www.whichai.dev/with-design-skill/opus-5/4) was fetched; use its typography/tachyon character together with the editor-specific dimensions already agreed in `plan.md`.
 
 ### Shared roles
 
@@ -666,10 +666,10 @@ Record whether each fixture uses decimal KB/MB or binary KiB/MiB. Measure on the
 
 ```sh
 cargo build --release --locked --bin tachyon
-packaging/install.sh /tmp/mineral-stage/usr
-desktop-file-validate /tmp/mineral-stage/usr/share/applications/io.github.mendrik_private.Tachyon.desktop
-appstreamcli validate --no-net /tmp/mineral-stage/usr/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml
-xmllint --noout /tmp/mineral-stage/usr/share/icons/hicolor/scalable/apps/io.github.mendrik_private.Tachyon.svg
+packaging/install.sh /tmp/tachyon-stage/usr
+desktop-file-validate /tmp/tachyon-stage/usr/share/applications/io.github.mendrik_private.Tachyon.desktop
+appstreamcli validate --no-net /tmp/tachyon-stage/usr/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml
+xmllint --noout /tmp/tachyon-stage/usr/share/icons/hicolor/scalable/apps/io.github.mendrik_private.Tachyon.svg
 ```
 
 Use a fresh staging directory. These packaging validators were not executed during this audit. Also launch via the staged desktop entry with filenames containing spaces and multiple paths, with no development font setup or prior state/cache. Keep the known optional homepage warning documented until a real homepage exists.
@@ -691,7 +691,7 @@ For each task, the implementation report must state: task ID; changed files/API;
 - `plan.md` is the local product/visual/performance contract. This audit recommends completing it, with implementation-level choices called out as such.
 - [GFM specification: tables](https://github.github.com/gfm/#tables-extension-) allows inline content in pipe-table cells; block-rich cells require another serialization representation. This supports keeping inline formatting in GFM while using semantic HTML for multi-block cells.
 - [GFM backslash escapes](https://github.github.com/gfm/#backslash-escapes), [code spans](https://github.github.com/gfm/#code-spans), and [links](https://github.github.com/gfm/#links) are the serializer test references. Use the pinned Comrak implementation plus semantic fixtures as the executable compatibility target.
-- [Visual reference](https://www.whichai.dev/with-design-skill/opus-5/4): use the agreed font/mineral direction and the local adaptation; do not import its marketing-page structure into the desktop editor.
+- [Visual reference](https://www.whichai.dev/with-design-skill/opus-5/4): use the agreed font/tachyon direction and the local adaptation; do not import its marketing-page structure into the desktop editor.
 - Crusty's floating-dependency findings are qualified by the existing lockfile. Its two blocking-in-async findings were not accepted: the inspected calls already execute inside `spawn_dedicated`. There is a separate, real synchronous serialization call in `save_conflict_copy` (`main.rs:1058`) before the worker is spawned; move that serialization inside the worker under A05/A11.
 - Visual inspection establishes clipping/overlap at the tested sizes, not complete international typography or accessibility compliance. AT-SPI inspection establishes the reported missing text/actions/bounds, not a completed Orca evaluation.
-- The temporary raw probes/performance reports were produced under `/tmp/mineral-audit-20260906/`. They are supplemental session artifacts and may be removed by the system. The operations, observed results, baseline commands and required permanent regression cases are recorded above so implementation does not depend on those temporary files surviving.
+- The temporary raw probes/performance reports were produced under `/tmp/tachyon-audit-20260906/`. They are supplemental session artifacts and may be removed by the system. The operations, observed results, baseline commands and required permanent regression cases are recorded above so implementation does not depend on those temporary files surviving.

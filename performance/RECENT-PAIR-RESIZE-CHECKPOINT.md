@@ -68,7 +68,7 @@ qualification (the preceding settled kiosk checkpoint supplies that evidence).
 
 `scripts/check.sh` passes formatting, locked workspace/all-target checking,
 strict Clippy, 756 Rust tests, two existing ignored tests and doctests; log
-`/tmp/mineral-recent-resize-check.log`. Python resize-oracle tests cover the
+`/tmp/tachyon-recent-resize-check.log`. Python resize-oracle tests cover the
 new keys/source targets, required short guidance row, rejection of an incorrect
 stack and rejection of an initially stacked editing scenario. The existing
 capture-harness suite remains separate: 15 resize-oracle tests and 17 capture

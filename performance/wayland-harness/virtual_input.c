@@ -9,7 +9,7 @@
 #include <wayland-server-core.h>
 #include <wayland-server-protocol.h>
 
-#define MINERAL_SEAT_STORAGE_BYTES 4096
+#define TACHYON_SEAT_STORAGE_BYTES 4096
 
 struct weston_compositor {
 	struct wl_signal destroy_signal;
@@ -66,12 +66,12 @@ struct weston_pointer_axis_event {
 	int32_t discrete;
 };
 
-struct mineral_input {
+struct tachyon_input {
 	struct weston_seat *seat;
 	struct wl_global *global;
 };
 
-struct mineral_input_implementation {
+struct tachyon_input_implementation {
 	void (*move)(struct wl_client *client,
 		     struct wl_resource *resource,
 		     int32_t x,
@@ -94,7 +94,7 @@ struct mineral_input_implementation {
 				 int32_t vertical_milli);
 };
 
-static const struct wl_message mineral_input_requests[] = {
+static const struct wl_message tachyon_input_requests[] = {
 	{ "move", "ii", NULL },
 	{ "button", "uu", NULL },
 	{ "key", "uu", NULL },
@@ -102,11 +102,11 @@ static const struct wl_message mineral_input_requests[] = {
 	{ "continuous_scroll", "ii", NULL },
 };
 
-static const struct wl_interface mineral_input_interface = {
-	.name = "mineral_input_v1",
+static const struct wl_interface tachyon_input_interface = {
+	.name = "tachyon_input_v1",
 	.version = 1,
 	.method_count = 5,
-	.methods = mineral_input_requests,
+	.methods = tachyon_input_requests,
 	.event_count = 0,
 	.events = NULL,
 };
@@ -115,7 +115,7 @@ static void
 handle_move(struct wl_client *client, struct wl_resource *resource,
 	    int32_t x, int32_t y)
 {
-	struct mineral_input *input = wl_resource_get_user_data(resource);
+	struct tachyon_input *input = wl_resource_get_user_data(resource);
 	struct weston_coord_global position = { .c = { x, y } };
 	struct timespec time;
 
@@ -129,7 +129,7 @@ static void
 handle_button(struct wl_client *client, struct wl_resource *resource,
 	      uint32_t button, uint32_t state)
 {
-	struct mineral_input *input = wl_resource_get_user_data(resource);
+	struct tachyon_input *input = wl_resource_get_user_data(resource);
 	struct timespec time;
 
 	(void)client;
@@ -144,7 +144,7 @@ static void
 handle_key(struct wl_client *client, struct wl_resource *resource,
 	   uint32_t key, uint32_t state)
 {
-	struct mineral_input *input = wl_resource_get_user_data(resource);
+	struct tachyon_input *input = wl_resource_get_user_data(resource);
 	struct timespec time;
 
 	(void)client;
@@ -158,7 +158,7 @@ static void
 send_scroll(struct wl_client *client, struct wl_resource *resource,
 	    int32_t horizontal_milli, int32_t vertical_milli, bool continuous)
 {
-	struct mineral_input *input = wl_resource_get_user_data(resource);
+	struct tachyon_input *input = wl_resource_get_user_data(resource);
 	struct weston_pointer_axis_event event = { 0 };
 	struct timespec time;
 
@@ -196,7 +196,7 @@ handle_continuous_scroll(struct wl_client *client, struct wl_resource *resource,
 	send_scroll(client, resource, horizontal_milli, vertical_milli, true);
 }
 
-static const struct mineral_input_implementation input_implementation = {
+static const struct tachyon_input_implementation input_implementation = {
 	.move = handle_move,
 	.button = handle_button,
 	.key = handle_key,
@@ -208,7 +208,7 @@ static void
 bind_input(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	struct wl_resource *resource = wl_resource_create(
-		client, &mineral_input_interface, version < 1 ? version : 1, id);
+		client, &tachyon_input_interface, version < 1 ? version : 1, id);
 	if (!resource) {
 		wl_client_post_no_memory(client);
 		return;
@@ -219,25 +219,25 @@ bind_input(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 __attribute__((visibility("default"))) int
 wet_module_init(struct weston_compositor *compositor, int *argc, char *argv[])
 {
-	struct mineral_input *input;
+	struct tachyon_input *input;
 
 	(void)argc;
 	(void)argv;
 	input = calloc(1, sizeof *input);
 	if (!input)
 		return -1;
-	input->seat = calloc(1, MINERAL_SEAT_STORAGE_BYTES);
+	input->seat = calloc(1, TACHYON_SEAT_STORAGE_BYTES);
 	if (!input->seat)
 		return -1;
 
-	weston_seat_init(input->seat, compositor, "mineral-test");
+	weston_seat_init(input->seat, compositor, "tachyon-test");
 	if (weston_seat_init_pointer(input->seat) < 0)
 		return -1;
 	if (weston_seat_init_keyboard(input->seat, NULL) < 0)
 		return -1;
 
 	input->global = wl_global_create(compositor->wl_display,
-					 &mineral_input_interface, 1,
+					 &tachyon_input_interface, 1,
 					 input, bind_input);
 	return input->global ? 0 : -1;
 }

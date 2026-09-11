@@ -3,7 +3,7 @@
 // the LICENSE-APACHE file) or the MIT license (found in
 // the LICENSE-MIT file), at your option.
 
-// Mineral patch: translate expansion state; see ../MINERAL-PATCHES.md.
+// Tachyon patch: translate expansion state; see ../TACHYON-PATCHES.md.
 
 // Derived from Chromium's accessibility abstraction.
 // Copyright 2017 The Chromium Authors. All rights reserved.
@@ -1797,7 +1797,7 @@ pub enum NodeIdOrRoot {
 }
 
 #[cfg(test)]
-mod mineral_tests {
+mod tachyon_tests {
     use super::*;
 
     #[test]

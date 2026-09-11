@@ -4,7 +4,7 @@
       {
         "parent": null,
         "role": "application",
-        "name": "mineral-markdown",
+        "name": "tachyon",
         "path": "/org/a11y/atspi/accessible/root",
         "interfaces": [
           "Accessible",
@@ -497,7 +497,7 @@
       {
         "parent": null,
         "role": "application",
-        "name": "mineral-markdown",
+        "name": "tachyon",
         "path": "/org/a11y/atspi/accessible/root",
         "interfaces": [
           "Accessible",
@@ -1018,7 +1018,7 @@
       {
         "parent": null,
         "role": "application",
-        "name": "mineral-markdown",
+        "name": "tachyon",
         "path": "/org/a11y/atspi/accessible/root",
         "interfaces": [
           "Accessible",

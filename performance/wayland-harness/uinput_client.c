@@ -62,7 +62,7 @@ create_device(void)
 	setup.id.bustype = BUS_USB;
 	setup.id.vendor = 0x1209;
 	setup.id.product = 0x4d4d;
-	strcpy(setup.name, "Mineral Qualification Input");
+	strcpy(setup.name, "Tachyon Qualification Input");
 	if (ioctl(descriptor, UI_DEV_SETUP, &setup) < 0)
 		fatal("UI_DEV_SETUP");
 	x_axis.code = ABS_X;

@@ -2339,11 +2339,11 @@ mod tests {
         for (prefix, expected) in [
             ("", TableBorder::LogicalPixel),
             (
-                "<!-- mineral-table:v1 {\"border\":\"PhysicalPixel\",\"widths\":[null,null]} -->\n",
+                "<!-- tachyon-table:v1 {\"border\":\"PhysicalPixel\",\"widths\":[null,null]} -->\n",
                 TableBorder::PhysicalPixel,
             ),
             (
-                "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[null,null]} -->\n",
+                "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[null,null]} -->\n",
                 TableBorder::Dotted,
             ),
         ] {
@@ -2741,7 +2741,7 @@ mod tests {
     fn preserved_placeholders_hit_test_to_the_nearest_editable_node() {
         let document = Document::from_markdown(concat!(
             "before\n\n",
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[-1]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[-1]} -->\n",
             "| a |\n| --- |\n| b |\n\n",
             "after"
         ))

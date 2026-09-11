@@ -39,7 +39,7 @@ The regression verifies:
 - Focused resize filter: 18 passed.
 - `scripts/check.sh`: formatting, locked checks, strict Clippy, 837 Rust tests,
   adapter tests and doctests passed; 2 existing native-font tests were ignored.
-  Log: `/tmp/mineral-table-ime-resize-check.log`.
+  Log: `/tmp/tachyon-table-ime-resize-check.log`.
 - `git diff --check` passed.
 
 Native system-composition coverage, RTL preedit, mixed-direction spanning

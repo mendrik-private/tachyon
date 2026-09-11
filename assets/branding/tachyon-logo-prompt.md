@@ -1,6 +1,6 @@
-# Mineral app icon
+# Tachyon app icon
 
-`mineral-logo.png` is the 1254 × 1254 RGBA PNG supplied by the user on
+`tachyon-logo.png` is the 1254 × 1254 RGBA PNG supplied by the user on
 2026-09-11. It is copied byte-for-byte to
 `packaging/icons/hicolor/scalable/apps/io.github.mendrik_private.Tachyon.png`, the launcher
 icon named by `io.github.mendrik_private.Tachyon.desktop`.

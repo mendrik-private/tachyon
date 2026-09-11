@@ -40,7 +40,7 @@ were measured instead of all eight. Mock fonts establish layout invariants, not
 native glyph fit. `scripts/check.sh` passes formatting, locked all-target
 checking, strict Clippy, workspace tests, adapter tests and doctests:
 **765 passing Rust tests**, two existing ignored tests.
-Log: `/tmp/mineral-nested-timeline-check.log`.
+Log: `/tmp/tachyon-nested-timeline-check.log`.
 All 23 resize-harness and 19 capture-harness Python tests also pass. Final
 formatting and `git diff --check` pass.
 
@@ -49,7 +49,7 @@ formatting and `git diff --check` pass.
 Fixture `layout-fixtures/121-nested-timelines.md` SHA-256:
 `8e8eab7e72edb964a3f9e0e0e5ec4c2bb43512ebb4cff54e1dbe7d7d4e9ca20d`.
 Immutable final layout-validation binary:
-`/tmp/mineral-nested-timeline.B3CYKl/mineral-final`, SHA-256
+`/tmp/tachyon-nested-timeline.B3CYKl/tachyon-final`, SHA-256
 `fb0b13812d5c4a752b1b6b28be70dc2b605750097fbc05547375919ebc8a2b0e`.
 
 All captures run in isolated Weston with a private active AT-SPI session, not
@@ -87,7 +87,7 @@ includes normal serializer escaping only in the edited paragraph; all unrelated
 source bytes remain exact. `nested-timeline-copy` confirms all ten supplied
 markers once in source order through native clipboard copy; it is an order check,
 not a full rich-MIME interoperability qualification.
-Log: `/tmp/mineral-nested-timeline-edits.log`.
+Log: `/tmp/tachyon-nested-timeline-edits.log`.
 
 Intermediate `nested-timeline-wide` uses b4d1cb5f and still has duplicate ordinary
 tree rules; it is not final visual evidence. The final fb0b1381 build removes

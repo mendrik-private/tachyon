@@ -48,7 +48,7 @@ The Rust skill informed view-only state, cache identity and measured native test
 - `scripts/check.sh` completed successfully: formatting, locked all-target
   checks, strict Clippy, 465 view tests (two ignored), 116 core, 25 source-fidelity,
   11 tree-selection, one external-link and 39 app tests, plus doctests.
-  Log: `/tmp/mineral-command-strips-qualified-check.log`. `git diff --check` passes.
+  Log: `/tmp/tachyon-command-strips-qualified-check.log`. `git diff --check` passes.
 - Crusty preparation `task_c78be1914e960a1e`, context `ctx_c3a95bf8c231`,
   validation `task_cab40d91c80412ba`: completed with 36 existing advisory findings,
   none new or worsened. No upstream dependencies or serialization were changed.

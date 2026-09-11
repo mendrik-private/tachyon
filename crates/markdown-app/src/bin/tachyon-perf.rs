@@ -176,7 +176,7 @@ fn arguments() -> (usize, usize) {
                     .max(1);
             }
             "--help" | "-h" => {
-                println!("Usage: mineral-perf [--bytes N] [--runs N]");
+                println!("Usage: tachyon-perf [--bytes N] [--runs N]");
                 std::process::exit(0);
             }
             unknown => panic!("unknown argument: {unknown}"),
@@ -190,7 +190,7 @@ fn fixture(target_bytes: usize) -> String {
     let mut section = 1;
     while source.len() < target_bytes {
         source.push_str(&format!(
-            "## Section {section}\n\nMineral Markdown measures **rich editing**, Unicode 🎉, [links](https://example.com), and source-preserving serialization across realistic prose.\n\n- first item\n- second item\n\n| Name | Value |\n| --- | ---: |\n| frame | 6 ms |\n\n"
+            "## Section {section}\n\nTachyon measures **rich editing**, Unicode 🎉, [links](https://example.com), and source-preserving serialization across realistic prose.\n\n- first item\n- second item\n\n| Name | Value |\n| --- | ---: |\n| frame | 6 ms |\n\n"
         ));
         section += 1;
     }

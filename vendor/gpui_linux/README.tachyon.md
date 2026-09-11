@@ -1,4 +1,4 @@
-# Mineral's GPUI Linux patch
+# Tachyon's GPUI Linux patch
 
 Source: `crates/gpui_linux` from `https://github.com/zed-industries/zed`,
 revision `8b1497dbd22fb06f5838a7c0b84a1e54fafa71bc` (Apache-2.0;

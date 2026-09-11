@@ -84,7 +84,7 @@ Temporary diagnosis probes were removed.
 check, Clippy with warnings denied, 499 document-view tests (2 pre-existing
 ignored), 116 core tests, 25 source-fidelity tests, 11 tree-selection tests,
 1 public-consumer test, 39 app tests and doc tests. Log:
-`/tmp/mineral-image-states-complete-check.log`.
+`/tmp/tachyon-image-states-complete-check.log`.
 
 ## Remaining scope
 

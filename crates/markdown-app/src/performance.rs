@@ -13,7 +13,7 @@ const NANOS_PER_MILLISECOND: f64 = 1_000_000.0;
 /// Developer-only, content-free JSON diagnostics on stderr. No file writes or
 /// document preferences are inferred from enabling this inspection surface.
 pub fn layout_trace_mode() -> document_view::LayoutTraceMode {
-    match env::var("MINERAL_LAYOUT_TRACE").as_deref() {
+    match env::var("TACHYON_LAYOUT_TRACE").as_deref() {
         Ok("details") => document_view::LayoutTraceMode::Details,
         Ok("1" | "true" | "summary") => document_view::LayoutTraceMode::Summary,
         _ => document_view::LayoutTraceMode::Off,
@@ -22,7 +22,7 @@ pub fn layout_trace_mode() -> document_view::LayoutTraceMode {
 
 pub fn emit_layout_diagnostics(report: &document_view::LayoutDiagnosticsReport) {
     match serde_json::to_string(report) {
-        Ok(json) => eprintln!("MINERAL_LAYOUT_TRACE {json}"),
+        Ok(json) => eprintln!("TACHYON_LAYOUT_TRACE {json}"),
         Err(error) => eprintln!("Layout diagnostics could not be encoded: {error}"),
     }
 }
@@ -41,21 +41,21 @@ pub struct PerformanceConfig {
 
 impl PerformanceConfig {
     pub fn from_env() -> Result<Option<Self>, String> {
-        let Some(output) = env::var_os("MINERAL_PERF_OUTPUT") else {
+        let Some(output) = env::var_os("TACHYON_PERF_OUTPUT") else {
             return Ok(None);
         };
-        let seconds = parse_positive_f64("MINERAL_PERF_SECONDS", 60.0)?;
-        let warmup_ms = parse_nonnegative_u64("MINERAL_PERF_WARMUP_MS", 2_500)?;
-        let refresh_hz = parse_positive_f64("MINERAL_PERF_REFRESH_HZ", 120.0)?;
+        let seconds = parse_positive_f64("TACHYON_PERF_SECONDS", 60.0)?;
+        let warmup_ms = parse_nonnegative_u64("TACHYON_PERF_WARMUP_MS", 2_500)?;
+        let refresh_hz = parse_positive_f64("TACHYON_PERF_REFRESH_HZ", 120.0)?;
         Ok(Some(Self {
             output: PathBuf::from(output),
             duration: Duration::from_secs_f64(seconds),
             warmup: Duration::from_millis(warmup_ms),
             refresh_hz,
-            label: env_value("MINERAL_PERF_LABEL", "unnamed"),
-            scenario: env_value("MINERAL_PERF_SCENARIO", "external-interaction"),
-            input_source: env_value("MINERAL_PERF_INPUT_SOURCE", "Wayland seat"),
-            exercise_resize: env_flag("MINERAL_PERF_RESIZE"),
+            label: env_value("TACHYON_PERF_LABEL", "unnamed"),
+            scenario: env_value("TACHYON_PERF_SCENARIO", "external-interaction"),
+            input_source: env_value("TACHYON_PERF_INPUT_SOURCE", "Wayland seat"),
+            exercise_resize: env_flag("TACHYON_PERF_RESIZE"),
         }))
     }
 
@@ -74,10 +74,10 @@ pub struct StartupConfig {
 
 impl StartupConfig {
     pub fn from_env() -> Option<Self> {
-        env::var_os("MINERAL_STARTUP_OUTPUT").map(|output| Self {
+        env::var_os("TACHYON_STARTUP_OUTPUT").map(|output| Self {
             output: PathBuf::from(output),
-            label: env_value("MINERAL_STARTUP_LABEL", "unnamed"),
-            cache_state: env_value("MINERAL_STARTUP_CACHE_STATE", "unspecified"),
+            label: env_value("TACHYON_STARTUP_LABEL", "unnamed"),
+            cache_state: env_value("TACHYON_STARTUP_CACHE_STATE", "unspecified"),
             reuses_render_process: false,
         })
     }

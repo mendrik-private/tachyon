@@ -931,12 +931,12 @@ mod tests {
                         assert_eq!(editor.document.snapshot().revision(), snapshot.revision());
                         assert!(
                             !editor
-                                .html_selection_chrome(a, MineralPalette::LIGHT, true)
+                                .html_selection_chrome(a, TachyonPalette::LIGHT, true)
                                 .is_empty()
                         );
                         assert!(
                             !editor
-                                .html_selection_chrome(b, MineralPalette::LIGHT, true)
+                                .html_selection_chrome(b, TachyonPalette::LIGHT, true)
                                 .is_empty()
                         );
                         let selected = selection

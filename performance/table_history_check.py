@@ -30,7 +30,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
         return json.loads(result.stdout)["nodes"]
 
     def state():
-        prefix = "MINERAL_RESIZE_STATE "
+        prefix = "TACHYON_RESIZE_STATE "
         count = len(prefixed_records(log_path.read_bytes(), prefix))
         key(66)
         deadline = time.monotonic() + 5
@@ -68,7 +68,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
     for command in ("Insert row above", "Delete row"):
         slug = command.lower().replace(" ", "-")
         marker = "Collects unresolved questions"
-        subprocess.run(["wl-copy", "--seat", "mineral-test", "--type", "text/plain"],
+        subprocess.run(["wl-copy", "--seat", "tachyon-test", "--type", "text/plain"],
                        input=marker, text=True, env=env, check=True, timeout=5)
         key(33, control=True)
         time.sleep(.1)

@@ -65,7 +65,7 @@ payload policy; broader A13 interoperability remains separate and open.
 
 Clipboard export shares the bounded HTML allowlist but is distinct from the
 renderer projection: safe link URLs, relative image references and authored IDs
-are exported as HTML attributes, not private `data-mineral-*` descriptors.
+are exported as HTML attributes, not private `data-tachyon-*` descriptors.
 Event handlers, active content and inline CSS are excluded. The latter cannot
 rely on the app's denying resource provider once copied to another application.
 No incoming foreign HTML or X11 clipboard behavior is claimed.
@@ -81,10 +81,10 @@ paragraph. The converter now starts the nested marker on its own line before
 parent indentation. A failing-before regression proves separate parent, nested
 and sibling leaves survive conversion.
 
-`/tmp/mineral-html-mime-export-check.log`: 790 tests pass, two existing ignored;
+`/tmp/tachyon-html-mime-export-check.log`: 790 tests pass, two existing ignored;
 locked checks, formatting, strict Clippy, adapter suites and doctests pass.
 The separate actual Wayland MIME dispatch unit test passes
-(`/tmp/mineral-html-mime-platform-test.log`). Harness parser tests: 23 pass;
+(`/tmp/tachyon-html-mime-platform-test.log`). Harness parser tests: 23 pass;
 find-control oracle tests: four pass. Core tests cover reversed selections,
 partial bold text, links, nested text, immutable source/revision/selection/undo,
 and safe export without renderer descriptors or active attributes.
@@ -131,7 +131,7 @@ Temporary `[DEBUG-html-clip]` probes were removed.
 
 `scripts/check.sh` passes 791 tests with two existing ignored, including locked
 checks, formatting, strict Clippy, adapter suites and doctests
-(`/tmp/mineral-html-clip-check.log`). The native helper now tests ten clipboard
+(`/tmp/tachyon-html-clip-check.log`). The native helper now tests ten clipboard
 cases including forward/reversed `Other`, then replaces that formerly clipped
 item and checks exact saved Markdown and one-step source restoration.
 
@@ -176,7 +176,7 @@ checks exact saved Markdown and byte-identical original HTML after one Undo.
 
 Final qualification: `scripts/check.sh` passes 795 tests, with two existing
 ignored tests, plus formatting, locked checks, strict Clippy, adapter suites and
-doctests (`/tmp/mineral-html-cross-final-check.log`). Harness parser tests: 23
+doctests (`/tmp/tachyon-html-cross-final-check.log`). Harness parser tests: 23
 pass; find-control oracle tests: four pass. Python compilation and diff whitespace
 checks pass.
 

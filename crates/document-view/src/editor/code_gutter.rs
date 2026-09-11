@@ -107,7 +107,7 @@ pub(super) fn paint(
     text_bounds: Bounds<Pixels>,
     offset: f32,
     zoom: f32,
-    palette: MineralPalette,
+    palette: TachyonPalette,
     window: &mut Window,
 ) -> Option<(PaintedLine, MaskedQuad)> {
     let code = spec.code_line.filter(|c| c.width > 0. && !c.strip)?;
@@ -136,7 +136,7 @@ pub(super) fn paint(
         px(spec.style.font_size),
         &[TextRun {
             len,
-            font: gpui::font("Spline Sans Mono Mineral"),
+            font: gpui::font("Spline Sans Mono Tachyon"),
             color: rgb(palette.secondary).into(),
             background_color: None,
             underline: None,
@@ -242,7 +242,7 @@ mod tests {
                     let mask = line.content_mask.unwrap().bounds;
                     let old_offset = editor.horizontal_scrolls.get(&owner).copied().unwrap_or(0.);
                     let palette = code_palette(
-                        MineralPalette::LIGHT,
+                        TachyonPalette::LIGHT,
                         editor.projection.block(owner).unwrap(),
                     );
                     let (number, rail) =
@@ -372,7 +372,7 @@ mod tests {
     #[gpui::test]
     fn multiline_code_reserves_a_number_rail(cx: &mut gpui::TestAppContext) {
         cx.update(crate::init_editor);
-        let source = "```yaml\napp:\n  name: mineral\n  enabled: true\n  port: 8080\n```\n";
+        let source = "```yaml\napp:\n  name: tachyon\n  enabled: true\n  port: 8080\n```\n";
         let (editor, cx) = cx.add_window_view(|window, cx| {
             RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
         });

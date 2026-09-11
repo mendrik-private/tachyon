@@ -48,8 +48,8 @@ impl BlockFormula {
 
 pub(crate) fn prepare_block(block: &BlockNode, source_visible: bool) -> Option<Arc<BlockFormula>> {
     Some(Arc::new(BlockFormula {
-        light: block_preview(block, crate::MineralPalette::LIGHT.text)?,
-        dark: block_preview(block, crate::MineralPalette::for_dark(true).text)?,
+        light: block_preview(block, crate::TachyonPalette::LIGHT.text)?,
+        dark: block_preview(block, crate::TachyonPalette::for_dark(true).text)?,
         source_visible,
     }))
 }

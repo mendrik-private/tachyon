@@ -154,7 +154,7 @@ mod tests {
                                     && (quad.bounds.size.height.as_f32() - f32::from(line.bounds.size.height) * scale).abs() < 0.01
                                     && quad.bounds.size.width.as_f32() > 10.
                             }).unwrap().background.as_solid().unwrap();
-                            let runs = styled_runs(editor, &line.range, line.range.len(), &window.text_style(), false, MineralPalette::for_dark(dark));
+                            let runs = styled_runs(editor, &line.range, line.range.len(), &window.text_style(), false, TachyonPalette::for_dark(dark));
                             assert!(runs.len() >= 3, "exercise syntax categories, not only plain text");
                             for run in runs {
                                 assert!(contrast(run.color, fill) >= 4.5,
@@ -231,7 +231,7 @@ mod tests {
                     line.range.len(),
                     &window.text_style(),
                     false,
-                    MineralPalette::LIGHT,
+                    TachyonPalette::LIGHT,
                 ) {
                     assert!(
                         contrast(run.color, fill) >= 4.5,
@@ -250,7 +250,7 @@ mod tests {
             let document = Document::from_markdown("```sh\npwd\n```\n").unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let lines = build_visual_lines_for_segment(
                 &projection,
                 &projection.segments()[0],
@@ -275,7 +275,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Mineral".into(),
+                    "Spline Sans Tachyon".into(),
                     zoom,
                 );
                 for (source, width, strip) in [
@@ -343,7 +343,7 @@ mod tests {
             let document = Document::from_markdown(source.as_str()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = arrangement::build_edit_locked_adaptive_plan(
                 &projection,
                 760.,
@@ -454,8 +454,8 @@ mod tests {
         });
     }
 
-    const SOURCE: &str = "# Before\n\n```yaml\napp:\n  name: mineral\n  enabled: true\n  port: 8080\n```\n\nAfter.\n";
-    const PAYLOAD: &str = "app:\n  name: mineral\n  enabled: true\n  port: 8080\n";
+    const SOURCE: &str = "# Before\n\n```yaml\napp:\n  name: tachyon\n  enabled: true\n  port: 8080\n```\n\nAfter.\n";
+    const PAYLOAD: &str = "app:\n  name: tachyon\n  enabled: true\n  port: 8080\n";
 
     fn code_segment(editor: &RichDocumentEditor) -> crate::ProjectionSegment {
         editor
@@ -678,7 +678,7 @@ mod tests {
                     let view = prepare(&editor.measurement, published.take());
                     let fresh = FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Mineral".into(),
+                        "Spline Sans Tachyon".into(),
                         1.,
                     );
                     let oracle = prepare(&fresh, None);

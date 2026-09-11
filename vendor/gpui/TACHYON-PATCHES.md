@@ -15,7 +15,7 @@ identical dependency edges and features when only GPUI's source location is
 normalized. The normalized graph SHA-256 is
 `3249e38f00c9f63295c6baaebe90a9e63c4689c3c228c05a774add0f447a1b0a`.
 
-This package now contains Mineral's retained-accessibility implementation from
+This package now contains Tachyon's retained-accessibility implementation from
 `performance/RETAINED-ACCESSIBILITY-PLAN.md`. It remains excluded from ordinary
 workspace lint/test ownership; the focused production harness under
 `performance/a11y-publication-tests` compiles these exact sources and exercises
@@ -73,7 +73,7 @@ unit suite remains outside workspace ownership.
 
 `StatefulInteractiveElement::aria_disabled` carries the standard disabled flag
 through `AriaProperties` to the AccessKit node. It is metadata only; callers
-must still suppress input. Mineral's `ButtonAccessibilityExt::accessible_disabled`
+must still suppress input. Tachyon's `ButtonAccessibilityExt::accessible_disabled`
 sets both toolkit interaction state and this flag on the existing button node.
 Native title-bar zoom-limit tests verify the end-to-end AT-SPI state and ignored
 pointer activation. The AT-SPI adapter also needs the companion disabled-state

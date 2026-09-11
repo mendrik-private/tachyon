@@ -34,7 +34,7 @@ impl RichDocumentEditor {
     ) {
         self.reflow.native_fault = Some(Fault::Panic);
         self.request_layout_trace(&InspectLayout, window, cx);
-        eprintln!("MINERAL_LAYOUT_VALIDATION armed-panic");
+        eprintln!("TACHYON_LAYOUT_VALIDATION armed-panic");
     }
 
     pub(super) fn arm_planner_timeout(
@@ -45,6 +45,6 @@ impl RichDocumentEditor {
     ) {
         self.reflow.native_fault = Some(Fault::Timeout);
         self.request_layout_trace(&InspectLayout, window, cx);
-        eprintln!("MINERAL_LAYOUT_VALIDATION armed-timeout");
+        eprintln!("TACHYON_LAYOUT_VALIDATION armed-timeout");
     }
 }

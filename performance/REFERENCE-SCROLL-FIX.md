@@ -60,7 +60,7 @@ of CPU samples. The first candidate profile is retained beside the baseline.
    boundary; build an ID lookup only for reordered/topology-changing entries.
    Publish only changed nodes, preserving all retained descendants and actions.
    Activation/reconnection forces a complete baseline under AccessKit's shared
-   adapter lock. See `vendor/gpui_linux/README.mineral.md` for the dependency
+   adapter lock. See `vendor/gpui_linux/README.tachyon.md` for the dependency
    contract and actual-consumer regression suite. This is not the broader
    retained-GPUI-subtree API: frontend assembly/debug copies remain.
 2. Coalesce viewport planning requests into aligned batches of 16 existing

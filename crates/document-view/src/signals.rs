@@ -1,6 +1,6 @@
 //! Literal document signals. Recognition runs at projection publication, not
 //! during scrolling. Labels, classification and color values are never invented.
-use crate::{MineralPalette, ProjectionSegment, TextProjection};
+use crate::{ProjectionSegment, TachyonPalette, TextProjection};
 use document_core::{BlockNode, InlineStyle, NodeId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -13,7 +13,7 @@ pub(crate) enum Tone {
 }
 
 impl Tone {
-    pub fn style(self, palette: MineralPalette) -> crate::theme::SignalStyle {
+    pub fn style(self, palette: TachyonPalette) -> crate::theme::SignalStyle {
         use document_core::AlertKind;
         match self {
             Self::Neutral => crate::theme::SignalStyle {

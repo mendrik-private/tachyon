@@ -52,7 +52,7 @@ Final release SHA-256:
 Fixture 71 SHA-256:
 `908c1a6138849af4761825f7841f3b6c9ba047ece567a4335191272c22611420`.
 The isolated immutable binary is
-`/tmp/mineral-bibliography-weston.OzzaiY/tachyon-final`.
+`/tmp/tachyon-bibliography-weston.OzzaiY/tachyon-final`.
 
 The final screenshots were opened and visually inspected:
 
@@ -103,7 +103,7 @@ feature-label font leak also has a failing-before/passing-after regression.
 10,485,760 bytes of generated mixed Markdown, native bidirectional continuous
 input, isolated Weston 14 GL at 1600×1200/120 Hz, five seconds warmup and
 60.020 seconds observed duration. Accessibility was inactive. No repository
-build or other Mineral capture was running during this benchmark.
+build or other Tachyon capture was running during this benchmark.
 
 The >60 fps gate passes at **107.20 presented fps average**, with draw p99
 **9.85 ms** and presentation p99 **13.41 ms**. This is not a claim of every-frame

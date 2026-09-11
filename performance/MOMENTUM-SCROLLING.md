@@ -57,8 +57,8 @@ isolated-compositor result, not a measurement on the user's physical display.
 Reproduce with `performance/wayland-harness/build.sh`, then:
 
 ```sh
-python3 performance/capture-layout.py --fixture 02-list-arrangements.md --coast-check continuous --output /tmp/mineral-continuous.png
-python3 performance/capture-layout.py --fixture 02-list-arrangements.md --coast-check wheel --output /tmp/mineral-wheel.png
+python3 performance/capture-layout.py --fixture 02-list-arrangements.md --coast-check continuous --output /tmp/tachyon-continuous.png
+python3 performance/capture-layout.py --fixture 02-list-arrangements.md --coast-check wheel --output /tmp/tachyon-wheel.png
 ```
 
 ## Performance

@@ -18,8 +18,8 @@ use std::{
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender, unbounded};
 use serde::{Deserialize, Serialize};
 
-const MODE_ENV: &str = "MINERAL_INSTANCE_MODE";
-const SOCKET_ENV: &str = "MINERAL_INSTANCE_SOCKET";
+const MODE_ENV: &str = "TACHYON_INSTANCE_MODE";
+const SOCKET_ENV: &str = "TACHYON_INSTANCE_SOCKET";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum LaunchMode {
@@ -139,7 +139,7 @@ impl Server {
         let thread_stop = stop.clone();
         let thread_socket = socket.clone();
         let thread = thread::Builder::new()
-            .name("mineral-instance-listener".into())
+            .name("tachyon-instance-listener".into())
             .spawn(move || listen(listener, sender, thread_stop, &thread_socket))
             .map_err(|error| format!("could not start instance listener: {error}"))?;
         Ok(Self {
@@ -281,7 +281,7 @@ mod tests {
 
     fn isolated_path(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "mineral-instance-{label}-{}-{}.sock",
+            "tachyon-instance-{label}-{}-{}.sock",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

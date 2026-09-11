@@ -40,7 +40,7 @@ No bidi-specific layout, selection model or alternate hit geometry was added.
 - Directional-collapse filter: 1 passed.
 - `scripts/check.sh`: formatting, locked checks, strict Clippy, 839 Rust tests,
   adapter tests and doctests passed; 2 existing native-font tests were ignored.
-  Log: `/tmp/mineral-rtl-ime-selection-check.log`.
+  Log: `/tmp/tachyon-rtl-ime-selection-check.log`.
 - `git diff --check` passed.
 
 Native compositor/system-IME injection, cross-process candidate-popup

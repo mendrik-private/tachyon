@@ -31,7 +31,7 @@ their event. Dated lists inside another list are deliberately not enabled here.
 Fixture `layout-fixtures/120-enclosed-timelines.md` has SHA-256
 `6cea77a62ea39cc93151a39ce902e3f67840f3453731729295908ea0d9927f89`.
 The immutable final layout-validation binary is
-`/tmp/mineral-enclosed.UXxF6s/mineral-published`, SHA-256
+`/tmp/tachyon-enclosed.UXxF6s/tachyon-published`, SHA-256
 `88379c6be9d7b5b2feff8a38ad91c7fce3111da83976a8a049d0ff12fec18a7e`.
 
 Two new Rust regressions cover enclosed recognition, wide/narrow geometry at
@@ -43,7 +43,7 @@ was added. Mock shaping does not establish native glyph fit.
 
 `scripts/check.sh` passes formatting, locked all-target checking, strict Clippy,
 workspace tests, adapter tests and doctests: **762 passing Rust tests**, two
-existing ignored tests. Log: `/tmp/mineral-enclosed-check-final.log`.
+existing ignored tests. Log: `/tmp/tachyon-enclosed-check-final.log`.
 All 23 resize-harness and 19 capture-harness Python tests also pass; final
 `cargo fmt --all -- --check` and `git diff --check` pass.
 
@@ -85,7 +85,7 @@ attempt expected an unescaped terminal period; the source serializer correctly
 escaped that punctuation only in the edited paragraph. The final whole-file
 golden explicitly includes that escape and still requires every unrelated byte
 to remain untouched. The failed initial attempt is not counted as a pass.
-Log: `/tmp/mineral-enclosed-native-edits-verified.log`.
+Log: `/tmp/tachyon-enclosed-native-edits-verified.log`.
 
 `enclosed-timeline-rich-resize-control` exercises the existing full fixture119
 body at 200%, shrinking and restoring window width during editing. All checks

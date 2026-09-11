@@ -1,11 +1,11 @@
 ---
-title: Mineral visual system
+title: Tachyon visual system
 status: release fixture
 ---
 
 # A decade of notes, still legible at depth
 
-Mineral keeps **important ideas**, *quiet context*, ~~discarded guesses~~, `inline code`, and a [local link](#tables-and-structure) in one editable surface. H₂O, café, العربية, 日本語, and 👩🏽‍💻 exercise real shaping.
+Tachyon keeps **important ideas**, *quiet context*, ~~discarded guesses~~, `inline code`, and a [local link](#tables-and-structure) in one editable surface. H₂O, café, العربية, 日本語, and 👩🏽‍💻 exercise real shaping.
 
 > A block quote should remain calm, readable, and clearly distinct from the body without becoming a decorative card.
 
@@ -40,7 +40,7 @@ pub fn stable_anchor(node: NodeId, offset: f32) -> ScrollAnchor {
 
 ### Image lifecycle
 
-![Layered mineral strata](visual-assets/mineral-strata.svg "Local fixture image")
+![Layered tachyon strata](visual-assets/tachyon-strata.svg "Local fixture image")
 
 The image has local dimensions, alt text, and no network dependency.
 

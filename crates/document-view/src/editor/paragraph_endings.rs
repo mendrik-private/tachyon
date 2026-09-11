@@ -203,7 +203,7 @@ mod tests {
             native.context.metadata = true;
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
-                    cx.text_system().clone(), "Spline Sans Mineral".into(), zoom,
+                    cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom,
                 );
                 let witness = (300..700).find_map(|width| {
                     let lines = fonts.wrap(&projection, &native, segment.projection_range(), width as f32, 18.)?;

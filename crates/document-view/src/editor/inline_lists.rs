@@ -234,7 +234,7 @@ mod tests {
             for zoom in [1., 1.5, 2.] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Mineral".into(),
+                    "Spline Sans Tachyon".into(),
                     zoom,
                 );
                 for width in [360., 620., 1280.] {

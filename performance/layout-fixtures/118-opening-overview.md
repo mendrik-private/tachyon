@@ -1,6 +1,6 @@
 # Tachyon
 
-Mineral is a native, Wayland-only Markdown editor written in Rust with GPUI. It
+Tachyon is a native, Wayland-only Markdown editor written in Rust with GPUI. It
 keeps Markdown rendered while it is edited: there is no source pane, preview
 mode, account, or cloud service.
 
@@ -13,7 +13,7 @@ fonts make rendering independent of the host font set.
 
 ## Build and run
 
-Mineral requires Linux with a Wayland compositor, a Vulkan-capable graphics
+Tachyon requires Linux with a Wayland compositor, a Vulkan-capable graphics
 stack, Rust 1.98, and the native development libraries used by GPUI. On
 Ubuntu, the relevant packages are:
 

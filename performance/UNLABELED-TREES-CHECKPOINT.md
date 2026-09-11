@@ -65,7 +65,7 @@ structural changes retain the semantic serializer fallback; no edit is discarded
   single-line introductions, not arbitrary multi-paragraph or structural input.
 - `scripts/check.sh` passes format, locked all-target checks, strict Clippy,
   workspace tests and doctests: 708 passed, two existing ignored tests.
-  Log: `/tmp/mineral-unlabeled-check.log`. `git diff --check` is clean.
+  Log: `/tmp/tachyon-unlabeled-check.log`. `git diff --check` is clean.
 - The UX skill informed readable hierarchy without generated content; the Rust
   and diagnosis skills informed canonical caret ownership and failing regression
   tests at the import, measured-layout and exact-save boundaries.

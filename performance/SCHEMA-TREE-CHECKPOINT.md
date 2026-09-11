@@ -88,7 +88,7 @@ The first section's stack measured 808.5px before the composition correction.
 - `scripts/check.sh` exits 0: formatting, pinned/locked checks, strict Clippy,
   482 view tests (two ignored), 116 core, 25 source-fidelity, 11 tree-selection,
   one external-link, 39 app tests and doctests. Log:
-  `/tmp/mineral-schema-final-qualified-check.log`. Additional parser boundary
+  `/tmp/tachyon-schema-final-qualified-check.log`. Additional parser boundary
   assertions were added afterwards and are checked separately.
 - Crusty contexts `ctx_753cf926e44f` and `ctx_95d1fb939fbf`, validations
   `task_77d0cfa366542fca` and `task_b0a9204e47f069fa`: 36 existing advisory findings,

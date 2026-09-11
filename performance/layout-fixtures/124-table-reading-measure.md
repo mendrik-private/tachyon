@@ -2,7 +2,7 @@
 
 A wide comparison keeps its authored column widths while long descriptions remain comfortable to read.
 
-<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[240,1200]} -->
+<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[240,1200]} -->
 | Component | Appearance and behavior |
 | --- | --- |
 | Paragraphs and headings | One shared text engine. Formatting changes preserve the selection and scroll anchor. Heading changes immediately update the outline. |

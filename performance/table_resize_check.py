@@ -7,7 +7,7 @@ import subprocess
 import time
 
 
-METADATA = re.compile(rb"<!-- mineral-table:v1 (.*?) -->")
+METADATA = re.compile(rb"<!-- tachyon-table:v1 (.*?) -->")
 
 
 def check_width_edit(original, edited, width):

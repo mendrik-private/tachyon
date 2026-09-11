@@ -35,9 +35,9 @@ The unchanged fixture76 regression failed first because the desired complete
 pair was absent. A sharper candidate assertion failed before measurement:
 this distinguished exclusion from failed native fit or an unfavorable score.
 Removing the technical exclusion makes both candidate and selected-layout
-assertions pass. Logs: `/tmp/mineral-technical-partitions-red.log`,
-`/tmp/mineral-technical-partitions-candidate-red.log`, and
-`/tmp/mineral-technical-partitions-green.log`. The native fixture was retained
+assertions pass. Logs: `/tmp/tachyon-technical-partitions-red.log`,
+`/tmp/tachyon-technical-partitions-candidate-red.log`, and
+`/tmp/tachyon-technical-partitions-green.log`. The native fixture was retained
 whole to verify its preceding wide table and following prose, not just an
 isolated pair divorced from the triggering sibling context.
 
@@ -56,7 +56,7 @@ Three new tests cover:
 The existing nontechnical matched-three-card wide/narrow/recovery test still
 passes. `scripts/check.sh` passes formatting, all-target checks, strict Clippy,
 **726 Rust tests (two existing ignored)** and doctests. Final log:
-`/tmp/mineral-technical-partitions-check.log`. `git diff --check` is clean.
+`/tmp/tachyon-technical-partitions-check.log`. `git diff --check` is clean.
 
 ## Native evidence
 

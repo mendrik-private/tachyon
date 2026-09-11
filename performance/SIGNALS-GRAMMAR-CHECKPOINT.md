@@ -92,7 +92,7 @@ the status registry. It passes swatch checks but fails the subsequently added
 metadata-strip and complete-pill checks; those captures are not sign-off.
 Final release SHA-256:
 `e8110201343775eb6b7c482697879b131d9bd2a87324c9e9c71a75eb10af65c5`.
-Immutable binary: `/tmp/mineral-signals-weston.Zhqmoe/tachyon-final`.
+Immutable binary: `/tmp/tachyon-signals-weston.Zhqmoe/tachyon-final`.
 The optimized build completed successfully in 2m32s; see
 `layout-previews/signals-grammar-build-complete.log`.
 

@@ -11,16 +11,16 @@ pub(super) fn context() -> FontContext {
     FONTS
         .get_or_init(|| {
             let mut fonts = build_single_font_ctx(include_bytes!(
-                "../../../../assets/fonts/SplineSans-Mineral-Regular.ttf"
+                "../../../../assets/fonts/SplineSans-Tachyon-Regular.ttf"
             ));
             for bytes in [
-                include_bytes!("../../../../assets/fonts/SplineSans-Mineral-Semibold.ttf")
+                include_bytes!("../../../../assets/fonts/SplineSans-Tachyon-Semibold.ttf")
                     .as_slice(),
-                include_bytes!("../../../../assets/fonts/SplineSans-Mineral-Oblique.ttf")
+                include_bytes!("../../../../assets/fonts/SplineSans-Tachyon-Oblique.ttf")
                     .as_slice(),
-                include_bytes!("../../../../assets/fonts/SplineSans-Mineral-SemiboldOblique.ttf")
+                include_bytes!("../../../../assets/fonts/SplineSans-Tachyon-SemiboldOblique.ttf")
                     .as_slice(),
-                include_bytes!("../../../../assets/fonts/SplineSansMono-Mineral-Regular.ttf")
+                include_bytes!("../../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf")
                     .as_slice(),
                 blitz_dom::BULLET_FONT,
             ] {
@@ -43,7 +43,7 @@ mod tests {
     fn preview_contexts_reuse_registered_bundled_font_sources() {
         let mut first = context();
         let mut second = context();
-        for name in ["Spline Sans Mineral", "Spline Sans Mono Mineral"] {
+        for name in ["Spline Sans Tachyon", "Spline Sans Mono Tachyon"] {
             let a = first.collection.family_by_name(name).unwrap();
             let b = second.collection.family_by_name(name).unwrap();
             assert_eq!(

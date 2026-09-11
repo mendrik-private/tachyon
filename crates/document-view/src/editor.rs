@@ -37,8 +37,8 @@ use crate::adaptive::{
 };
 use crate::theme::DocumentStyle;
 use crate::{
-    ButtonAccessibilityExt as _, MineralPalette, Minimap, MinimapAlertTone, MinimapCodeTone,
-    SharedDocumentSession, TextProjection,
+    ButtonAccessibilityExt as _, Minimap, MinimapAlertTone, MinimapCodeTone, SharedDocumentSession,
+    TachyonPalette, TextProjection,
     minimap::{MinimapSourceKind, MinimapSourceLine},
 };
 
@@ -109,7 +109,7 @@ fn editor_button(
     id: &'static str,
     icon: &'static str,
     label: &'static str,
-    palette: MineralPalette,
+    palette: TachyonPalette,
     cx: &App,
 ) -> Button {
     Button::new(id)
@@ -120,7 +120,7 @@ fn editor_button(
                 .hover(rgb(palette.selection).into())
                 .active(rgb(palette.border).into()),
         )
-        .icon(Icon::default().path(format!("mineral/{icon}.svg")))
+        .icon(Icon::default().path(format!("tachyon/{icon}.svg")))
         .accessible_name(label.split(" — ").next().unwrap_or(label))
         .tooltip(label)
 }
@@ -1180,7 +1180,7 @@ struct ShapeCacheInput<'a> {
     segment: Option<&'a crate::ProjectionSegment>,
     range: &'a Range<usize>,
     runs: &'a [TextRun],
-    palette: MineralPalette,
+    palette: TachyonPalette,
     font_size: f32,
     width: f32,
     scale: f32,
@@ -2010,9 +2010,9 @@ impl RichDocumentEditor {
                 }
                 #[cfg(feature = "layout-validation")]
                 if let Some(hold) = native_hold {
-                    eprintln!("MINERAL_LAYOUT_VALIDATION holding-timeout");
+                    eprintln!("TACHYON_LAYOUT_VALIDATION holding-timeout");
                     hold.await;
-                    eprintln!("MINERAL_LAYOUT_VALIDATION released-timeout");
+                    eprintln!("TACHYON_LAYOUT_VALIDATION released-timeout");
                 }
                 outcome
             });
@@ -2040,7 +2040,7 @@ impl RichDocumentEditor {
                 if !this.reflow.finish(ticket, outcome.as_ref().err().copied()) {
                     #[cfg(feature = "layout-validation")]
                     if native_fault == Some(validation::Fault::Timeout) {
-                        eprintln!("MINERAL_LAYOUT_VALIDATION discarded-late-result");
+                        eprintln!("TACHYON_LAYOUT_VALIDATION discarded-late-result");
                     }
                     cx.notify();
                     return;
@@ -4878,7 +4878,7 @@ impl RichDocumentEditor {
                 edge,
                 cell,
                 self.zoom_factor,
-                MineralPalette::for_dark(cx.theme().is_dark()).accent,
+                TachyonPalette::for_dark(cx.theme().is_dark()).accent,
             )
         })
         .collect()
@@ -5846,7 +5846,7 @@ impl gpui::Render for RichDocumentEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.update_find(window, cx);
         self.sync_layout_focus(window, cx);
-        let palette = MineralPalette::for_dark(cx.theme().is_dark());
+        let palette = TachyonPalette::for_dark(cx.theme().is_dark());
         if !self
             .measurement
             .matches(&cx.theme().font_family, self.zoom_factor)
@@ -6297,7 +6297,7 @@ impl gpui::Render for RichDocumentEditor {
                         .items_center()
                         .gap(px(9. * self.zoom_factor))
                         .text_size(px(18. * self.zoom_factor))
-                        .font_family("Fraunces Mineral H3")
+                        .font_family("Fraunces Tachyon H3")
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(rgb(color))
                         .child(
@@ -6538,7 +6538,7 @@ impl gpui::Render for RichDocumentEditor {
                             } * self.zoom_factor))
                             .flex()
                             .items_center()
-                            .font_family("Spline Sans Mono Mineral")
+                            .font_family("Spline Sans Mono Tachyon")
                             .text_size(px(DocumentStyle::CAPTION_SIZE * self.zoom_factor))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(rgb(code_colors.secondary))
@@ -7396,7 +7396,7 @@ fn table_edge_control(
 }
 
 impl PaintedCheckbox {
-    fn paint(&self, palette: MineralPalette, window: &mut Window, cx: &App) {
+    fn paint(&self, palette: TachyonPalette, window: &mut Window, cx: &App) {
         let zoom = f32::from(self.bounds.size.width) / 18.;
         let radius = px(4. * zoom);
         window.with_content_mask(self.content_mask, |window| {
@@ -7517,7 +7517,7 @@ impl Element for DocumentTextElement {
         cx: &mut App,
     ) -> Self::PrepaintState {
         let editor = self.editor.read(cx);
-        let palette = MineralPalette::for_dark(cx.theme().is_dark());
+        let palette = TachyonPalette::for_dark(cx.theme().is_dark());
         let text = editor.projection.text();
         let selected = if let Some(selection) = &editor.html_selection {
             selection
@@ -8250,7 +8250,7 @@ impl Element for DocumentTextElement {
                                 if segment.context.table_header {
                                     rgb(palette.surface_quiet)
                                 } else {
-                                    rgba(MineralPalette::with_alpha(palette.surface, 0x70))
+                                    rgba(TachyonPalette::with_alpha(palette.surface, 0x70))
                                 },
                             ),
                             content_mask: Some(cell_mask),
@@ -8394,7 +8394,7 @@ impl Element for DocumentTextElement {
                             font.family = "Liberation Serif".into();
                         }
                         if numbered_tile {
-                            font.family = "Fraunces Mineral H2".into();
+                            font.family = "Fraunces Tachyon H2".into();
                             font.weight = FontWeight::SEMIBOLD;
                         }
                         let marker_layout = window.text_system().shape_line(
@@ -8727,7 +8727,7 @@ impl Element for DocumentTextElement {
                 );
             });
         }
-        let palette = MineralPalette::for_dark(cx.theme().is_dark());
+        let palette = TachyonPalette::for_dark(cx.theme().is_dark());
         for icon in &state.resource_icons {
             let _ = window.paint_svg(
                 *icon,
@@ -11049,22 +11049,22 @@ fn visual_component_bounds(
     })
 }
 
-fn alert_color(palette: MineralPalette, kind: &AlertKind) -> u32 {
+fn alert_color(palette: TachyonPalette, kind: &AlertKind) -> u32 {
     palette.signal(kind).ink
 }
 
 fn alert_icon(kind: &AlertKind) -> Icon {
     match kind {
         AlertKind::Note => Icon::new(IconName::Info),
-        AlertKind::Tip => Icon::default().path("mineral/lightbulb.svg"),
-        AlertKind::Important => Icon::default().path("mineral/flag.svg"),
+        AlertKind::Tip => Icon::default().path("tachyon/lightbulb.svg"),
+        AlertKind::Important => Icon::default().path("tachyon/flag.svg"),
         AlertKind::Warning => Icon::new(IconName::TriangleAlert),
         AlertKind::Caution => Icon::new(IconName::CircleX),
         AlertKind::Other(_) => Icon::new(IconName::Info),
     }
 }
 
-fn code_palette(mut palette: MineralPalette, block: &BlockNode) -> MineralPalette {
+fn code_palette(mut palette: TachyonPalette, block: &BlockNode) -> TachyonPalette {
     let BlockNode::CodeBlock(code) = block else {
         return palette;
     };
@@ -12290,7 +12290,7 @@ fn styled_runs(
     line_len: usize,
     text_style: &gpui::TextStyle,
     placeholder: bool,
-    palette: MineralPalette,
+    palette: TachyonPalette,
 ) -> Vec<TextRun> {
     styled_projection_runs(
         &editor.projection,
@@ -12308,7 +12308,7 @@ fn styled_projection_runs(
     line_len: usize,
     text_style: &gpui::TextStyle,
     placeholder: bool,
-    palette: MineralPalette,
+    palette: TachyonPalette,
 ) -> Vec<TextRun> {
     // Atomic rendered objects still own their complete source range, but the
     // native shaper receives no text. In particular, code highlighting must
@@ -12328,7 +12328,7 @@ fn styled_projection_runs(
             len: line_len,
             font: base_font,
             color: if placeholder {
-                rgba(MineralPalette::with_alpha(palette.secondary, 0x80)).into()
+                rgba(TachyonPalette::with_alpha(palette.secondary, 0x80)).into()
             } else {
                 base_color
             },
@@ -12351,30 +12351,30 @@ fn styled_projection_runs(
         }
     }
     if segment.context.quote_attribution || segment.context.margin_note_anchor.is_some() {
-        base_font.family = "Spline Sans Mineral".into();
+        base_font.family = "Spline Sans Tachyon".into();
         base_font.style = FontStyle::Normal;
         base_color = rgb(palette.secondary).into();
     }
     if segment.context.figure_text.is_some() {
-        base_font.family = "Spline Sans Mineral".into();
+        base_font.family = "Spline Sans Tachyon".into();
         base_color = rgb(palette.secondary).into();
     }
     match block {
         BlockNode::Heading(heading) => {
             base_font.family = match heading.level {
-                1 => "Fraunces Mineral H1",
-                2 => "Fraunces Mineral H2",
-                _ => "Fraunces Mineral H3",
+                1 => "Fraunces Tachyon H1",
+                2 => "Fraunces Tachyon H2",
+                _ => "Fraunces Tachyon H3",
             }
             .into();
             base_font.weight = FontWeight::SEMIBOLD;
             base_color = rgb(palette.heading).into();
         }
         BlockNode::CodeBlock(_) => {
-            base_font.family = "Spline Sans Mono Mineral".into();
+            base_font.family = "Spline Sans Mono Tachyon".into();
         }
         BlockNode::PreservedSource { .. } => {
-            base_font.family = "Spline Sans Mono Mineral".into();
+            base_font.family = "Spline Sans Mono Tachyon".into();
             base_color = rgb(palette.secondary).into();
             base_background = Some(rgb(palette.surface).into());
         }
@@ -12387,16 +12387,16 @@ fn styled_projection_runs(
         match role {
             crate::metrics::TextRole::Label | crate::metrics::TextRole::Value => {
                 base_font.family = if role == crate::metrics::TextRole::Value {
-                    "Fraunces Mineral H1"
+                    "Fraunces Tachyon H1"
                 } else {
-                    "Fraunces Mineral H3"
+                    "Fraunces Tachyon H3"
                 }
                 .into();
                 base_font.weight = FontWeight::SEMIBOLD;
                 base_color = rgb(palette.heading).into();
             }
             crate::metrics::TextRole::Context => {
-                base_font.family = "Spline Sans Mineral".into();
+                base_font.family = "Spline Sans Tachyon".into();
                 base_color = rgb(palette.secondary).into();
             }
         }
@@ -12413,9 +12413,9 @@ fn styled_projection_runs(
     if let Some(role) = segment.context.color_role {
         use crate::signals::ColorRole;
         base_font.family = match role {
-            ColorRole::Label => "Fraunces Mineral H3",
-            ColorRole::Literal => "Spline Sans Mono Mineral",
-            ColorRole::Context => "Spline Sans Mineral",
+            ColorRole::Label => "Fraunces Tachyon H3",
+            ColorRole::Literal => "Spline Sans Mono Tachyon",
+            ColorRole::Context => "Spline Sans Tachyon",
         }
         .into();
         base_font.weight = if role == ColorRole::Label {
@@ -12537,7 +12537,7 @@ fn styled_projection_runs(
                 match style {
                     InlineStyle::Bold => font.weight = FontWeight::BOLD,
                     InlineStyle::Italic => {
-                        font.style = if font.family.as_ref() == "Spline Sans Mineral" {
+                        font.style = if font.family.as_ref() == "Spline Sans Tachyon" {
                             FontStyle::Oblique
                         } else {
                             FontStyle::Italic
@@ -12550,7 +12550,7 @@ fn styled_projection_runs(
                         });
                     }
                     InlineStyle::Code | InlineStyle::Math { .. } => {
-                        font.family = "Spline Sans Mono Mineral".into();
+                        font.family = "Spline Sans Mono Tachyon".into();
                         background_color = Some(rgb(palette.surface).into());
                     }
                     InlineStyle::Link(_) => {
@@ -12576,7 +12576,7 @@ fn styled_projection_runs(
                     color = rgb(palette.heading).into();
                 }
                 if !inline.styles.contains(&InlineStyle::Code) && !segment.context.metadata {
-                    font.family = "Fraunces Mineral H3".into();
+                    font.family = "Fraunces Tachyon H3".into();
                 }
             }
             if let Some(badge) = segment.context.badge
@@ -12622,7 +12622,7 @@ fn styled_projection_runs(
                 let mut number = run.clone();
                 number.len = length.min(prefix - offset);
                 number.color = rgb(palette.accent).into();
-                number.font.family = "Spline Sans Mineral".into();
+                number.font.family = "Spline Sans Tachyon".into();
                 number.font.weight = FontWeight::MEDIUM;
                 run.len -= number.len;
                 styled.push(number);
@@ -12641,7 +12641,7 @@ fn apply_marked_runs(
     runs: Vec<TextRun>,
     marked: Option<&Range<usize>>,
     line: &Range<usize>,
-    palette: MineralPalette,
+    palette: TachyonPalette,
 ) -> Vec<TextRun> {
     let Some(marked) = marked else {
         return runs;
@@ -12843,7 +12843,7 @@ mod tests {
             Bounds::new(point(px(10.), px(20.)), size(px(100.), px(40.))),
             TableBorder::default(),
             None,
-            MineralPalette::LIGHT.border,
+            TachyonPalette::LIGHT.border,
             TableRuleScale {
                 display: 1.,
                 zoom: 1.,
@@ -12870,7 +12870,7 @@ mod tests {
                         Bounds::new(point(px(10.), px(20.)), size(px(100.), px(40.))),
                         border,
                         None,
-                        MineralPalette::LIGHT.border,
+                        TachyonPalette::LIGHT.border,
                         TableRuleScale { display, zoom },
                         (false, false),
                     );
@@ -12906,7 +12906,7 @@ mod tests {
                 Some(ContentMask {
                     bounds: Bounds::new(point(px(9950.), px(top)), size(px(50.), px(100.))),
                 }),
-                MineralPalette::LIGHT.border,
+                TachyonPalette::LIGHT.border,
                 TableRuleScale {
                     display: 1.,
                     zoom: 1.,
@@ -13514,8 +13514,8 @@ mod tests {
                 );
                 let range = pending.range();
                 let node = pending.node;
-                assert!(editor.html_selection_chrome(node, MineralPalette::for_dark(false), false).is_empty());
-                assert_eq!(editor.html_selection_chrome(node, MineralPalette::for_dark(false), true).len(), 1);
+                assert!(editor.html_selection_chrome(node, TachyonPalette::for_dark(false), false).is_empty());
+                assert_eq!(editor.html_selection_chrome(node, TachyonPalette::for_dark(false), true).len(), 1);
                 editor.set_zoom_factor(1.5, cx);
                 editor.refresh_projection();
                 assert_eq!(editor.html_selection.as_ref().unwrap().range(), range);
@@ -13784,7 +13784,7 @@ mod tests {
         let source = "- **Dócument:** Read [the file](https://example.test).\n\n- **Owner**: Élodie\n\n### Decision: Local files\n\nOrdinary prose has a colon: still prose.\n\n`https://example.test`\n";
         let document = Document::from_markdown(source).unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        for palette in [MineralPalette::LIGHT, MineralPalette::DARK] {
+        for palette in [TachyonPalette::LIGHT, TachyonPalette::DARK] {
             let mut muted = 0;
             for segment in projection.segments() {
                 let range = segment.projection_range();
@@ -13827,7 +13827,7 @@ mod tests {
                 click_html_text(editor, 0, 12, window, cx);
                 editor.replace_and_mark_text_in_range(None, "´", None, window, cx);
                 assert!(editor.composition_active());
-                let palette = MineralPalette::for_dark(false);
+                let palette = TachyonPalette::for_dark(false);
                 for spec in editor.visual_lines.iter() {
                     let text = &editor.projection.text()[spec.projected_range()];
                     if text.is_empty() {
@@ -13867,7 +13867,7 @@ mod tests {
                     editor.zoom_factor = zoom;
                     editor.measurement = Arc::new(FontMeasurement::new(
                         cx.text_system().clone(),
-                        "Spline Sans Mineral".into(),
+                        "Spline Sans Tachyon".into(),
                         zoom,
                     ));
                     editor.measurement.measure_tables(&mut editor.projection);
@@ -14631,7 +14631,7 @@ mod tests {
                         editor.zoom_factor = zoom;
                         editor.measurement = Arc::new(FontMeasurement::new(
                             cx.text_system().clone(),
-                            "Spline Sans Mineral".into(),
+                            "Spline Sans Tachyon".into(),
                             zoom,
                         ));
                         editor.measurement.measure_tables(&mut editor.projection);
@@ -15065,7 +15065,7 @@ mod tests {
                 append_alert_chrome(
                     &mut chrome,
                     bounds,
-                    MineralPalette::LIGHT.signal(&AlertKind::Note),
+                    TachyonPalette::LIGHT.signal(&AlertKind::Note),
                     zoom,
                 );
                 assert_eq!(
@@ -15892,7 +15892,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = AdaptivePlan::build(&projection, 420., None, false);
             let lines = build_measured_visual_lines(
                 &projection,
@@ -15933,7 +15933,7 @@ mod tests {
                 segment.context.badge.map(|badge| {
                     (
                         &projection.text()[segment.projection_range()],
-                        badge.tone.style(MineralPalette::LIGHT).paper,
+                        badge.tone.style(TachyonPalette::LIGHT).paper,
                     )
                 })
             })
@@ -16961,7 +16961,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let document = Document::from_markdown("# Recovery cache\n\n- Alpha\n- Beta\n- Gamma\n- Delta\n- Epsilon\n- Zeta\n\n<div><strong>HTML survives.</strong></div>\n\n$$\n\\frac{1}{2}\n$$\n").unwrap();
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let mut previous = AdaptivePlan::default();
             let mut published_geometry = None;
             let mut last_stack: Option<Arc<PublishedGeometry>> = None;
@@ -17002,7 +17002,7 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let previous = AdaptivePlan::build(&projection, 900., None, false);
             let measurement =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let mut viewport = ReflowViewport {
                 published_geometry: None,
                 width: 900.,
@@ -17066,7 +17066,7 @@ mod tests {
             .unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let plan = build_measured_adaptive_plan(&projection, 1280., 1166., None, false, &fonts);
             let term = projection
                 .segments()
@@ -17116,7 +17116,7 @@ mod tests {
             let mut document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let previous = AdaptivePlan::build(&projection, 900., None, false);
-            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let measurement = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let viewport = ReflowViewport {
                 published_geometry: None, width: 900., height: 800., zoom: 1.,
                 preview_edit_node: None, expanded_code_tail: None, editing_node: None, table_layout_lock: None,
@@ -17833,7 +17833,7 @@ mod tests {
 
     #[test]
     fn fenced_code_highlighting_preserves_every_source_byte() {
-        let spans = syntax_spans("let value = \"mineral\"; // sample", Some("rust"));
+        let spans = syntax_spans("let value = \"tachyon\"; // sample", Some("rust"));
         assert_eq!(spans.iter().map(|span| span.range.len()).sum::<usize>(), 32);
         assert!(spans.iter().any(|span| span.kind == SyntaxKind::Keyword));
         assert!(spans.iter().any(|span| span.kind == SyntaxKind::String));
@@ -17859,7 +17859,7 @@ mod tests {
     #[test]
     fn table_cells_share_rows_and_honor_stable_column_widths() {
         let document = Document::from_markdown(concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[100.0,300.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[100.0,300.0]} -->\n",
             "| a | b |\n| --- | --- |\n| c | d |\n"
         ))
         .expect("table document");
@@ -18175,7 +18175,7 @@ mod tests {
         cx.update(init_editor);
         let (editor, cx) = cx.add_window_view(|window, cx| {
             RichDocumentEditor::new(Document::from_markdown(concat!(
-                "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[2000.0,2000.0]} -->\n",
+                "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[2000.0,2000.0]} -->\n",
                 "| first | last |\n| --- | --- |\n| left | right |\n"
             )).unwrap(), window, cx)
         });
@@ -18217,7 +18217,7 @@ mod tests {
     #[test]
     fn wide_table_columns_keep_physical_width_and_scroll_locally() {
         let document = Document::from_markdown(concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[600.0,600.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[600.0,600.0]} -->\n",
             "| a | b |\n| --- | --- |\n"
         ))
         .expect("wide table");
@@ -18357,7 +18357,7 @@ mod tests {
     fn table_keyboard_navigation_reveals_overflowing_cells(cx: &mut gpui::TestAppContext) {
         cx.update(init_editor);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| first | middle | last |\n| --- | --- | --- |\n| a | b | c |\n"
         );
         let (editor, cx) = cx.add_window_view(|window, cx| {
@@ -18450,7 +18450,7 @@ mod tests {
 
         cx.update(init_editor);
         let source = format!(
-            "start\n\n{}\n<!-- mineral-table:v1 {{\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]}} -->\n| first | middle | last |\n| --- | --- | --- |\n| a | b | finish |",
+            "start\n\n{}\n<!-- tachyon-table:v1 {{\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]}} -->\n| first | middle | last |\n| --- | --- | --- |\n| a | b | finish |",
             (0..24)
                 .map(|index| format!(
                     "paragraph {index} keeps the document taller than its viewport.\n\n"
@@ -18733,7 +18733,7 @@ mod tests {
         cx.update(init_editor);
         let source = concat!(
             "Before the table.\n\n",
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| left head | middle head | right head |\n",
             "| --- | --- | --- |\n",
             "| left body | middle body | right body |\n",
@@ -18876,7 +18876,7 @@ mod tests {
         cx.update(init_editor);
         let source = concat!(
             "Before.\n\n",
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| left head | middle head | right head |\n",
             "| --- | --- | --- |\n",
             "| left body | middle body | tail |\n",
@@ -19003,7 +19003,7 @@ mod tests {
         cx.update(init_editor);
         let source = concat!(
             "Before.\n\n",
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| left head | middle head | right head |\n",
             "| --- | --- | --- |\n",
             "| left body | middle body | tail |\n",
@@ -19138,7 +19138,7 @@ mod tests {
 
         cx.update(init_editor);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| بداية عربية طويلة للاختبار | אמצע עברי לבדיקה | نهاية عربية |\n",
             "| --- | --- | --- |\n",
             "| أول | وسط | آخر |\n"
@@ -19272,7 +19272,7 @@ mod tests {
 
         cx.update(init_editor);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| بداية عربية | אמצע עברי | نهاية عربية |\n",
             "| --- | --- | --- |\n",
             "| LTR אבג 123 عربية XYZ | وسط | ختام |\n"
@@ -19382,7 +19382,7 @@ mod tests {
 
         cx.update(init_editor);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| LTR אבג 123 عربية XYZ | אמצע middle | نهاية tail |\n",
             "| --- | --- | --- |\n",
             "| first | second | third |\n"
@@ -19549,7 +19549,7 @@ mod tests {
     fn width_resize_reveals_the_active_trailing_table_header(cx: &mut gpui::TestAppContext) {
         cx.update(init_editor);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| first | middle | last |\n| --- | --- | --- |\n| a | b | c |\n"
         );
         let (editor, cx) = cx.add_window_view(|window, cx| {
@@ -19612,7 +19612,7 @@ mod tests {
     fn width_resize_does_not_reveal_a_table_caret_scrolled_away(cx: &mut gpui::TestAppContext) {
         cx.update(init_editor);
         let source = concat!(
-            "<!-- mineral-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
+            "<!-- tachyon-table:v1 {\"border\":\"Dotted\",\"widths\":[400.0,400.0,400.0]} -->\n",
             "| first | middle | last |\n| --- | --- | --- |\n| a | b | c |\n"
         );
         let (editor, cx) = cx.add_window_view(|window, cx| {
@@ -20074,7 +20074,7 @@ mod tests {
             let outline = crate::project_outline(snapshot.blocks());
             let measurement = FontMeasurement::new(
                 cx.text_system().clone(),
-                "Spline Sans Mineral".into(),
+                "Spline Sans Tachyon".into(),
                 1.,
             );
             let mut previous = AdaptivePlan::default();
@@ -20278,7 +20278,7 @@ mod tests {
             "```\n\n",
             "| Layer | Owner |\n",
             "| --- | --- |\n",
-            "| View | Mineral |\n\n",
+            "| View | Tachyon |\n\n",
             "> [!NOTE]\n",
             "> The minimap follows rendered geometry.\n",
         ))

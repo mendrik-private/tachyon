@@ -91,7 +91,7 @@ paragraphs, full grammar/page/export variants and performance remain open.
 
 `scripts/check.sh` passes: formatting, workspace all-target check, strict Clippy,
 740 workspace tests plus five adapter tests (745 total; two existing ignored),
-and doc tests. Log: `/tmp/mineral-reference-flow-final-check.log`. Seventeen
+and doc tests. Log: `/tmp/tachyon-reference-flow-final-check.log`. Seventeen
 capture-harness Python tests pass. Two Rust tests were added and the existing
 focused editing/resize/Undo test now also covers reference prose.
 
@@ -107,6 +107,6 @@ Retained-accessibility framework work remains unfinished and paused for layout
 work. GPUI Rust sources still exactly match the pinned upstream package; only
 its manifest normalization and provenance note differ. Rechecked complete
 dependency topology/features retain the same 968-node normalized graph hash
-recorded in `vendor/gpui/MINERAL-PATCHES.md`. No retained API, framework test
+recorded in `vendor/gpui/TACHYON-PATCHES.md`. No retained API, framework test
 harness, startup responsiveness fix or scrolling speedup is claimed. A07, A16
 and the full audit remain active.

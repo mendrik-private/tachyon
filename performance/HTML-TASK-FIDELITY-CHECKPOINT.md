@@ -1,7 +1,7 @@
 # Mixed task states in rich HTML table cells
 
 2026-09-10, A03. A new import regression reproduced checked and unchecked HTML
-list items becoming plain items (`/tmp/mineral-a03-tasks-before.log`). The HTML
+list items becoming plain items (`/tmp/tachyon-a03-tasks-before.log`). The HTML
 list converter treated input elements as unsupported content instead of task
 state. Independently, canonical HTML export used `unwrap_or(false)` for every
 item of a task list, which would turn a plain item into an unchecked task.
@@ -26,5 +26,5 @@ or performance claim.
 
 Validation: `scripts/check.sh` passes 817 tests with two existing ignored tests,
 including formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a03-task-check.log`). All 52 source-fidelity tests pass.
+(`/tmp/tachyon-a03-task-check.log`). All 52 source-fidelity tests pass.
 `git diff --check` is clean. Crusty context: `ctx_1f298a3254e3`.

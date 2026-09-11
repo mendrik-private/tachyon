@@ -84,8 +84,8 @@ the callout's projected paragraph, and its canvas now derives from mock metrics.
 
 `scripts/check.sh` passes locked metadata, formatting, workspace/all-target check,
 strict Clippy, **756 Rust tests**, two existing ignored tests and doctests. Log:
-`/tmp/mineral-guidance-check.log`. The additional within-bound uneven-height case
-passes in `/tmp/mineral-guidance-boundaries-final.log`. `git diff --check` passes.
+`/tmp/tachyon-guidance-check.log`. The additional within-bound uneven-height case
+passes in `/tmp/tachyon-guidance-boundaries-final.log`. `git diff --check` passes.
 
 `guidance_row_check.py` checks all29 canonical nodes, unchanged individual
 dimensions, source identity,108px saving,24px tracks,99% utilization, actual

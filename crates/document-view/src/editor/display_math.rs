@@ -39,7 +39,7 @@ mod tests {
         let range = projection.segments()[0].projection_range();
         let style = gpui::TextStyle::default();
         let hidden =
-            styled_projection_runs(&projection, &range, 0, &style, false, MineralPalette::LIGHT);
+            styled_projection_runs(&projection, &range, 0, &style, false, TachyonPalette::LIGHT);
         assert_eq!(hidden.iter().map(|run| run.len).sum::<usize>(), 0);
         let editing = styled_projection_runs(
             &projection,
@@ -47,7 +47,7 @@ mod tests {
             range.len(),
             &style,
             false,
-            MineralPalette::LIGHT,
+            TachyonPalette::LIGHT,
         );
         assert_eq!(
             editing.iter().map(|run| run.len).sum::<usize>(),
@@ -141,7 +141,7 @@ mod tests {
             for (width, zoom) in [(1280., 1.), (400., 1.), (640., 2.)] {
                 let fonts = FontMeasurement::new(
                     cx.text_system().clone(),
-                    "Spline Sans Mineral".into(),
+                    "Spline Sans Tachyon".into(),
                     zoom,
                 );
                 let plan =

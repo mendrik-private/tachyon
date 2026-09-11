@@ -29,7 +29,7 @@ paragraph content. The regression covers headings, quoted content and fenced
 code under unordered, single-digit ordered and four-digit ordered markers. It
 checks exact initial source, one note, full reopen shape, successful rebase and
 Undo/Redo. The initial failure is recorded in
-`/tmp/mineral-a02-singleton-before.log`.
+`/tmp/tachyon-a02-singleton-before.log`.
 
 A02 completion is bounded by these persistence requirements and executable
 cases. A03's complete rich-table combinations, A04 selection behavior, A05/A06
@@ -39,6 +39,6 @@ claim is made by this audit.
 
 Validation: `scripts/check.sh` passes 816 tests with two existing ignored tests,
 including locked workspace checks, formatting, strict Clippy, adapters and
-doctests (`/tmp/mineral-a02-final-check.log`). All 51 source-fidelity tests pass.
+doctests (`/tmp/tachyon-a02-final-check.log`). All 51 source-fidelity tests pass.
 `git diff --check` is clean. Crusty validation uses context
 `ctx_7d11106cedf0`; its final advisory result is recorded in the A02 work item.

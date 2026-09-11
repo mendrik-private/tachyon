@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify Mineral against a real Wayland input method in an isolated session.
+"""Qualify Tachyon against a real Wayland input method in an isolated session.
 
 The harness nests Sway and Fcitx5 inside the repository's private Weston seat.
 It never sends input to the user's desktop. A local package extraction can be
@@ -23,7 +23,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "performance" / "wayland-harness" / "build"
-ORIGINAL = b'''<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->
+ORIGINAL = b'''<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->
 | System IME target marker. | Fixed width |
 | --- | --- |
 | Candidate popup | Align below the native caret. |
@@ -195,7 +195,7 @@ def main():
         output.parent.mkdir(parents=True, exist_ok=True)
 
     report = {}
-    with tempfile.TemporaryDirectory(prefix="mineral-native-ime-", ignore_cleanup_errors=True) as directory:
+    with tempfile.TemporaryDirectory(prefix="tachyon-native-ime-", ignore_cleanup_errors=True) as directory:
         private = Path(directory)
         runtime = private / "runtime"
         runtime.mkdir(mode=0o700)
@@ -219,7 +219,7 @@ def main():
             XDG_CONFIG_HOME=str(config),
             NO_AT_BRIDGE="1",
         )
-        for key in ("DISPLAY", "MINERAL_INSTANCE_MODE", "MINERAL_INSTANCE_SOCKET"):
+        for key in ("DISPLAY", "TACHYON_INSTANCE_MODE", "TACHYON_INSTANCE_SOCKET"):
             env.pop(key, None)
         if runtime_prefix:
             library = runtime_prefix / "usr" / "lib" / "x86_64-linux-gnu"
@@ -298,7 +298,7 @@ def main():
                 app_log_path = private / "app.log"
                 wait_for(
                     lambda: "zwp_text_input_v3" in read_log(app_log_path),
-                    "Mineral text-input-v3 activation",
+                    "Tachyon text-input-v3 activation",
                     15,
                 )
                 time.sleep(3)

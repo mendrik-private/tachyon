@@ -23,7 +23,7 @@ not a general grammar or full-content visibility verifier.
 Native `zoom-selection-red.png` uses `--select-before-zoom --zoom-steps 10`
 with the previous binary. It reliably retains the same 316px overlapping track
 after waiting two seconds. Source bytes remain unchanged. Native log:
-`/tmp/mineral-zoom-selection-red.log`.
+`/tmp/tachyon-zoom-selection-red.log`.
 
 The previously reported missing code in the longer-wait light capture was a
 visual-inspection error: its executable panel pixels equal the good dark
@@ -58,8 +58,8 @@ it were a caret; otherwise the newly permitted commit could scroll the page.
   selection before dispatch and selection after dispatch with a real worker
   held by a oneshot. Verifies cleared environment-pending state, measured
   geometry, exact source/selection and top-of-document reading position.
-  Original red: `/tmp/mineral-zoom-selected-test-red.log`; focused green:
-  `/tmp/mineral-zoom-selected-test-green.log`.
+  Original red: `/tmp/tachyon-zoom-selected-test-red.log`; focused green:
+  `/tmp/tachyon-zoom-selected-test-green.log`.
 - `selected_reflow_distinguishes_environment_from_active_input`: settled
   reverse selection continues deferring optional recomposition, while width,
   height and zoom changes can proceed; active drag/marked text still defer.
@@ -68,7 +68,7 @@ it were a caret; otherwise the newly permitted commit could scroll the page.
   gutter assertion exposed a 0.0001px floating-point difference after real
   remeasurement; it now uses the same 0.01px tolerance as its neighboring fixed
   rail assertion, rather than bitwise equality. No gutter geometry was changed.
-  Full log: `/tmp/mineral-selected-zoom-check.log`.
+  Full log: `/tmp/tachyon-selected-zoom-check.log`.
 - Python oracle/harness tests: one test with three pixel-oracle cases plus
   seventeen capture-harness tests pass. The pixel test rejects missing body
   glyphs even when header glyphs remain, and rejects the original narrow track.
@@ -95,7 +95,7 @@ Captures under `layout-previews/`:
   source after autosave and one-second idle. Undo restores exact original bytes.
   Header and number-rail pixels are byte-identical to the pre-edit capture.
 
-Native logs: `/tmp/mineral-selected-zoom-*.log`. The initial partial-fix capture
+Native logs: `/tmp/tachyon-selected-zoom-*.log`. The initial partial-fix capture
 `zoom-selection-green.png` is not accepted evidence: it exposed the selected
 endpoint scroll jump fixed before the final captures.
 

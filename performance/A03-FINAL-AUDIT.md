@@ -26,6 +26,6 @@ This audit does not claim a new native-binary or performance result.
 
 Final validation: `scripts/check.sh` passes 819 tests with two existing ignored
 tests, including formatting, locked checks, strict Clippy, adapters and doctests
-(`/tmp/mineral-a03-final-check.log`). This includes all 54 source-fidelity tests
+(`/tmp/tachyon-a03-final-check.log`). This includes all 54 source-fidelity tests
 and the expanded metadata/transition regressions. `git diff --check` is clean.
 Crusty context `ctx_8e0ee4b2a638`; final advisory result is recorded in the work item.

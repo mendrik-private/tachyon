@@ -82,7 +82,7 @@ are retained as diagnostic evidence, not falsely claimed unchanged layouts.
   GPUI's mock shaper is topology evidence, not loaded-font validation.
 - `scripts/check.sh` passes formatting, locked workspace/all-target checking,
   strict Clippy, **754 Rust tests**, two existing ignored tests and doctests.
-  Log: `/tmp/mineral-compact-track-check.log`. `git diff --check` passes.
+  Log: `/tmp/tachyon-compact-track-check.log`. `git diff --check` passes.
 - `compact_table_track_check.py` verifies full canonical semantics, unchanged
   compact-table bounds, width/height gain, aligned pixel rules, canvas coverage,
   unchanged regular/narrow/dark200/README geometry, and short-height fit/stack

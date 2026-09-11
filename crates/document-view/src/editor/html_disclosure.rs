@@ -190,7 +190,7 @@ impl RichDocumentEditor {
                 .absolute().left(px(left * self.zoom_factor)).top(px(top * self.zoom_factor))
                 .w(px((right - left) * self.zoom_factor)).h(px((bottom - top) * self.zoom_factor))
                 .border_2().border_color(rgba(0)).rounded(px(3.))
-                .focus(|style| style.border_color(rgb(MineralPalette::LIGHT.accent)))
+                .focus(|style| style.border_color(rgb(TachyonPalette::LIGHT.accent)))
                 .hover(|style| style.bg(rgba(0x256f5010)))
                 .cursor_pointer()
                 .tooltip(move |window, cx| {

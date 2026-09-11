@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn missing_remembered_directory_falls_back_without_panicking() {
         let available = std::env::temp_dir();
-        let missing = available.join(format!("mineral-missing-dialog-{}", std::process::id()));
+        let missing = available.join(format!("tachyon-missing-dialog-{}", std::process::id()));
         assert_eq!(
             existing_directory(&[missing, available.clone()]),
             Some(available)

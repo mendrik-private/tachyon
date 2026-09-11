@@ -4,7 +4,7 @@ The A02 overlap matrix had a weakened check for a known mismatch: moving a
 single-item list away from its authored nested footnote reopened the list as
 `tight: true`, while the live model retained the parser's `tight: false`.
 Restoring the full shape assertion reproduced the failure in
-`/tmp/mineral-tight-before.log` before changing production code.
+`/tmp/tachyon-tight-before.log` before changing production code.
 
 The list has one visible item containing one paragraph. There is no inter-item
 or inter-paragraph gap to distinguish tight from loose spacing in this shape.
@@ -23,8 +23,8 @@ and quotes, with no tightness exception. Successful rebasing after those moves i
 also asserted. A new matrix covers unordered/ordered/task lists, LF/CRLF, exact
 unchanged source bytes, meaningful loose multi-item and multi-paragraph lists,
 editing, reopen, successful rebasing and exact Undo/Redo. All 42 source-fidelity
-tests pass (`/tmp/mineral-tight-matrix.log`); the strengthened move/rebase case
-passes in `/tmp/mineral-tight-rebase.log`.
+tests pass (`/tmp/tachyon-tight-matrix.log`); the strengthened move/rebase case
+passes in `/tmp/tachyon-tight-rebase.log`.
 
 This supersedes the singleton-paragraph mismatch recorded in
 OVERLAPPING-SOURCE-CHECKPOINT.md and the later reference checkpoints. It does not
@@ -34,7 +34,7 @@ and the remaining complete structural matrix. No new native/performance claim.
 
 Full `scripts/check.sh` passes 806 tests with two existing ignored tests, including
 locked checks, formatting, strict Clippy, adapters and doctests
-(`/tmp/mineral-tight-check.log`). The final move/rebase assertion was rerun after
+(`/tmp/tachyon-tight-check.log`). The final move/rebase assertion was rerun after
 that check without further production changes. Diff whitespace checks pass.
 Crusty validation `task_84eef12acc8a3291`, context `ctx_d32e08195522`, reports 75
 existing advisory findings and zero new, worsened or resolved findings.

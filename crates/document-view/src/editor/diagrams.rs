@@ -9,7 +9,7 @@ fn schema_explanation_uses_available_width_without_losing_peer_candidates(
     cx.update(|cx| {
         let document = Document::from_markdown(SCHEMA).unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let font = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+        let font = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
         let plan = build_measured_adaptive_plan(&projection, 1314., 1666., None, false, &font);
         let row = plan
             .measured_rows
@@ -53,7 +53,7 @@ fn schema_previews_preserve_source_geometry_and_accessible_hierarchy(
         let projection = TextProjection::from_snapshot(&document.snapshot());
         for zoom in [1., 1.5, 2.] {
             let font =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), zoom);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
             for width in [360., 760., 1312., 1632.] {
                 let plan =
                     build_measured_adaptive_plan(&projection, width, 1000., None, false, &font);
@@ -154,7 +154,7 @@ fn diagram_geometry_is_atomic_zoomable_and_source_owned(cx: &mut gpui::TestAppCo
         let projection = TextProjection::from_snapshot(&document.snapshot());
         for (width, zoom) in [(1000., 1.), (360., 1.), (640., 2.)] {
             let font =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), zoom);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), zoom);
             let plan = build_measured_adaptive_plan(&projection, width, 900., None, false, &font);
             let lines = build_measured_visual_lines(
                 &projection,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Mineral's process-start and compositor performance qualification."""
+"""Run Tachyon's process-start and compositor performance qualification."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 PERFORMANCE = ROOT / "performance"
 APP = ROOT / "target/release/tachyon"
-FIXTURE_GENERATOR = ROOT / "target/release/mineral-fixture"
+FIXTURE_GENERATOR = ROOT / "target/release/tachyon-fixture"
 UINPUT_CLIENT = PERFORMANCE / "wayland-harness/build/uinput-client"
 SIZES = (("100k", 100 * 1024), ("1m", 1024 * 1024), ("10m", 10 * 1024 * 1024))
 
@@ -115,9 +115,9 @@ def startup_sample(
     run_environment = environment.copy()
     run_environment.update(
         {
-            "MINERAL_STARTUP_OUTPUT": str(output),
-            "MINERAL_STARTUP_LABEL": label,
-            "MINERAL_STARTUP_CACHE_STATE": cache_state,
+            "TACHYON_STARTUP_OUTPUT": str(output),
+            "TACHYON_STARTUP_LABEL": label,
+            "TACHYON_STARTUP_CACHE_STATE": cache_state,
         }
     )
     result = subprocess.run(
@@ -149,11 +149,11 @@ def start_resident_server(
     run_environment = environment.copy()
     run_environment.update(
         {
-            "MINERAL_INSTANCE_MODE": "server",
-            "MINERAL_INSTANCE_SOCKET": str(socket),
-            "MINERAL_STARTUP_OUTPUT": str(output),
-            "MINERAL_STARTUP_LABEL": "warmup-not-counted",
-            "MINERAL_STARTUP_CACHE_STATE": "resident render-process and cache population",
+            "TACHYON_INSTANCE_MODE": "server",
+            "TACHYON_INSTANCE_SOCKET": str(socket),
+            "TACHYON_STARTUP_OUTPUT": str(output),
+            "TACHYON_STARTUP_LABEL": "warmup-not-counted",
+            "TACHYON_STARTUP_CACHE_STATE": "resident render-process and cache population",
         }
     )
     process = subprocess.Popen(
@@ -191,9 +191,9 @@ def stop_resident_server(
     shutdown_environment = environment.copy()
     shutdown_environment.update(
         {
-            "MINERAL_INSTANCE_MODE": "client",
-            "MINERAL_INSTANCE_SOCKET": str(socket),
-            "MINERAL_INSTANCE_SHUTDOWN": "1",
+            "TACHYON_INSTANCE_MODE": "client",
+            "TACHYON_INSTANCE_SOCKET": str(socket),
+            "TACHYON_INSTANCE_SHUTDOWN": "1",
         }
     )
     result = subprocess.run(
@@ -235,7 +235,7 @@ def run_startup(
     )
 
     # Populate application/Mesa caches and retain the initialized GPUI render process.
-    instance_socket = temporary / "instance" / "mineral.sock"
+    instance_socket = temporary / "instance" / "tachyon.sock"
     resident, warmup = start_resident_server(
         fixture,
         result_dir / "startup-warmup.json",
@@ -249,8 +249,8 @@ def run_startup(
     warm_client_environment = warm_environment.copy()
     warm_client_environment.update(
         {
-            "MINERAL_INSTANCE_MODE": "client",
-            "MINERAL_INSTANCE_SOCKET": str(instance_socket),
+            "TACHYON_INSTANCE_MODE": "client",
+            "TACHYON_INSTANCE_SOCKET": str(instance_socket),
         }
     )
     try:
@@ -359,15 +359,15 @@ def interaction_sample(
     run_environment = environment.copy()
     run_environment.update(
         {
-            "MINERAL_PERF_OUTPUT": str(output),
-            "MINERAL_PERF_SECONDS": str(seconds),
-            "MINERAL_PERF_WARMUP_MS": str(warmup_ms),
-            "MINERAL_PERF_REFRESH_HZ": "120",
-            "MINERAL_PERF_LABEL": label,
-            "MINERAL_PERF_SCENARIO": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave"
+            "TACHYON_PERF_OUTPUT": str(output),
+            "TACHYON_PERF_SECONDS": str(seconds),
+            "TACHYON_PERF_WARMUP_MS": str(warmup_ms),
+            "TACHYON_PERF_REFRESH_HZ": "120",
+            "TACHYON_PERF_LABEL": label,
+            "TACHYON_PERF_SCENARIO": "bidirectional wheel scrolling, horizontal scrolling, selection drag, editing, 750ms autosave"
             + (", and two window resizes" if exercise_resize else ""),
-            "MINERAL_PERF_INPUT_SOURCE": "temporary /dev/uinput device on active Mutter session",
-            "MINERAL_PERF_RESIZE": "true" if exercise_resize else "false",
+            "TACHYON_PERF_INPUT_SOURCE": "temporary /dev/uinput device on active Mutter session",
+            "TACHYON_PERF_RESIZE": "true" if exercise_resize else "false",
         }
     )
     process = subprocess.Popen(
@@ -608,7 +608,7 @@ def main() -> None:
             "warmup_ms": args.warmup_ms,
         },
     }
-    with tempfile.TemporaryDirectory(prefix="mineral-qualification-") as temporary_name:
+    with tempfile.TemporaryDirectory(prefix="tachyon-qualification-") as temporary_name:
         temporary = Path(temporary_name)
         if not args.skip_startup:
             report["startup_100k"] = run_startup(

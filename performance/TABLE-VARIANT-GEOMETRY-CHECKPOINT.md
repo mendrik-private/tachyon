@@ -34,7 +34,7 @@ alignment applies only to tables without saved widths.
 - Rich-cell geometry filter: 4 passed.
 - The immediately preceding `scripts/check.sh` run passed 839 Rust tests, strict
   Clippy, formatting, adapter suites and doctests with 2 existing native-font
-  tests ignored. Log: `/tmp/mineral-rtl-ime-selection-check.log`.
+  tests ignored. Log: `/tmp/tachyon-rtl-ime-selection-check.log`.
 
 Native compositor/system-IME injection, candidate-popup placement, static or
 paged export and controlled release-performance qualification remain open.

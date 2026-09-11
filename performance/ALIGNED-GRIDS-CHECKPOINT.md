@@ -33,7 +33,7 @@ of the three-column grid. Four-column short-feature layouts remain supported.
   Undo geometry tests cover list grids and task strips.
 - `scripts/check.sh` passes: 781 Rust tests, two existing ignored tests, locked
   checks, formatting, strict Clippy, adapter tests and doctests. Log:
-  `/tmp/mineral-grid-check.log`. The earlier sandbox run failed on local socket
+  `/tmp/tachyon-grid-check.log`. The earlier sandbox run failed on local socket
   permissions; the unrestricted run passed. `git diff --check` passes.
 - Crusty `ctx_31fbde83dd68` / `task_0af293b34ef7fa0b`: 75 existing advisory
   findings, zero new/worsened/resolved. Snapshot guidance remains stale.

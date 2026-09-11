@@ -45,7 +45,7 @@ lifecycle audit or establish large-document save latency/memory bounds.
 
 `scripts/check.sh` passes 799 tests, with two existing ignored tests, plus locked
 checks, formatting, strict Clippy, adapter suites and doctests
-(`/tmp/mineral-rebase-final-check.log`). Diff whitespace checks pass.
+(`/tmp/tachyon-rebase-final-check.log`). Diff whitespace checks pass.
 
 The final release passes the native fixture 128 ten-case clipboard/first-edit
 save/single-Undo check at 900×1000/100%, and fixture 44 four-case cross-owner

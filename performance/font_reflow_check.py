@@ -141,7 +141,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, log_path
         return json.loads(result.stdout)
 
     def reports():
-        prefix = "MINERAL_LAYOUT_TRACE "
+        prefix = "TACHYON_LAYOUT_TRACE "
         return [
             json.loads(line[len(prefix):])
             for line in log_path.read_text().splitlines()
@@ -149,7 +149,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, log_path
         ]
 
     def switch_font(key, marker, loaded=None):
-        marker_prefix = f"MINERAL_FONT_VALIDATION font={marker}"
+        marker_prefix = f"TACHYON_FONT_VALIDATION font={marker}"
         marker_count = sum(line.startswith(marker_prefix)
                            for line in log_path.read_text().splitlines())
         before_reports = len(reports())
@@ -186,7 +186,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, log_path
     before = probe()
     _capture(env, work, output, "before")
 
-    alternate_report = switch_font(64, "Noto Sans Mineral", loaded=True)  # F6
+    alternate_report = switch_font(64, "Noto Sans Tachyon", loaded=True)  # F6
     alternate = probe()
     _capture(env, work, output, "alternate")
 
@@ -195,7 +195,7 @@ def check(env, input_event, source_path, pid, output, probe_path, work, log_path
     time.sleep(1.0)
     repeated = probe()
 
-    restored_report = switch_font(65, "Spline Sans Mineral")  # F7
+    restored_report = switch_font(65, "Spline Sans Tachyon")  # F7
     restored = probe()
     _capture(env, work, output, "restored")
 

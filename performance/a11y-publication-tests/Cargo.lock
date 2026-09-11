@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mineral-a11y-publication-tests"
+name = "tachyon-a11y-publication-tests"
 version = "0.1.0"
 dependencies = [
  "accesskit",

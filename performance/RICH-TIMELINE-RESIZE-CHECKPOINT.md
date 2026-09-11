@@ -133,9 +133,9 @@ Rust tests**, with two existing ignored tests. All **21 resize-oracle and
 19 capture-harness Python tests** pass. The earlier timeline pixel verifier also
 passes on its original runtime-bound artifacts; that is a verifier regression
 check, not new-runtime pixel qualification. Logs include
-`/tmp/mineral-caret-resize-check.log`, `/tmp/mineral-timeline-resize-unit.log`,
-`/tmp/mineral-timeline-resize-capture.log`, and
-`/tmp/mineral-caret-resize-focused-red.log` / `-green.log`.
+`/tmp/tachyon-caret-resize-check.log`, `/tmp/tachyon-timeline-resize-unit.log`,
+`/tmp/tachyon-timeline-resize-capture.log`, and
+`/tmp/tachyon-caret-resize-focused-red.log` / `-green.log`.
 
 ## Remaining scope
 

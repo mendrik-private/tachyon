@@ -1,14 +1,14 @@
-# System appearance and mineral surfaces — 2026-09-09
+# System appearance and tachyon surfaces — 2026-09-09
 
 Continues the user's visual/layout priority and Audit A15. This is not full
 visual-system or audit completion.
 
 ## Changes
 
-`sync_mineral_component_theme` previously forced `ThemeMode::Light` and the light
+`sync_tachyon_component_theme` previously forced `ThemeMode::Light` and the light
 palette both at startup and on every OS appearance event. It now uses GPUI
 Component's system-appearance synchronization, then applies the matching shared
-Mineral palette to native controls and document surfaces. The existing observer
+Tachyon palette to native controls and document surfaces. The existing observer
 handles live changes. No user preference, desktop setting or new app override is
 introduced.
 

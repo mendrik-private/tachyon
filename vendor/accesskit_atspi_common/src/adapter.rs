@@ -40,7 +40,7 @@ struct AdapterChangeHandler<'a> {
 
 impl<'a> AdapterChangeHandler<'a> {
     const MAX_TEXT_EVENT_REPLACEMENT_BYTES: usize = 64 * 1024;
-    const RETAINED_DOCUMENT_TEXT_MARKER: &'static str = "Mineral retained document text";
+    const RETAINED_DOCUMENT_TEXT_MARKER: &'static str = "Tachyon retained document text";
 
     fn first_text_run<'tree>(node: Node<'tree>) -> Option<Node<'tree>> {
         if node.role() == Role::TextRun {
@@ -738,7 +738,7 @@ impl Drop for Adapter {
 }
 
 #[cfg(test)]
-mod mineral_text_update_tests {
+mod tachyon_text_update_tests {
     use super::*;
     use accesskit::{ActionRequest, Affine, Node as NodeData, NodeId as LocalId, Rect, TreeId};
     use std::sync::Mutex;

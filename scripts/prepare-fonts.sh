@@ -5,7 +5,7 @@ google_fonts_commit=5e35378e6bda803962ee6fd257e444a7d459660d
 fonttools_version=4.64.0
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 output_directory="$repository_root/assets/fonts"
-work_directory=$(mktemp -d /tmp/mineral-font-preparation.XXXXXX)
+work_directory=$(mktemp -d /tmp/tachyon-font-preparation.XXXXXX)
 trap 'rm -rf "$work_directory"' EXIT
 
 python3 -m venv "$work_directory/venv"
@@ -38,19 +38,19 @@ instance() {
         --output "$work_directory/$output" "$work_directory/$input" "$@"
 }
 
-instance fraunces.ttf Fraunces-Mineral-H1-Semibold.ttf wght=600 SOFT=30 WONK=1 opsz=120
-instance fraunces-italic.ttf Fraunces-Mineral-H1-SemiboldItalic.ttf wght=600 SOFT=30 WONK=1 opsz=120
-instance fraunces.ttf Fraunces-Mineral-H2-Semibold.ttf wght=600 SOFT=40 WONK=1 opsz=72
-instance fraunces-italic.ttf Fraunces-Mineral-H2-SemiboldItalic.ttf wght=600 SOFT=40 WONK=1 opsz=72
-instance fraunces.ttf Fraunces-Mineral-H3-Semibold.ttf wght=600 SOFT=40 WONK=1 opsz=20
-instance fraunces-italic.ttf Fraunces-Mineral-H3-SemiboldItalic.ttf wght=600 SOFT=40 WONK=1 opsz=20
-instance spline-sans.ttf SplineSans-Mineral-Regular.ttf wght=400
-instance spline-sans.ttf SplineSans-Mineral-Semibold.ttf wght=600
-instance spline-mono.ttf SplineSansMono-Mineral-Regular.ttf wght=400
-instance spline-mono.ttf SplineSansMono-Mineral-Semibold.ttf wght=600
-instance spline-mono-italic.ttf SplineSansMono-Mineral-Italic.ttf wght=400
-instance noto-sans.ttf NotoSans-Mineral-Regular.ttf wght=400 wdth=100
-instance noto-sans-italic.ttf NotoSans-Mineral-Italic.ttf wght=400 wdth=100
+instance fraunces.ttf Fraunces-Tachyon-H1-Semibold.ttf wght=600 SOFT=30 WONK=1 opsz=120
+instance fraunces-italic.ttf Fraunces-Tachyon-H1-SemiboldItalic.ttf wght=600 SOFT=30 WONK=1 opsz=120
+instance fraunces.ttf Fraunces-Tachyon-H2-Semibold.ttf wght=600 SOFT=40 WONK=1 opsz=72
+instance fraunces-italic.ttf Fraunces-Tachyon-H2-SemiboldItalic.ttf wght=600 SOFT=40 WONK=1 opsz=72
+instance fraunces.ttf Fraunces-Tachyon-H3-Semibold.ttf wght=600 SOFT=40 WONK=1 opsz=20
+instance fraunces-italic.ttf Fraunces-Tachyon-H3-SemiboldItalic.ttf wght=600 SOFT=40 WONK=1 opsz=20
+instance spline-sans.ttf SplineSans-Tachyon-Regular.ttf wght=400
+instance spline-sans.ttf SplineSans-Tachyon-Semibold.ttf wght=600
+instance spline-mono.ttf SplineSansMono-Tachyon-Regular.ttf wght=400
+instance spline-mono.ttf SplineSansMono-Tachyon-Semibold.ttf wght=600
+instance spline-mono-italic.ttf SplineSansMono-Tachyon-Italic.ttf wght=400
+instance noto-sans.ttf NotoSans-Tachyon-Regular.ttf wght=400 wdth=100
+instance noto-sans-italic.ttf NotoSans-Tachyon-Italic.ttf wght=400 wdth=100
 
 "$python" - "$work_directory" <<'PY'
 from pathlib import Path
@@ -99,22 +99,22 @@ def set_space_advance(path, em_fraction):
     font.save(path, reorderTables=False)
 
 for level in ("H1", "H2", "H3"):
-    rename(root / f"Fraunces-Mineral-{level}-Semibold.ttf", f"Fraunces Mineral {level}", "Semibold")
-    rename(root / f"Fraunces-Mineral-{level}-SemiboldItalic.ttf", f"Fraunces Mineral {level}", "Semibold Italic")
-rename(root / "SplineSans-Mineral-Regular.ttf", "Spline Sans Mineral", "Regular")
-rename(root / "SplineSans-Mineral-Semibold.ttf", "Spline Sans Mineral", "Semibold")
-oblique(root / "SplineSans-Mineral-Regular.ttf", root / "SplineSans-Mineral-Oblique.ttf", "Spline Sans Mineral", "Regular", 400)
-oblique(root / "SplineSans-Mineral-Semibold.ttf", root / "SplineSans-Mineral-SemiboldOblique.ttf", "Spline Sans Mineral", "Semibold", 600)
-rename(root / "SplineSansMono-Mineral-Regular.ttf", "Spline Sans Mono Mineral", "Regular")
-rename(root / "SplineSansMono-Mineral-Semibold.ttf", "Spline Sans Mono Mineral", "Semibold")
-rename(root / "SplineSansMono-Mineral-Italic.ttf", "Spline Sans Mono Mineral", "Italic")
-rename(root / "NotoSans-Mineral-Regular.ttf", "Noto Sans Mineral", "Regular")
-rename(root / "NotoSans-Mineral-Italic.ttf", "Noto Sans Mineral", "Italic")
+    rename(root / f"Fraunces-Tachyon-{level}-Semibold.ttf", f"Fraunces Tachyon {level}", "Semibold")
+    rename(root / f"Fraunces-Tachyon-{level}-SemiboldItalic.ttf", f"Fraunces Tachyon {level}", "Semibold Italic")
+rename(root / "SplineSans-Tachyon-Regular.ttf", "Spline Sans Tachyon", "Regular")
+rename(root / "SplineSans-Tachyon-Semibold.ttf", "Spline Sans Tachyon", "Semibold")
+oblique(root / "SplineSans-Tachyon-Regular.ttf", root / "SplineSans-Tachyon-Oblique.ttf", "Spline Sans Tachyon", "Regular", 400)
+oblique(root / "SplineSans-Tachyon-Semibold.ttf", root / "SplineSans-Tachyon-SemiboldOblique.ttf", "Spline Sans Tachyon", "Semibold", 600)
+rename(root / "SplineSansMono-Tachyon-Regular.ttf", "Spline Sans Mono Tachyon", "Regular")
+rename(root / "SplineSansMono-Tachyon-Semibold.ttf", "Spline Sans Mono Tachyon", "Semibold")
+rename(root / "SplineSansMono-Tachyon-Italic.ttf", "Spline Sans Mono Tachyon", "Italic")
+rename(root / "NotoSans-Tachyon-Regular.ttf", "Noto Sans Tachyon", "Regular")
+rename(root / "NotoSans-Tachyon-Italic.ttf", "Noto Sans Tachyon", "Italic")
 for face in (
-    "SplineSans-Mineral-Regular.ttf",
-    "SplineSans-Mineral-Semibold.ttf",
-    "SplineSans-Mineral-Oblique.ttf",
-    "SplineSans-Mineral-SemiboldOblique.ttf",
+    "SplineSans-Tachyon-Regular.ttf",
+    "SplineSans-Tachyon-Semibold.ttf",
+    "SplineSans-Tachyon-Oblique.ttf",
+    "SplineSans-Tachyon-SemiboldOblique.ttf",
 ):
     set_space_advance(root / face, 0.30)
 PY
@@ -122,21 +122,21 @@ PY
 mkdir -p "$output_directory"
 find "$output_directory" -maxdepth 1 -type f \( -name '*.ttf' -o -name 'OFL-*.txt' \) -delete
 generated=(
-    Fraunces-Mineral-H1-Semibold.ttf
-    Fraunces-Mineral-H1-SemiboldItalic.ttf
-    Fraunces-Mineral-H2-Semibold.ttf
-    Fraunces-Mineral-H2-SemiboldItalic.ttf
-    Fraunces-Mineral-H3-Semibold.ttf
-    Fraunces-Mineral-H3-SemiboldItalic.ttf
-    SplineSans-Mineral-Regular.ttf
-    SplineSans-Mineral-Semibold.ttf
-    SplineSans-Mineral-Oblique.ttf
-    SplineSans-Mineral-SemiboldOblique.ttf
-    SplineSansMono-Mineral-Regular.ttf
-    SplineSansMono-Mineral-Semibold.ttf
-    SplineSansMono-Mineral-Italic.ttf
-    NotoSans-Mineral-Regular.ttf
-    NotoSans-Mineral-Italic.ttf
+    Fraunces-Tachyon-H1-Semibold.ttf
+    Fraunces-Tachyon-H1-SemiboldItalic.ttf
+    Fraunces-Tachyon-H2-Semibold.ttf
+    Fraunces-Tachyon-H2-SemiboldItalic.ttf
+    Fraunces-Tachyon-H3-Semibold.ttf
+    Fraunces-Tachyon-H3-SemiboldItalic.ttf
+    SplineSans-Tachyon-Regular.ttf
+    SplineSans-Tachyon-Semibold.ttf
+    SplineSans-Tachyon-Oblique.ttf
+    SplineSans-Tachyon-SemiboldOblique.ttf
+    SplineSansMono-Tachyon-Regular.ttf
+    SplineSansMono-Tachyon-Semibold.ttf
+    SplineSansMono-Tachyon-Italic.ttf
+    NotoSans-Tachyon-Regular.ttf
+    NotoSans-Tachyon-Italic.ttf
 )
 for font in "${generated[@]}"; do
     install -m 0644 "$work_directory/$font" "$output_directory/$font"

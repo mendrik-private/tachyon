@@ -343,7 +343,7 @@ impl RichDocumentEditor {
     pub(super) fn html_selection_chrome(
         &self,
         node: NodeId,
-        palette: MineralPalette,
+        palette: TachyonPalette,
         active: bool,
     ) -> Vec<AnyElement> {
         let Some(selection) = self.html_selection.as_ref() else {
@@ -396,7 +396,7 @@ impl RichDocumentEditor {
                     // A light selection token could match authored backgrounds
                     // and simply wash out the glyphs. Use a restrained accent
                     // wash plus a crisp baseline cue, keeping text readable.
-                    .bg(rgba(MineralPalette::with_alpha(
+                    .bg(rgba(TachyonPalette::with_alpha(
                         palette.accent,
                         if range.is_empty() {
                             255
@@ -408,7 +408,7 @@ impl RichDocumentEditor {
                     )))
                     .when(!range.is_empty(), |this| {
                         this.border_b_2()
-                            .border_color(rgba(MineralPalette::with_alpha(
+                            .border_color(rgba(TachyonPalette::with_alpha(
                                 palette.accent,
                                 if active { 255 } else { 128 },
                             )))

@@ -24,7 +24,7 @@ this checkpoint does not qualify metadata inside every possible tiny image.
 The initial native fixture showed only Retry in both narrow reservations.
 `cargo test -p document-view narrow_cell_keeps_visible_description --locked`
 failed because the actual failed-image callback created no visible title or
-alternative-description elements. Log: `/tmp/mineral-cramped-image-red.log`.
+alternative-description elements. Log: `/tmp/tachyon-cramped-image-red.log`.
 
 The former 240 px width gate discarded metadata even with 180 px available
 height. Narrow panels now retain the same content roles, with 8 px rather than
@@ -77,7 +77,7 @@ edit-idle PNGs were inspected.
 `scripts/check.sh` passes: formatting, locked dependency checks, workspace/all
 targets check, strict Clippy, 500 document-view tests (2 existing ignored),
 116 core, 25 source-fidelity, 11 tree-selection, 1 consumer, 39 app and doc tests.
-Log: `/tmp/mineral-cramped-image-check.log`. Focused final tests also pass.
+Log: `/tmp/tachyon-cramped-image-check.log`. Focused final tests also pass.
 
 ## Open source-fidelity finding and remaining scope
 
@@ -92,7 +92,7 @@ HTML-table serializer rewrites the entire edited table, including decimal width
 metadata, indentation, header paragraph wrappers and removal of the original
 `thead`/`tbody` wrappers. Actual text/image references remain, but preservation
 of unaffected authored markup is not proven and is contradicted by this check.
-Failure log: `/tmp/mineral-cramped-image-final-caption-edit.log`.
+Failure log: `/tmp/tachyon-cramped-image-final-caption-edit.log`.
 `document-core/src/markdown.rs::serialize_html_table` is the current whole-table
 serialization path; no core change was made in this layout pass. Do not replace
 the stronger oracle with the weaker content/Undo check or mark this gap closed.

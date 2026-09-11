@@ -4,7 +4,7 @@ from table_resize_check import check_width_edit
 
 
 class WidthOracleTests(unittest.TestCase):
-    original = b'Lead\n<!-- mineral-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->\n| A | B |\nTail'
+    original = b'Lead\n<!-- tachyon-table:v1 {"border":"LogicalPixel","widths":[160,320]} -->\n| A | B |\nTail'
 
     def test_accepts_only_target_width_change(self):
         check_width_edit(self.original, self.original.replace(b"[160,320]", b"[200.0,320.0]"), 200)

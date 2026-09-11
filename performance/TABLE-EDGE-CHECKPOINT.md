@@ -25,7 +25,7 @@ existing authority.
   authored-width, rich-cell and geometry tests remain green.
 - `scripts/check.sh` passed: 784 Rust tests, two existing ignored tests; formatting,
   locked checks, strict Clippy, adapter suites and doctests passed. Log:
-  `/tmp/mineral-table-edge-check-final.log`. `git diff --check` passed.
+  `/tmp/tachyon-table-edge-check-final.log`. `git diff --check` passed.
 - Native debug layout-validation binary SHA-256:
   `2fe3a20f99835fa7b277600d1a41a3c5fd88772c22189db51060c141b7ed758f`.
 - `table-edge-auto-before` and `table-edge-auto-after` show the second table
@@ -43,7 +43,7 @@ existing authority.
   (only Open -> xOpen). One Undo restores exact original bytes. Four copied
   markers retain source order; this does not qualify complete rich MIME payloads.
   Execution script: `/tmp/verify-table-edge-edits.py`; log:
-  `/tmp/mineral-table-edge-edits.log`.
+  `/tmp/tachyon-table-edge-edits.log`.
 
 All native artifacts are under `performance/layout-previews/table-edge-*`.
 Reproduce a capture with:
@@ -83,7 +83,7 @@ checks preserve the exact original SHA-256
 
 The latest full `scripts/check.sh` run passed 786 Rust tests with two existing
 ignored tests, including the loaded-font table regressions; see
-`/tmp/mineral-snapshot-check.log`. This policy confirmation changes documentation
+`/tmp/tachyon-snapshot-check.log`. This policy confirmation changes documentation
 and work evidence only.
 
 `table-policy-edit-{wide,150,200}` additionally verifies native pointer/Home
@@ -92,4 +92,4 @@ of focused idle match the complete original source with only `Primary text`
 changed to `xPrimary text`; one Undo restores every original byte, including
 column metadata. Four copied markers preserve source order. This is not a full
 rich-clipboard qualification. Script: `/tmp/verify-table-policy-edits.py`; log:
-`/tmp/mineral-table-policy-edits.log`.
+`/tmp/tachyon-table-policy-edits.log`.

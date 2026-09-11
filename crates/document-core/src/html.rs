@@ -431,7 +431,7 @@ fn inert_node(
                         fragment.html.push('"');
                     }
                 } else {
-                    fragment.html.push_str(" data-mineral-link=\"");
+                    fragment.html.push_str(" data-tachyon-link=\"");
                     fragment
                         .html
                         .push_str(&fragment.link_targets.len().to_string());
@@ -471,7 +471,7 @@ fn inert_node(
                         fragment.html.push('"');
                     }
                 } else {
-                    fragment.html.push_str(" data-mineral-image=\"");
+                    fragment.html.push_str(" data-tachyon-image=\"");
                     fragment.html.push_str(&fragment.images.len().to_string());
                     fragment.html.push('"');
                 }
@@ -503,12 +503,12 @@ fn inert_node(
                 }
                 // Preserve authored IDs solely as inert navigation metadata.
                 // Never install them as DOM/native IDs, and never accept a
-                // caller-supplied data-mineral-anchor attribute as authority.
+                // caller-supplied data-tachyon-anchor attribute as authority.
                 if attr.name.ns.as_ref().is_empty() && key == "id" {
                     fragment.html.push_str(if clipboard {
                         " id=\""
                     } else {
-                        " data-mineral-anchor=\""
+                        " data-tachyon-anchor=\""
                     });
                     html_escape(&attr.value, &mut fragment.html);
                     fragment.html.push('"');
@@ -606,9 +606,9 @@ mod inert_tests {
             html,
             "<div id=\"root\"><a href=\"https://example.test/?a=1&amp;b=2\">Web</a><a>Unsafe</a><a href=\"notes.md#next\">Local</a><img src=\"photo.png\" alt=\"Photo\"></div>"
         );
-        assert!(!html.contains("data-mineral"));
+        assert!(!html.contains("data-tachyon"));
         let preview = inert_html_fragment(source).unwrap();
-        assert!(preview.html().contains("data-mineral-link"));
+        assert!(preview.html().contains("data-tachyon-link"));
         assert!(preview.html().contains("style="));
         assert!(!preview.html().contains("href="));
         assert!(clipboard_html_fragment(&"x".repeat(32 * 1024 + 1)).is_none());
@@ -652,11 +652,11 @@ mod inert_tests {
 
     #[test]
     fn authored_ids_are_inert_metadata_not_spoofable_dom_ids() {
-        let fragment = inert_html_fragment("<p id='café&amp;&quot;' data-mineral-anchor='forged' onclick='bad()'>Body</p><script id='secret'>bad()</script>").unwrap();
+        let fragment = inert_html_fragment("<p id='café&amp;&quot;' data-tachyon-anchor='forged' onclick='bad()'>Body</p><script id='secret'>bad()</script>").unwrap();
         assert!(
             fragment
                 .html()
-                .contains("data-mineral-anchor=\"café&amp;&quot;\"")
+                .contains("data-tachyon-anchor=\"café&amp;&quot;\"")
         );
         assert!(!fragment.html().contains(" id="));
         assert!(!fragment.html().contains("forged"));
@@ -750,9 +750,9 @@ mod inert_tests {
 
     #[test]
     fn local_image_references_are_inert_and_conversion_preserves_media() {
-        let source = "<div><p>Before <strong>bold</strong>.</p><a href='guide.md'><img src='../assets/chart.png' alt='A &amp; B' title='Chart' width='120' height='60' onerror='bad()' data-mineral-image='99'></a><p>After.</p></div>";
+        let source = "<div><p>Before <strong>bold</strong>.</p><a href='guide.md'><img src='../assets/chart.png' alt='A &amp; B' title='Chart' width='120' height='60' onerror='bad()' data-tachyon-image='99'></a><p>After.</p></div>";
         let fragment = inert_html_fragment(source).expect("local images have an inert descriptor");
-        assert!(fragment.html().contains("data-mineral-image=\"0\""));
+        assert!(fragment.html().contains("data-tachyon-image=\"0\""));
         assert!(!fragment.html().contains("src="));
         assert!(!fragment.html().contains("onerror"));
         assert!(!fragment.html().contains("99"));
@@ -852,16 +852,16 @@ mod inert_tests {
         assert!(inert_html_fragment(&"<img src='local.png'>".repeat(33)).is_none());
         let repeated = inert_html_fragment("<img src='a.png'><img src='a.png'>").unwrap();
         assert_eq!(repeated.images().len(), 2);
-        assert!(repeated.html().contains("data-mineral-image=\"1\""));
+        assert!(repeated.html().contains("data-tachyon-image=\"1\""));
     }
 
     #[test]
     fn active_resources_and_unsupported_structures_do_not_enter_the_renderer() {
-        let source = "<script>secret()</script><iframe src='https://example.test'>hidden</iframe><p onclick='bad()' tabindex='0'><a href='javascript:bad()' data-mineral-link='99'>Visible</a></p>";
+        let source = "<script>secret()</script><iframe src='https://example.test'>hidden</iframe><p onclick='bad()' tabindex='0'><a href='javascript:bad()' data-tachyon-link='99'>Visible</a></p>";
         let fragment = inert_html_fragment(source).unwrap();
         assert_eq!(
             fragment.html(),
-            "<p><a data-mineral-link=\"0\">Visible</a></p>"
+            "<p><a data-tachyon-link=\"0\">Visible</a></p>"
         );
         assert_eq!(fragment.link_targets(), &["javascript:bad()"]);
         assert!(!fragment.html().contains("javascript:"));

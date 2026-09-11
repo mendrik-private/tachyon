@@ -233,7 +233,7 @@ mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
-            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             for (first, second, boundary, paired) in [
                 ("## Request", "## Response", "", true),
                 ("### Request", "### Response", "", true),
@@ -258,7 +258,7 @@ mod tests {
     fn technical_exchanges_measure_pair_and_stack_in_source_order(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let doc = Document::from_markdown(EXCHANGES).unwrap();
             let projection = TextProjection::from_snapshot(&doc.snapshot());
             let heading_id =
@@ -383,7 +383,7 @@ mod tests {
     fn editing_an_exchange_label_preserves_the_payload_track(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let mut doc = Document::from_markdown(EXCHANGES).unwrap();
             let before = TextProjection::from_snapshot(&doc.snapshot());
             let plan = arrangement::build_measured_adaptive_plan(
@@ -452,7 +452,7 @@ mod tests {
     ) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let doc = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&doc.snapshot());
             for width in [1200., 760., 480., 230.] {
@@ -608,7 +608,7 @@ mod tests {
     fn editorial_typing_locks_complete_object_and_exact_undo(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let fonts =
-                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Mineral".into(), 1.);
+                FontMeasurement::new(cx.text_system().clone(), "Spline Sans Tachyon".into(), 1.);
             let mut doc = Document::from_markdown(SOURCE).unwrap();
             let projection = TextProjection::from_snapshot(&doc.snapshot());
             let plan = arrangement::build_measured_adaptive_plan(

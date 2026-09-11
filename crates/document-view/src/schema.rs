@@ -151,13 +151,13 @@ fn text(id: &str, content: &str, x: f32, y: f32, color: u32) -> String {
 
 fn svg(body: &str, width: f32, height: f32) -> String {
     format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\"><g font-family=\"Spline Sans Mono Mineral\" font-size=\"14\" xml:space=\"preserve\">{body}</g></svg>"
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\"><g font-family=\"Spline Sans Mono Tachyon\" font-size=\"14\" xml:space=\"preserve\">{body}</g></svg>"
     )
 }
 
 pub(super) fn render(source: &str, dark: bool) -> Result<Figure, DiagramError> {
     let rows = rows(source)?;
-    let palette = crate::MineralPalette::for_dark(dark);
+    let palette = crate::TachyonPalette::for_dark(dark);
     let height = HEADER + rows.len() as f32 * ROW + INSET;
     let mut labels = String::new();
     for (i, row) in rows.iter().enumerate() {

@@ -25,7 +25,7 @@ Native fixture103 captures under `performance/layout-previews/`:
 Runtime SHA-256:
 `97b1f414bd0e9913d7e70bfde279b3432e89fbd4354b8c3e73ad070c8293674c`.
 `scripts/check.sh` passes (781 Rust tests, 2 existing ignored, locked checks,
-formatting, strict Clippy, adapters, doctests); `/tmp/mineral-toolbar-check.log`.
+formatting, strict Clippy, adapters, doctests); `/tmp/tachyon-toolbar-check.log`.
 `git diff --check` passes. Crusty `ctx_9ebd1dd1353c` /
 `task_d2d0b1d2872e4d8b`: 75 existing advisory findings, none new/worsened/resolved.
 

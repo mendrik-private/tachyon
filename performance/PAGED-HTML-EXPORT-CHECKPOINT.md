@@ -2,7 +2,7 @@
 
 ## Result
 
-Mineral now has a production **Export paged HTML…** command in the application
+Tachyon now has a production **Export paged HTML…** command in the application
 menu and a `Ctrl+Shift+E` shortcut. It exports the current immutable document
 snapshot on a dedicated worker and writes the result atomically. Export does
 not change the Markdown source path, saved revision, recovery journal, undo
@@ -82,7 +82,7 @@ the saved-width table geometry. No content is truncated to balance a page.
 
 This is the first production static/paged output path, not the complete page
 system. Pagination is currently performed by the receiving browser or paged
-renderer. Mineral does not yet provide a finite-page preview, PDF command,
+renderer. Tachyon does not yet provide a finite-page preview, PDF command,
 cover/reference/wide-evidence/appendix masters, generated contents/bookmarks,
 explicit authored page breaks, landscape selection in the UI, anchor-page
 footnote placement, code continuation labels, oversized-row escape handling,

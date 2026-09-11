@@ -69,7 +69,7 @@ accessibility is **not**. That remains an explicit next interaction defect.
 ## Release visual evidence
 
 Final release: `14dea702a5c193254ecea6244f8fc8a6e826ce490d852e8590601602884df9a9`.
-Immutable test binary: `/tmp/mineral-native-startup.GN6qPB/mineral-markdown-release`.
+Immutable test binary: `/tmp/mineral-native-startup.GN6qPB/tachyon-release`.
 
 `startup-toolbar-final-{wide,narrow,200-top}.png` and their native/source
 sidecars cover fixture 67 at 1600×1200, 600×1100 and 200% document text.

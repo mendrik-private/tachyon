@@ -50,7 +50,7 @@ Reproduce a capture with:
 
 ```sh
 python3 performance/capture-layout.py --fixture 126-automatic-table-edges.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --source-unchanged-check --atspi-active --output /tmp/table-edge.png
 ```
 

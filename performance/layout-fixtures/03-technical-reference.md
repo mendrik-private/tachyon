@@ -69,7 +69,7 @@ fn preserve_source(source: &str) -> String {
 2. Run the application with the document path.
 
    ```sh
-   mineral-markdown notes.md
+   tachyon notes.md
    ```
 
 3. Verify that your folder and document outline remain available.

@@ -27,7 +27,7 @@ fn state_root() -> PathBuf {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PersistenceError {
-    #[error("file changed outside Mineral: {0}")]
+    #[error("file changed outside Tachyon: {0}")]
     ExternalChange(PathBuf),
     #[error("persistence I/O failed for {path}: {source}")]
     Io { path: PathBuf, source: io::Error },

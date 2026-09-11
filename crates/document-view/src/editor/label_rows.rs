@@ -442,7 +442,7 @@ mod tests {
                     let node = |prefix: &str| projection.segments().iter().find(|s| projection.text()[s.projection_range()].starts_with(prefix)).unwrap().node_id;
                     let outer = node("2026:");
                     let inner = node("2026-09-08:");
-                    assert_eq!(plan.timeline_chain(node("mineral-markdown release")).collect::<Vec<_>>(), vec![inner, outer]);
+                    assert_eq!(plan.timeline_chain(node("tachyon release")).collect::<Vec<_>>(), vec![inner, outer]);
                     assert_eq!(plan.timeline_chain(node("The release summary")).collect::<Vec<_>>(), vec![outer], "leaving the child list returns to the parent event");
                     assert_eq!(plan.timeline_parents.len(), 2);
                     let mut changed = plan.clone();
@@ -502,9 +502,7 @@ mod tests {
             let code = projection
                 .segments()
                 .iter()
-                .find(|s| {
-                    projection.text()[s.projection_range()].starts_with("mineral-markdown release")
-                })
+                .find(|s| projection.text()[s.projection_range()].starts_with("tachyon release"))
                 .unwrap()
                 .node_id;
             let owners = initial.timeline_chain(code).collect::<Vec<_>>();
@@ -607,9 +605,7 @@ mod tests {
                                 "event ownership must not leak beyond its list: {text}"
                             );
                         }
-                        if text.starts_with("Supporting evidence")
-                            || text.starts_with("mineral-markdown")
-                        {
+                        if text.starts_with("Supporting evidence") || text.starts_with("tachyon") {
                             let owner = plan.timeline_owners[&segment.node_id];
                             assert!(
                                 projection.text()[projection
@@ -670,7 +666,7 @@ mod tests {
         cx.update(|cx| {
             let source =
                 include_str!("../../../../performance/layout-fixtures/120-enclosed-timelines.md");
-            for prefix in ["Supporting evidence", "mineral-markdown", "2026-09-08:"] {
+            for prefix in ["Supporting evidence", "tachyon", "2026-09-08:"] {
                 let mut document = Document::from_markdown(source).unwrap();
                 let projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(

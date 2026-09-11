@@ -9,7 +9,7 @@ Dates anchor complete events. Commands, evidence and follow-up notes remain part
   Keep the exact command with this event so another reader can reproduce the change.
 
   ```sh
-  mineral-markdown field-notes.md
+  tachyon field-notes.md
   ```
 
   > [!NOTE]

@@ -75,7 +75,7 @@ passes. No new dependency, platform API, or document mutation path was added.
 
 ```sh
 python3 performance/capture-layout.py --source-document README.md \
-  --binary target/debug/mineral-markdown --width 1600 --height 1200 \
+  --binary target/debug/tachyon --width 1600 --height 1200 \
   --appearance dark --source-unchanged-check --atspi-active \
   --layout-trace details --output performance/layout-previews/holdout-readme-after.png
 ```

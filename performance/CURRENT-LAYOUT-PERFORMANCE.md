@@ -84,7 +84,7 @@ unchanged `balanced` power profile. Release uses the workspace's thin LTO,
 one codegen unit and locked dependencies. The `layout-validation` feature
 enables the existing private diagnostics; it does not disable rendering work.
 
-Build: `cargo build --release --locked -p markdown-app --bin mineral-markdown
+Build: `cargo build --release --locked -p markdown-app --bin tachyon
 --bin mineral-fixture --features layout-validation` (one shell command).
 
 ## September 10 baseline: not qualified
@@ -97,7 +97,7 @@ current failure that must be resolved without reducing accessible content.
 Reproduce the scale-120 large-document failure:
 
 ```sh
-python3 performance/capture-layout.py --binary target/release/mineral-markdown \
+python3 performance/capture-layout.py --binary target/release/tachyon \
   --generated-bytes 10485760 --width 1728 --height 1080 --scale 120 \
   --refresh-rate 120000 --perf-seconds 10 --perf-input continuous \
   --atspi-active --source-unchanged-check \
@@ -185,11 +185,11 @@ not close A07 or the full audit.
 ## Follow-up: symbolized profile and rejected local optimization
 
 A same-optimization build retaining symbols (`cargo rustc --release --locked
--p markdown-app --bin mineral-markdown --features layout-validation -- -C
+-p markdown-app --bin tachyon --features layout-validation -- -C
 strip=none`) produced baseline SHA
 `18c3874058ea06fead8b2d61b734ebac0b2d40ce537a43ae88253017e162659a`.
 It is retained temporarily at
-`/tmp/mineral-a11y-baseline-4Duop9/mineral-markdown`.
+`/tmp/mineral-a11y-baseline-4Duop9/tachyon`.
 The native profiling run is `layout-previews/a11y-symbolized-before.json`;
 raw 15-second, 199Hz CPU samples are `/tmp/mineral-a11y-symbolized-before.perf`.
 It includes warmup/activation, not just steady scrolling. There were 2,825

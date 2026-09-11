@@ -52,7 +52,7 @@ Final release SHA-256:
 Fixture 71 SHA-256:
 `908c1a6138849af4761825f7841f3b6c9ba047ece567a4335191272c22611420`.
 The isolated immutable binary is
-`/tmp/mineral-bibliography-weston.OzzaiY/mineral-markdown-final`.
+`/tmp/mineral-bibliography-weston.OzzaiY/tachyon-final`.
 
 The final screenshots were opened and visually inspected:
 

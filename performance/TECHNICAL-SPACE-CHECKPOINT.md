@@ -60,7 +60,7 @@ Reproduce the baseline, replacing width/zoom/output for other matrix entries:
 
 ```sh
 python3 performance/capture-layout.py --fixture 79-technical-sections.md \
-  --binary target/debug/mineral-markdown --width 1920 --height 1000 \
+  --binary target/debug/tachyon --width 1920 --height 1000 \
   --zoom-steps 0 --source-unchanged-check --atspi-active \
   --output performance/layout-previews/technical-space-wide.png
 ```

@@ -74,7 +74,7 @@ invalid burst options and the desktop-shell/appearance incompatibility.
 
 ```sh
 python3 performance/capture-layout.py --fixture 47-editorial-composition.md \
-  --binary target/debug/mineral-markdown --width 1920 --height 1200 \
+  --binary target/debug/tachyon --width 1920 --height 1200 \
   --scale 150 --zoom-steps 0 --resize-check reading --resize-burst \
   --layout-trace details \
   --output performance/layout-previews/resize-burst-125-width-reading.png

@@ -1,6 +1,6 @@
 # Markdown layout cookbook
 
-Mineral uses Markdown structure to choose a presentation. You author the content
+Tachyon uses Markdown structure to choose a presentation. You author the content
 and its relationships; the editor measures them with the current font, text
 size and window dimensions. A pattern makes a layout **eligible**, rather than
 forcing a fixed number of columns.
@@ -8,10 +8,10 @@ forcing a fixed number of columns.
 Narrow windows, enlarged text, long content and editing can keep an eligible
 group in a vertical flow. Source order remains the reading and editing order.
 Automatic arrangements do not insert layout directives into saved Markdown.
-These conventions are Mineral presentations of portable content; other Markdown
+These conventions are Tachyon presentations of portable content; other Markdown
 readers may display the same source as ordinary headings, paragraphs and lists.
 
-Open [the full reference](../example/reference.md) in Mineral for larger examples
+Open [the full reference](../example/reference.md) in Tachyon for larger examples
 and responsive alternatives. Its numbered chapters correspond to the table below.
 Image examples in this cookbook use illustrative paths: substitute your own files.
 
@@ -246,7 +246,7 @@ Used for emphasis and controls.
 ```
 
 A metric needs `Metric: Name`, a compact standalone quantity, and one or two
-context paragraphs. Mineral does not calculate the value or invent a trend.
+context paragraphs. Tachyon does not calculate the value or invent a trend.
 A number inside normal prose stays prose.
 
 `Color`, `Colour`, `Color token` and `Colour token` identify swatches when followed
@@ -319,7 +319,7 @@ Code, tables, figures and diagrams can pair with an explanation before or after
 them when they belong to the same context. Some compatible table/example sections
 also form technical pairs. Intervening headings, semantic boundaries, excessive
 height or insufficient readable width prevent a pair. These examples are document
-content, not Mineral configuration settings.
+content, not Tachyon configuration settings.
 
 ### Tables and records
 
@@ -337,7 +337,7 @@ records, with labels alongside or above their values. Tables comparing values
 across columns retain aligned comparison structure; width alone does not imply
 that every table becomes cards. Long content uses wrapping or local overflow.
 
-An optional Mineral table comment records **authored widths**, rather than an
+An optional Tachyon table comment records **authored widths**, rather than an
 automatic layout choice. `null` leaves a column automatic:
 
 ```markdown
@@ -374,7 +374,7 @@ Content-Type: application/json
 Language-tagged fences supply code panels with Copy actions and syntax colors
 where supported. Long lines stay inside the code area's overflow. Short shell
 fences such as `sh` / `bash` with a nearby explanation can become compact command
-strips. They display source; Mineral does not execute the commands.
+strips. They display source; Tachyon does not execute the commands.
 
 Named Request/Response sections require actual fenced payloads to qualify as an
 exchange. An ordinary paragraph asking the reader for something is not a request
@@ -480,7 +480,7 @@ Footnote syntax creates references and corresponding note/backlink controls.
 or simple list entries hanging reference treatment. Numbered section prefixes
 and suffixes such as `References · numbered` are recognized. A peer or ancestor
 heading ends the section. Citation order and authored numbering are preserved;
-Mineral does not generate citation data from a URL.
+Tachyon does not generate citation data from a URL.
 
 ### HTML disclosures
 

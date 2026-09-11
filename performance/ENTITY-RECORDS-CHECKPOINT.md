@@ -73,7 +73,7 @@ classification and permits a fresh table arrangement.
 Release SHA-256:
 `4f10b9f57d6e4b65c2ae432e52f632d96dc020b1fd2d8c8b6510702560b79f33`.
 Immutable native test binary:
-`/tmp/mineral-entities-weston.QS8eZ6/mineral-markdown-final`.
+`/tmp/mineral-entities-weston.QS8eZ6/tachyon-final`.
 Build: `layout-previews/entity-records-final-build.log` (1m26s including lock wait).
 
 `scripts/check.sh` passes: locked metadata, formatting, all-target workspace

@@ -1,4 +1,4 @@
-# Mineral
+# Tachyon
 
 Mineral is a native, Wayland-only Markdown editor written in Rust with GPUI. It
 keeps Markdown rendered while it is edited: there is no source pane, preview

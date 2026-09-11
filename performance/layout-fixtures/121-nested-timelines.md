@@ -11,7 +11,7 @@ Keep each dated event with its parent and its supporting evidence.
     Supporting evidence belongs to the first research event.
 
     ```sh
-    mineral-markdown research.md
+    tachyon research.md
     ```
 
   - **2025:** Review of the prototype.
@@ -30,7 +30,7 @@ Keep each dated event with its parent and its supporting evidence.
   - **2026-09-08:** Review the evidence.
 
     ```sh
-    mineral-markdown release.md
+    tachyon release.md
     ```
 
   - **2026-09-10:** Publish the release.

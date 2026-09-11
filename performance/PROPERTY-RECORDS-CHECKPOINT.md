@@ -80,8 +80,8 @@ SHA-256: `94cc3638be8e7bd42c1c25f588260f3304c6849d2f7bcb9d85a40f79e7c579b7`.
 
 Final release SHA-256:
 `a33c9286ac3b62417a336046b504a65b1766c4815fa18b92e8faa0f0c4a90d94`.
-Both `target/release/mineral-markdown` and the immutable test copy
-`/tmp/mineral-properties-weston.vQROHL/mineral-markdown-final` match this hash.
+Both `target/release/tachyon` and the immutable test copy
+`/tmp/mineral-properties-weston.vQROHL/tachyon-final` match this hash.
 The optimized build completed in 2m21s:
 `layout-previews/property-records-build-verified.log`. Earlier `first`/`final`
 build logs and captures predate the complete source fix and are not sign-off.

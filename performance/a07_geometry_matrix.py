@@ -19,7 +19,7 @@ REPRESENTATIVES = {(480, 150), (799, 180), (800, 150), (1440, 240)}
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path,
-                        default=ROOT / "target/release/mineral-markdown")
+                        default=ROOT / "target/release/tachyon")
     parser.add_argument("--output", type=Path,
                         default=ROOT / "performance/layout-previews/a07-native-geometry-matrix.json")
     parser.add_argument("--height", type=int, default=800)

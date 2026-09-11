@@ -62,7 +62,7 @@ Reproduce a final case (add `--zoom-steps 10` for 200%):
 ```sh
 cargo build --locked -p markdown-app --features layout-validation
 python3 performance/capture-layout.py --fixture 122-paired-records.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 500 \
+  --binary target/debug/tachyon --width 1440 --height 500 \
   --recorded-bugs-check table-history \
   --output /tmp/table-history.png
 ```

@@ -58,9 +58,9 @@ tests now also enforce green/different-from-warning dark Tips.
 Reproduce the selected-text cycle:
 
 ```sh
-cargo build --locked --bin mineral-markdown
+cargo build --locked --bin tachyon
 python3 performance/capture-layout.py --fixture 79-technical-sections.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1000 \
+  --binary target/debug/tachyon --width 1440 --height 1000 \
   --zoom-steps 0 --appearance dark --appearance-cycle \
   --select 261 343 593 343 --source-unchanged-check --atspi-active \
   --output performance/layout-previews/theme-final-selected.png

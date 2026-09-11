@@ -79,12 +79,12 @@ of CPU samples. The first candidate profile is retained beside the baseline.
 ## Reproduction
 
 ```sh
-cargo rustc --release --locked -p markdown-app --bin mineral-markdown \
+cargo rustc --release --locked -p markdown-app --bin tachyon \
   --features layout-validation -- -C strip=none
 python3 performance/capture-layout.py --source-document example/reference.md \
   --source-resource-dir performance/layout-fixtures \
   --source-resource-dir performance/visual-assets \
-  --binary target/release/mineral-markdown --width 1440 --height 1000 \
+  --binary target/release/tachyon --width 1440 --height 1000 \
   --perf-seconds 32 --perf-sweep-seconds 8 --perf-input continuous \
   --atspi-active --source-unchanged-check \
   --output performance/layout-previews/reference-scroll.png \

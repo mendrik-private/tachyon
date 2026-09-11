@@ -71,7 +71,7 @@ Reproduce the growth check:
 
 ```sh
 python3 performance/capture-layout.py --fixture 79-technical-sections.md \
-  --binary target/debug/mineral-markdown --width 1600 --height 1100 \
+  --binary target/debug/tachyon --width 1600 --height 1100 \
   --appearance light --source-unchanged-check --atspi-active \
   --select 280 326 280 326 --selection-keys home --edit-check \
   --edit-paste 'Additional context belongs with these settings. Review the local configuration with the team before opening any shared documents. ' \

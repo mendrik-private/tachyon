@@ -65,9 +65,9 @@ width/reflow oracle, not an assertion that these captures prove window placement
 Reproduce (change fixture/mode/output for the other entries):
 
 ```sh
-cargo build --locked --features layout-validation --bin mineral-markdown
+cargo build --locked --features layout-validation --bin tachyon
 python3 performance/capture-layout.py --fixture 79-technical-sections.md \
-  --binary target/debug/mineral-markdown --width 1920 --height 1000 \
+  --binary target/debug/tachyon --width 1920 --height 1000 \
   --zoom-steps 0 --resize-check reading --layout-trace details \
   --output performance/layout-previews/technical-resize-final-reading.png
 python3 -m unittest discover -s performance -p test_resize_layout_check.py

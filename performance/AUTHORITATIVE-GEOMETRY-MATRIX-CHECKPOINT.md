@@ -95,9 +95,9 @@ cargo test --manifest-path vendor/accesskit_atspi_common/Cargo.toml \
   pending_text_input_with_empty_run_has_a_safe_native_text_range
 python3 -m unittest performance/test_a07_geometry_check.py \
   performance/test_capture_layout.py
-cargo build --release -p markdown-app --bin mineral-markdown
+cargo build --release -p markdown-app --bin tachyon
 python3 performance/a07_geometry_matrix.py \
-  --binary target/release/mineral-markdown \
+  --binary target/release/tachyon \
   --output performance/layout-previews/a07-native-edit-geometry-matrix.json
 ```
 

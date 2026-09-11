@@ -72,7 +72,7 @@ placement qualification. Stage filenames retain the oracle's historical
 
 ```sh
 python3 performance/capture-layout.py --fixture 79-technical-sections.md \
-  --binary target/debug/mineral-markdown --width 1920 --height 1200 \
+  --binary target/debug/tachyon --width 1920 --height 1200 \
   --zoom-steps 0 --resize-check reading --resize-axis height \
   --layout-trace details \
   --output performance/layout-previews/height-fixed-reading.png

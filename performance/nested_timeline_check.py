@@ -40,7 +40,7 @@ def main():
                            ("The release summary", "2025: Earlier")):
             a, b = [one(variant, "paragraph", marker)["bounds"] for marker in (start, end)]
             assert a["y"] + a["height"] <= b["y"]
-    for code in ("mineral-markdown research", "mineral-markdown release"):
+    for code in ("tachyon research", "tachyon release"):
         a, b = [one(tree, "static", code)["bounds"] for tree in (old, nodes)]
         assert all(a[key] == b[key] for key in ("x", "width", "height"))
 
@@ -62,7 +62,7 @@ def main():
     assert stress_source["binary_sha256"] == after["binary_sha256"]
     assert len(semantics(stress, 38)) == 38
     code = one(stress, "static", "# Retained nested event")["name"]
-    assert code == "# Retained nested event\n" * 60 + "mineral-markdown release.md\n"
+    assert code == "# Retained nested event\n" * 60 + "tachyon release.md\n"
     viewport = one(stress, "entry", "Markdown document editor")["bounds"]
     stress_pixels = Image.open(args.offscreen.with_suffix(".png")).convert("RGB")
     offscreen_coverage = []

@@ -32,7 +32,7 @@ Keep the selected paragraph in place while typing. Undo restores the original Ma
 The short example can share a row with its explanation when both have a comfortable width.
 
 ```sh
-mineral-markdown document.md
+tachyon document.md
 ```
 
 ---

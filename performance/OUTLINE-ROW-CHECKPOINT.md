@@ -52,7 +52,7 @@ caret-following outline policy.
 
 ```sh
 python3 performance/capture-layout.py --fixture 79-technical-sections.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 700 \
+  --binary target/debug/tachyon --width 1440 --height 700 \
   --zoom-steps 0 --scroll 300 --scroll-steps 4 --scroll-settle-seconds 2 \
   --source-unchanged-check --atspi-active \
   --output performance/layout-previews/outline-peer-after.png

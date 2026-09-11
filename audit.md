@@ -40,7 +40,7 @@ Line numbers below describe the inspected checkout. Use the named functions as a
 | `cargo test --workspace --all-targets --locked` | Passed: 28 core + 26 view + 22 app tests; performance binary has 0 tests |
 | `cargo fmt --all -- --check` | Passed |
 | `cargo clippy --workspace --all-targets --locked -- -D warnings` | Passed |
-| `cargo build --release --locked --bin mineral-markdown --bin mineral-perf` | Passed |
+| `cargo build --release --locked --bin tachyon --bin mineral-perf` | Passed |
 | Additional temporary regression probes against the compiled core library | 7 deliberately failing checks; failures listed below |
 | Native release app in isolated Weston | Launched and inspected at 1280×720 and 640×480; real Wayland pointer/key input exercised |
 | AT-SPI inspection | Tree exists, but editor text was unavailable and semantic document nodes reported identical 1×1 bounds |
@@ -665,11 +665,11 @@ Record whether each fixture uses decimal KB/MB or binary KiB/MiB. Measure on the
 ### Packaging/clean-machine qualification
 
 ```sh
-cargo build --release --locked --bin mineral-markdown
+cargo build --release --locked --bin tachyon
 packaging/install.sh /tmp/mineral-stage/usr
-desktop-file-validate /tmp/mineral-stage/usr/share/applications/dev.mineral.Markdown.desktop
-appstreamcli validate --no-net /tmp/mineral-stage/usr/share/metainfo/dev.mineral.Markdown.metainfo.xml
-xmllint --noout /tmp/mineral-stage/usr/share/icons/hicolor/scalable/apps/dev.mineral.Markdown.svg
+desktop-file-validate /tmp/mineral-stage/usr/share/applications/io.github.mendrik_private.Tachyon.desktop
+appstreamcli validate --no-net /tmp/mineral-stage/usr/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml
+xmllint --noout /tmp/mineral-stage/usr/share/icons/hicolor/scalable/apps/io.github.mendrik_private.Tachyon.svg
 ```
 
 Use a fresh staging directory. These packaging validators were not executed during this audit. Also launch via the staged desktop entry with filenames containing spaces and multiple paths, with no development font setup or prior state/cache. Keep the known optional homepage warning documented until a real homepage exists.

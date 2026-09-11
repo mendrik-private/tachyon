@@ -56,7 +56,7 @@ Final binary SHA-256:
 Fixture `72-display-equations.md` SHA-256:
 `b7f0688c9a8072a72501abd40b6b70be740a53a6e39cf63293e64cd8df455ce6`.
 Immutable tested binary:
-`/tmp/mineral-equation-weston.1I2Mue/mineral-markdown-final`.
+`/tmp/mineral-equation-weston.1I2Mue/tachyon-final`.
 
 Personally inspected final native screenshots under `layout-previews/`:
 

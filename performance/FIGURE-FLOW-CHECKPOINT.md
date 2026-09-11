@@ -37,7 +37,7 @@ not run in scrolling/painting.
 Release SHA-256:
 `daba40e9890473c94229b684aeb9d7408cf650946e30aa0d526ce05b98aef2e9`.
 Immutable verification binary:
-`/tmp/mineral-figure-flow.ldei8f/mineral-markdown-verified`.
+`/tmp/mineral-figure-flow.ldei8f/tachyon-verified`.
 Fixture `layout-fixtures/67-supporting-figure-flow.md` SHA-256:
 `ba307554e1e5258d5bfaec6cc8600a55a721c224c235f2709691f474b8cc7a38`.
 The local botanical SVG is a deterministic, non-quantitative synthetic

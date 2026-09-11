@@ -834,12 +834,12 @@ private Weston/Wayland input, a private AT-SPI bus/clipboard and a copied fixtur
 Reproduce without leaving fault controls in the normal launcher:
 
 ```sh
-cargo build --release -p markdown-app --bin mineral-markdown --features layout-validation
+cargo build --release -p markdown-app --bin tachyon --features layout-validation
 validation_run=$(mktemp -d)
-install -m755 target/release/mineral-markdown "$validation_run/mineral-markdown"
-cargo build --release -p markdown-app --bin mineral-markdown
-python3 performance/capture-layout.py --binary "$validation_run/mineral-markdown" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check panic --output /tmp/mineral-panic.png
-python3 performance/capture-layout.py --binary "$validation_run/mineral-markdown" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check timeout --output /tmp/mineral-timeout.png
+install -m755 target/release/tachyon "$validation_run/tachyon"
+cargo build --release -p markdown-app --bin tachyon
+python3 performance/capture-layout.py --binary "$validation_run/tachyon" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check panic --output /tmp/mineral-panic.png
+python3 performance/capture-layout.py --binary "$validation_run/tachyon" --fixture 43-layout-recovery.md --width 1280 --height 1100 --startup-wait 12 --layout-trace summary --layout-recovery-check timeout --output /tmp/mineral-timeout.png
 ```
 
 This supplies native evidence for the reading-mode AT-15 fault cases; it is not
@@ -3703,7 +3703,7 @@ Clippy pass. Native/release evidence follows below; the complete background
 planner and accessibility/IME acceptance work remain open.
 
 Final release SHA **`5868fe1d26792d7bdd27c0f01995934db437950d49a7aaca3fc1051b7ff59e1d`**
-was built with `cargo build --release --locked --bin mineral-markdown` and checked
+was built with `cargo build --release --locked --bin tachyon` and checked
 on isolated Weston/Wayland with the bundled Fraunces/Spline Sans fonts. All
 captures use copied synthetic fixture `12-measured-tables.md`, never a user file:
 
@@ -4216,7 +4216,7 @@ zoom, not a claim that every physical-window resize path has been exercised.
 Commands used: `cargo test -p document-view --locked --lib --quiet`,
 `cargo clippy -p document-view --locked --all-targets -- -D warnings`,
 `cargo fmt --all -- --check`, `git diff --check`, and
-`cargo build --release --locked --bin mineral-markdown`. Native checks use
+`cargo build --release --locked --bin tachyon`. Native checks use
 `performance/capture-layout.py` with fixture 14, `--edit-paste`,
 `--edit-zoom-steps`, optional `--edit-blur`, and the isolated 10 MiB
 `--generated-bytes 10485760 --perf-seconds 10` scrolling case.

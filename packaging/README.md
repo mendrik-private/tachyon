@@ -1,12 +1,12 @@
 # Linux packaging
 
-The desktop identity is `dev.mineral.Markdown`. A distributor should install:
+The desktop identity is `io.github.mendrik_private.Tachyon`. A distributor should install:
 
-- the `mineral-markdown` release binary under `bin/`;
-- `dev.mineral.Markdown.desktop` under `share/applications/`;
-- `dev.mineral.Markdown.metainfo.xml` under `share/metainfo/`; and
+- the `tachyon` release binary under `bin/`;
+- `io.github.mendrik_private.Tachyon.desktop` under `share/applications/`;
+- `io.github.mendrik_private.Tachyon.metainfo.xml` under `share/metainfo/`; and
 - the icon tree under `share/icons/hicolor/`; and
-- the MIT and Apache-2.0 license texts under `share/licenses/mineral-markdown/`.
+- the MIT and Apache-2.0 license texts under `share/licenses/tachyon/`.
 
 The binary is Wayland-only by product contract. The bundled fonts and their
 licenses are compiled into the executable from `assets/fonts/`.
@@ -15,7 +15,7 @@ HTML previews keep the bundled Spline fonts as their default and use installed
 fonts through Fontconfig for additional scripts and emoji. Distributions need
 fonts covering the languages they support; no font files are downloaded from
 documents. The native multilingual validation uses installed Noto CJK, Arabic
-and Color Emoji fonts. After installing or changing fonts, restart Mineral to
+and Color Emoji fonts. After installing or changing fonts, restart Tachyon to
 rebuild its process-local font collection and retained previews.
 
 The application icon is the supplied lightning/Markdown PNG, preserved at its
@@ -25,22 +25,18 @@ name and desktop filename match the Wayland application ID.
 Build and stage a complete installation under an explicit prefix:
 
 ```sh
-cargo build --release --locked --bin mineral-markdown
-packaging/install.sh /tmp/mineral-stage/usr
+cargo build --release --locked --bin tachyon
+packaging/install.sh /tmp/tachyon-stage/usr
 ```
 
 The installer rejects an empty prefix and `/`; it never selects a system or
 user prefix implicitly. Validate the staged desktop integration with:
 
 ```sh
-desktop-file-validate /tmp/mineral-stage/usr/share/applications/dev.mineral.Markdown.desktop
-appstreamcli validate --no-net /tmp/mineral-stage/usr/share/metainfo/dev.mineral.Markdown.metainfo.xml
-file /tmp/mineral-stage/usr/share/icons/hicolor/scalable/apps/dev.mineral.Markdown.png
+desktop-file-validate /tmp/tachyon-stage/usr/share/applications/io.github.mendrik_private.Tachyon.desktop
+appstreamcli validate --no-net /tmp/tachyon-stage/usr/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml
+file /tmp/tachyon-stage/usr/share/icons/hicolor/scalable/apps/io.github.mendrik_private.Tachyon.png
 ```
-
-AppStream currently reports the optional `url-homepage-missing` warning. No
-public project homepage has been chosen, so the metadata intentionally avoids
-publishing an invented URL.
 
 ## GitHub release workflow
 
@@ -59,7 +55,7 @@ The workflow runs `scripts/check.sh`, builds the optimized binary with `--locked
 stages it with `packaging/install.sh`, validates the desktop entry and AppStream
 XML, and checks for unresolved shared libraries. The resulting draft contains:
 
-- `mineral-vVERSION-linux-x86_64.tar.gz`, with `bin/`, desktop integration,
+- `tachyon-vVERSION-linux-x86_64.tar.gz`, with `bin/`, desktop integration,
   licenses and user documentation;
 - `runtime-libraries.txt`, the build host's shared-library dependency inventory;
 - `SHA256SUMS`, covering both files.
@@ -73,7 +69,7 @@ For example, after updating the application version to `0.1.0` and committing
 the intended release contents:
 
 ```sh
-git tag -a v0.1.0 -m 'Mineral 0.1.0'
+git tag -a v0.1.0 -m 'Tachyon 0.1.0'
 git push origin v0.1.0
 ```
 
@@ -92,16 +88,16 @@ accessibility and sustained-performance qualification.
 
 ## Installing an extracted archive
 
-Run `bin/mineral-markdown` directly from the extracted archive, or install its
+Run `bin/tachyon` directly from the extracted archive, or install its
 contents under a chosen prefix. For a per-user installation:
 
 ```sh
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
-cp -a mineral-v0.1.0-linux-x86_64/bin/. "$HOME/.local/bin/"
-cp -a mineral-v0.1.0-linux-x86_64/share/. "$HOME/.local/share/"
+cp -a tachyon-v0.1.0-linux-x86_64/bin/. "$HOME/.local/bin/"
+cp -a tachyon-v0.1.0-linux-x86_64/share/. "$HOME/.local/share/"
 update-desktop-database "$HOME/.local/share/applications"
 ```
 
 Ensure `$HOME/.local/bin` is in the desktop session's `PATH`, since the desktop
-entry launches `mineral-markdown` by name. Substitute the downloaded version
+entry launches `tachyon` by name. Substitute the downloaded version
 for `v0.1.0`.

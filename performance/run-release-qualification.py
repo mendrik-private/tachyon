@@ -18,7 +18,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 PERFORMANCE = ROOT / "performance"
-APP = ROOT / "target/release/mineral-markdown"
+APP = ROOT / "target/release/tachyon"
 FIXTURE_GENERATOR = ROOT / "target/release/mineral-fixture"
 UINPUT_CLIENT = PERFORMANCE / "wayland-harness/build/uinput-client"
 SIZES = (("100k", 100 * 1024), ("1m", 1024 * 1024), ("10m", 10 * 1024 * 1024))

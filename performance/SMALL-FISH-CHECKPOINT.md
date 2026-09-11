@@ -24,7 +24,7 @@ larger navigation audit remains open.
 - `scripts/check.sh` passes: locked dependencies, formatting, workspace check,
   strict Clippy, workspace tests, accessibility adapter/publication tests and
   doc tests. Document-view has 596 passing tests and 2 pre-existing ignored tests.
-- `cargo build --release --locked --bin mineral-markdown` passes. Final binary:
+- `cargo build --release --locked --bin tachyon` passes. Final binary:
   `3efdd97958fd2143b1b050bf3f7d850ee038e5467bddf0962693298ea5ca822a`.
 - Native private-Wayland captures at 960 and 1600 output width, each at 100%,
   150% and 200% text zoom, plus a 960×360 window. Artifacts:

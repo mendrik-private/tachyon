@@ -389,7 +389,7 @@ impl SemanticTree {
         // detection remains constant-depth even for huge documents.
         let text_id = builder.synthetic_node_id("document-text-run");
         let mut text = Node::new(Role::TextRun);
-        text.set_label("Mineral retained document text");
+        text.set_label("Tachyon retained document text");
         text.set_value(self.document_text.clone());
         text.set_character_lengths(
             self.document_text

@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=Mineral
+Name=Tachyon
 Comment=Read and edit Markdown as a rich document
-Exec=mineral-markdown %F
-Icon=dev.mineral.Markdown
+Exec=tachyon %F
+Icon=io.github.mendrik_private.Tachyon
 Terminal=false
 Categories=Utility;TextEditor;
 Keywords=Markdown;Editor;Notes;CommonMark;
 MimeType=text/markdown;text/x-markdown;
 StartupNotify=true
-StartupWMClass=dev.mineral.Markdown
+StartupWMClass=io.github.mendrik_private.Tachyon

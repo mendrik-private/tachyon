@@ -52,7 +52,7 @@ Reproduce the native capture:
 ```sh
 cargo build --locked -p markdown-app --features layout-validation
 python3 performance/capture-layout.py --fixture 124-table-reading-measure.md \
-  --binary target/debug/mineral-markdown --width 1920 --height 1500 \
+  --binary target/debug/tachyon --width 1920 --height 1500 \
   --source-unchanged-check --atspi-active --output /tmp/table-reading.png
 ```
 

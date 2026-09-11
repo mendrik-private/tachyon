@@ -3354,7 +3354,7 @@ pub(super) mod tests {
                     );
                 }
                 assert!(
-                    plan.slots.contains_key(&find("Mineral requires Linux")),
+                    plan.slots.contains_key(&find("Tachyon requires Linux")),
                     "substantial explanation can retain a measured pair"
                 );
             }

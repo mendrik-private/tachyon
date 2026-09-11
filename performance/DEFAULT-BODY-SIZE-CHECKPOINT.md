@@ -62,7 +62,7 @@ Reproduce:
 ```sh
 python3 performance/capture-layout.py --source-document example/reference.md \
   --source-resource-dir performance/layout-fixtures \
-  --binary target/debug/mineral-markdown --width 1920 --height 1400 \
+  --binary target/debug/tachyon --width 1920 --height 1400 \
   --source-unchanged-check --atspi-active --output /tmp/body-size.png
 ```
 

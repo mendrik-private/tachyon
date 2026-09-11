@@ -43,7 +43,7 @@ Build the repository's virtual-input helper and debug application, then run:
 
 ```sh
 performance/wayland-harness/build.sh
-cargo build -p markdown-app --bin mineral-markdown
+cargo build -p markdown-app --bin tachyon
 python3 performance/native_ime_check.py
 ```
 

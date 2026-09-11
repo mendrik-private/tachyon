@@ -73,7 +73,7 @@ def scenario_for_fixture(name, target="default", zoom=1):
                       for line in source.splitlines() if line.startswith("- **2026-"))
         markers = {
             "timeline-body": "Keep the exact command",
-            "timeline-code": "mineral-markdown field-notes.md",
+            "timeline-code": "tachyon field-notes.md",
             "timeline-table": "Original Markdown bytes retained",
             "timeline-nested": "Preserve nested qualifications",
         }

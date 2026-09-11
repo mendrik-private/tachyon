@@ -69,7 +69,7 @@ Artifacts and `.find.json` evidence: `performance/layout-previews/title-search-*
 
 ```sh
 python3 performance/capture-layout.py --fixture 41-find-document.md \
-  --find-check --binary target/release/mineral-markdown \
+  --find-check --binary target/release/tachyon \
   --width 600 --height 1100 --output /tmp/title-search.png
 ```
 

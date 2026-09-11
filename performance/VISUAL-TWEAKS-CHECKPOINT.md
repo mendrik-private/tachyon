@@ -23,7 +23,7 @@ output's upper-left edge, where the previous up/left drag was clamped.
 - `scripts/check.sh` passed: locked dependency checks, formatting, workspace
   check, strict Clippy, workspace tests, accessibility adapter/publication tests
   and doc tests. Document-view: 597 passed, 2 pre-existing ignored tests.
-- `cargo build --release --locked --bin mineral-markdown` passed.
+- `cargo build --release --locked --bin tachyon` passed.
 - Quote and editorial tests verify alignment, shared row height, natural stacked
   padding, source coverage, editing stability and exact Undo. A text-run test
   checks Unicode boundaries, colon-only styling in both themes and exact source.

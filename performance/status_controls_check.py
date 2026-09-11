@@ -12,7 +12,7 @@ def recovered(source):
 
 def seed_recovery(source, work):
     key = hashlib.sha256(b'mineral-recovery-v1\0' + bytes(source)).hexdigest()
-    directory = work / 'state/mineral-markdown/recovery'
+    directory = work / 'state/tachyon/recovery'
     directory.mkdir(parents=True)
     record = dict(source_path=str(source), revision=1, markdown=recovered(source.read_text()),
                   base_identity=None, written_at_unix_ms=int(time.time() * 1000))

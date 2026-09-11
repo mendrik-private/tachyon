@@ -270,7 +270,7 @@ def main():
                         help="fixture 32: verify image roles/order and native heading-link activation")
     parser.add_argument("--atspi-editorial-check", action="store_true",
                         help="fixture 47: verify automatic composition traversal, focus and geometry")
-    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/mineral-markdown",
+    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/tachyon",
                         help="app binary to verify (release by default)")
     parser.add_argument("--width", type=int, default=1440)
     parser.add_argument("--height", type=int, default=1000)

@@ -1,8 +1,8 @@
-# Mineral
+# Tachyon
 
 **A native Markdown editor for Linux. Written in Rust. No Electron.**
 
-Mineral keeps your Markdown rendered while you edit it. Headings, lists, tables,
+Tachyon keeps your Markdown rendered while you edit it. Headings, lists, tables,
 code and figures share one editable document, with automatic layouts that adapt
 to the space available. Your work lives in local Markdown files.
 
@@ -26,7 +26,7 @@ to the space available. Your work lives in local Markdown files.
   typography, text zoom and responsive reflow.
 
 Start with the [Markdown layout cookbook](docs/markdown-layouts.md), or open the
-[complete example document](example/reference.md) in Mineral to explore the
+[complete example document](example/reference.md) in Tachyon to explore the
 layouts at different window sizes.
 
 ## Install a release
@@ -41,8 +41,8 @@ page. For a release tagged `v0.1.0`, verify and run it with:
 
 ```sh
 sha256sum --check SHA256SUMS
-tar -xzf mineral-v0.1.0-linux-x86_64.tar.gz
-./mineral-v0.1.0-linux-x86_64/bin/mineral-markdown path/to/document.md
+tar -xzf tachyon-v0.1.0-linux-x86_64.tar.gz
+./tachyon-v0.1.0-linux-x86_64/bin/tachyon path/to/document.md
 ```
 
 Download `runtime-libraries.txt` too: the checksum file covers both assets.
@@ -51,7 +51,7 @@ For desktop integration and release instructions, see
 
 ## Build and run
 
-Mineral requires Linux with a Wayland compositor, a Vulkan-capable graphics
+Tachyon requires Linux with a Wayland compositor, a Vulkan-capable graphics
 stack, Rust 1.98, and the native development libraries used by GPUI. On
 Ubuntu, the relevant packages are:
 
@@ -64,11 +64,11 @@ sudo apt-get install build-essential clang cmake git libfontconfig-dev \
 Build and open a document:
 
 ```sh
-cargo build --release --locked --bin mineral-markdown
-target/release/mineral-markdown path/to/document.md
+cargo build --release --locked --bin tachyon
+target/release/tachyon path/to/document.md
 ```
 
-With no path, Mineral restores the last workspace or opens a recoverable
+With no path, Tachyon restores the last workspace or opens a recoverable
 untitled draft. Open File remembers the folder of the last successfully opened
 file across restarts; cancelling the chooser leaves that folder unchanged.
 
@@ -228,10 +228,10 @@ describe candidate selection, conservative fallbacks and performance evidence.
 
 ## Storage and recovery
 
-Mineral writes documents with a same-directory temporary file and atomic
+Tachyon writes documents with a same-directory temporary file and atomic
 replacement, retaining file permissions. A 750 ms idle autosave is used for
 named files. Recovery state is journaled independently under the XDG state
-directory, including untitled drafts. If the source changed outside Mineral,
+directory, including untitled drafts. If the source changed outside Tachyon,
 autosave pauses and the application requires an explicit Reload, Overwrite, or
 Save Copy decision.
 
@@ -240,11 +240,11 @@ Application state follows the XDG base-directory convention. Override
 
 ## Clipboard interoperability
 
-Copy produces plain text plus Mineral's versioned rich Markdown metadata. A
-second Mineral window prefers that rich representation, preserving structure
+Copy produces plain text plus Tachyon's versioned rich Markdown metadata. A
+second Tachyon window prefers that rich representation, preserving structure
 and formatting; malformed or foreign metadata falls back safely to plain text.
 The pinned GPUI Wayland backend currently advertises only text, image, and file
-clipboard entries, so HTML and Mineral-specific MIME data are not exported to
+clipboard entries, so HTML and Tachyon-specific MIME data are not exported to
 other applications as native Wayland MIME types.
 
 ## Architecture
@@ -265,7 +265,7 @@ integration is described in [packaging/README.md](packaging/README.md).
 `Cargo.lock` is authoritative and all build/check commands use `--locked`.
 GPUI Component is pinned in `Cargo.toml` to
 `ff3eb1128ac1058f1bb88e777744ce1237aa3b79`. GPUI, `gpui_platform`, and
-`reqwest_client` resolve through both Mineral and GPUI Component's matching Git
+`reqwest_client` resolve through both Tachyon and GPUI Component's matching Git
 source to Zed commit `8b1497dbd22fb06f5838a7c0b84a1e54fafa71bc`.
 
 When updating either project, update all related entries in one Cargo
@@ -276,6 +276,9 @@ Git source URLs as distinct crates even when they resolve to the same commit.
 
 ## License
 
-Mineral is dual-licensed under [MIT](LICENSE-MIT) or
+Tachyon is dual-licensed under [MIT](LICENSE-MIT) or
 [Apache-2.0](LICENSE-APACHE), at your option. The bundled fonts retain the
 licenses recorded in `assets/fonts/`.
+
+The application was previously named Mineral. Existing workspace and recovery data
+remain under the `mineral-markdown` state directory so the rename preserves them.

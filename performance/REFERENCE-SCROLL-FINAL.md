@@ -11,7 +11,7 @@ Status: complete. The repeatable cold-scroll stall is removed from the exact fin
 
 ## Protocol
 
-The fixture was the exact 102,156-byte [`example/reference.md`](../example/reference.md), SHA-256 `def4e0898878adf5f62eb0a38827139629af2eb7014028569dc5c601489f41ab`. The final stripped release executable was `target/reference-scroll-prefetch/release/mineral-markdown`, SHA-256 `b49efbde2fcf8613c5b08a4c75b3694fbcbdbb3871524de0e42b3daf101c4284`.
+The fixture was the exact 102,156-byte [`example/reference.md`](../example/reference.md), SHA-256 `def4e0898878adf5f62eb0a38827139629af2eb7014028569dc5c601489f41ab`. The final stripped release executable was `target/reference-scroll-prefetch/release/tachyon`, SHA-256 `b49efbde2fcf8613c5b08a4c75b3694fbcbdbb3871524de0e42b3daf101c4284`.
 
 Each final run used an isolated Weston 14 headless GL output at a requested 120 Hz, a private Wayland seat, a private session bus, and an active AT-SPI tree. The driver sent continuous native axis deltas every 12 ms and completed alternating eight-second full-document sweeps for 32 measured seconds. Source-resource hashes and exact post-run source preservation are embedded in every report. The user explicitly waived the physical desktop/input run because it prevents concurrent work; no physical input or desktop session was used for this qualification.
 

@@ -7,7 +7,7 @@ The checked-in PNGs were captured from a 1280 × 900 Weston headless output with
 Build the application and the isolated compositor harness:
 
 ```sh
-cargo build --release -p markdown-app --bin mineral-markdown
+cargo build --release -p markdown-app --bin tachyon
 performance/wayland-harness/build.sh
 ```
 
@@ -18,7 +18,7 @@ MINERAL_WESTON_SCALE_120=150 weston --backend=headless --renderer=gl \
   --width=1280 --height=900 --socket=mineral-fixture --idle-time=0 \
   --debug --no-config --shell=kiosk --refresh-rate=120000 \
   --modules="$PWD/performance/wayland-harness/build/virtual-input.so,$PWD/performance/wayland-harness/build/fractional-scale.so"
-WAYLAND_DISPLAY=mineral-fixture target/release/mineral-markdown performance/visual-fixture.md
+WAYLAND_DISPLAY=mineral-fixture target/release/tachyon performance/visual-fixture.md
 WAYLAND_DISPLAY=mineral-fixture weston-screenshooter
 ```
 

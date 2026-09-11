@@ -167,7 +167,7 @@ def terminate_group(process):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path,
-                        default=ROOT / "target" / "debug" / "mineral-markdown")
+                        default=ROOT / "target" / "debug" / "tachyon")
     parser.add_argument("--runtime-prefix", type=Path,
                         help="prefix containing locally extracted Sway/Fcitx packages")
     parser.add_argument("--output", type=Path,
@@ -287,7 +287,7 @@ def main():
                 sway_config.write_text(
                     "xwayland disable\ndefault_border none\nfocus_follows_mouse no\n"
                     f"exec {launch}\n"
-                    'for_window [app_id="dev.mineral.Markdown"] fullscreen enable\n',
+                    'for_window [app_id="io.github.mendrik_private.Tachyon"] fullscreen enable\n',
                     encoding="utf-8",
                 )
                 sway_process = subprocess.Popen(

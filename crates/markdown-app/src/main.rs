@@ -181,7 +181,7 @@ fn main() {
         .iter()
         .map(|path| start_document_preload(path, startup_trace_started_at))
         .collect::<Vec<_>>();
-    let http_client = reqwest_client::ReqwestClient::user_agent("Mineral/0.1")
+    let http_client = reqwest_client::ReqwestClient::user_agent("Tachyon/0.1")
         .expect("HTTP client initialization must succeed");
     let mut application = gpui_platform::application()
         .with_http_client(Arc::new(http_client))
@@ -192,7 +192,7 @@ fn main() {
     startup_trace(startup_trace_started_at, "application-created");
     application.run(move |cx| {
         startup_trace(startup_trace_started_at, "application-run");
-        cx.set_app_identity("dev.mineral.Markdown", "Mineral");
+        cx.set_app_identity("io.github.mendrik_private.Tachyon", "Tachyon");
         cx.set_reduce_motion(prefers_reduced_motion());
         fonts::register(cx);
         gpui_component::init(cx);
@@ -355,7 +355,7 @@ fn window_options() -> WindowOptions {
         ))),
         window_min_size: Some(size(px(480.0), px(360.0))),
         titlebar: Some(TitleBar::title_bar_options()),
-        app_id: Some("dev.mineral.Markdown".into()),
+        app_id: Some("io.github.mendrik_private.Tachyon".into()),
         window_decorations: Some(WindowDecorations::Client),
         app_owns_titlebar_drag: true,
         ..WindowOptions::default()
@@ -1769,7 +1769,7 @@ impl MarkdownWindow {
                         format!("Exported paged HTML to {}", path.display())
                     }
                     Ok(path) => format!(
-                        "Exported an earlier document revision to {}; newer edits remain in Mineral.",
+                        "Exported an earlier document revision to {}; newer edits remain in Tachyon.",
                         path.display()
                     ),
                     Err(error) => format!("Paged HTML export failed: {error}"),
@@ -2516,7 +2516,7 @@ impl MarkdownWindow {
                     Ok(ExternalState::Modified(_)) if this.unsaved => {
                         this.conflict = true;
                         this.startup_error = Some(
-                            "File changed outside Mineral. Choose Reload, Save copy, or Overwrite."
+                            "File changed outside Tachyon. Choose Reload, Save copy, or Overwrite."
                                 .into(),
                         );
                         this.arm_external_watch(cx);

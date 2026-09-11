@@ -67,7 +67,7 @@ Reproduce the native editing check:
 
 ```sh
 python3 performance/capture-layout.py --source-document README.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --appearance dark --atspi-active --source-unchanged-check \
   --select 280 702 280 702 --selection-keys home --edit-check \
   --edit-within 'Build and open a document:' \

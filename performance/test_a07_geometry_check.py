@@ -17,7 +17,7 @@ from a07_geometry_check import (
 def sample_nodes(visible=True, scale=150):
     factor = scale / 120
     nodes = [
-        {"role": "application", "name": "mineral-markdown", "parent": None},
+        {"role": "application", "name": "tachyon", "parent": None},
         {"role": "frame", "name": "", "parent": 0},
         {"role": "button", "name": "Close window", "parent": 1,
          "bounds": {"x": 560, "y": 3, "width": round(28 * factor),

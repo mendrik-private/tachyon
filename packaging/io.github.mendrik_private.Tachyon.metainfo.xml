@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>dev.mineral.Markdown</id>
-  <name>Mineral</name>
+  <id>io.github.mendrik_private.Tachyon</id>
+  <name>Tachyon</name>
   <summary>Read and edit Markdown as a rich document</summary>
+  <url type="homepage">https://github.com/mendrik-private/tachyon</url>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT OR Apache-2.0</project_license>
-  <developer id="dev.mineral">
-    <name>Mineral contributors</name>
+  <developer id="io.github.mendrik_private">
+    <name>Tachyon contributors</name>
   </developer>
   <description>
     <p>
-      Mineral is a native Wayland editor that presents Markdown as one
+      Tachyon is a native Wayland editor that presents Markdown as one
       continuously rendered, always-editable document. It includes rich tables,
       lists, links, images, an outline, a minimap, autosave, and crash recovery.
     </p>
   </description>
-  <launchable type="desktop-id">dev.mineral.Markdown.desktop</launchable>
+  <launchable type="desktop-id">io.github.mendrik_private.Tachyon.desktop</launchable>
   <provides>
-    <binary>mineral-markdown</binary>
+    <binary>tachyon</binary>
     <mediatype>text/markdown</mediatype>
     <mediatype>text/x-markdown</mediatype>
   </provides>

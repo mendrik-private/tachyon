@@ -42,7 +42,7 @@ This is an ordinary prose section, not another technical panel. Its heading shou
 ### Environment file
 
 ```sh
-EDITOR=mineral-markdown
+EDITOR=tachyon
 PAGER=less
 LANG=en_US.UTF-8
 ```

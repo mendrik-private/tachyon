@@ -52,7 +52,7 @@ ROW_CODE = {
     ),
     "Another example": (
         "The short example can share a row with its explanation when both have a comfortable width.",
-        "mineral-markdown document.md\n",
+        "tachyon document.md\n",
         None,
     ),
 }

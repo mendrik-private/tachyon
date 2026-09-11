@@ -85,7 +85,7 @@ Reproduce the marker check:
 
 ```sh
 python3 performance/capture-layout.py --fixture 53-document-grammar.md \
-  --binary target/debug/mineral-markdown --width 1600 --height 1200 \
+  --binary target/debug/tachyon --width 1600 --height 1200 \
   --appearance light --source-unchanged-check --atspi-active \
   --scroll 900 --scroll-steps 10 --scroll-settle-seconds 2 \
   --select 825 1008 825 1008 \

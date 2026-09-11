@@ -34,7 +34,7 @@ positions progress through 125, 151, 168, 184, 195, 203, 203 after release;
 continuous positions progress through 129, 197, 243, 285, 312, 334, 335.
 These verify actual on-screen coasting, deceleration and settling independently
 of the deterministic physics tests. Restart the rebuilt
-`target/release/mineral-markdown` to use this refinement; an already running
+`target/release/tachyon` to use this refinement; an already running
 process or separately installed copy is not updated by building.
 
 The same release passes the isolated 10 MiB scroll gate at 1728×1080, 166.7%

@@ -79,7 +79,7 @@ def main():
 
     # The technical evidence retains its actual dimensions, not a squeezed
     # rendition selected to make the new timeline fit.
-    for role, prefix in (("static", "mineral-markdown field-notes.md"), ("table", "Table")):
+    for role, prefix in (("static", "tachyon field-notes.md"), ("table", "Table")):
         before = one(old, role, prefix)["bounds"]
         after = one(new, role, prefix)["bounds"]
         assert (after["x"], after["width"], after["height"]) == (before["x"], before["width"], before["height"])
@@ -98,7 +98,7 @@ def main():
     assert stress_source["binary_sha256"] == current["binary_sha256"]
     assert len(semantics(stress, 68)) == 68
     code = one(stress, "static", "# Retained event evidence")["name"]
-    assert code == "# Retained event evidence\n" * 60 + "mineral-markdown field-notes.md\n"
+    assert code == "# Retained event evidence\n" * 60 + "tachyon field-notes.md\n"
     viewport = one(stress, "entry", "Markdown document editor")["bounds"]
     header = one(stress, "paragraph", DATES[0])["bounds"]
     following = one(stress, "paragraph", DATES[1])["bounds"]

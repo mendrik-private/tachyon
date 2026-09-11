@@ -140,7 +140,7 @@ Commands used include:
 cargo check -p document-view --locked
 cargo fmt --all --check
 cargo test -p document-view --locked
-cargo build --release --locked --features layout-validation --bin mineral-markdown
+cargo build --release --locked --features layout-validation --bin tachyon
 python performance/capture-layout.py --fixture 54-grammar-relationships.md --width 1600 --height 1200 --layout-trace details --source-unchanged-check --output performance/layout-previews/review-current-relationships.png
 ```
 

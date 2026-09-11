@@ -60,7 +60,7 @@ Reproduce the caption check:
 
 ```sh
 python3 performance/capture-layout.py --fixture 83-rich-cell-images.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --appearance light --atspi-active --source-unchanged-check \
   --select 280 530 280 530 --selection-keys home --edit-check \
   --edit-within 'Caption inside the image cell.' \

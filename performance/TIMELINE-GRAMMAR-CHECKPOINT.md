@@ -106,7 +106,7 @@ cargo test --workspace --all-targets --locked
 cargo clippy --workspace --all-targets --locked
 cargo fmt --all -- --check
 python -m unittest discover -s performance -p test_capture_layout.py
-cargo build --release --locked --features layout-validation --bin mineral-markdown
+cargo build --release --locked --features layout-validation --bin tachyon
 ```
 
 Results: 461 Rust tests passed, 2 ignored; Clippy and formatting clean; seven

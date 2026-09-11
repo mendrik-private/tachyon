@@ -65,7 +65,7 @@ Example reproduction:
 ```sh
 cargo build --locked -p markdown-app --features layout-validation
 python3 performance/capture-layout.py --fixture 123-aligned-card-grids.md \
-  --binary target/debug/mineral-markdown --width 1600 --height 1400 \
+  --binary target/debug/tachyon --width 1600 --height 1400 \
   --layout-trace details --source-unchanged-check --atspi-active \
   --output /tmp/aligned-grid.png
 ```

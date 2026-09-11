@@ -2348,7 +2348,7 @@ mod tests {
         for (source, expected) in [
             (base.to_owned(), true),
             (opening.to_owned(), true),
-            (base.replacen("# Mineral", "## Mineral", 1), false),
+            (base.replacen("# Tachyon", "## Tachyon", 1), false),
             (format!("A preamble.\n\n{base}"), false),
             (
                 base.replacen("The current", "A hard break.  \nThe current", 1),

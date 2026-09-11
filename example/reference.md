@@ -686,7 +686,7 @@ Dates anchor complete events. Commands, evidence and follow-up notes remain part
   Keep the exact command with this event so another reader can reproduce the change.
 
   ```sh
-  mineral-markdown field-notes.md
+  tachyon field-notes.md
   ```
 
   > [!NOTE]
@@ -1496,7 +1496,7 @@ fn preserve_source(source: &str) -> String {
 2. Run the application with the document path.
 
    ```sh
-   mineral-markdown notes.md
+   tachyon notes.md
    ```
 
 3. Verify that your folder and document outline remain available.

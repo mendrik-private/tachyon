@@ -75,7 +75,7 @@ at 100%, 150% and 200%, including growth and undo. `git diff --check` passes.
 
 ```sh
 python3 performance/capture-layout.py --fixture 80-supporting-notes.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --appearance dark --zoom-steps 0 --source-unchanged-check --atspi-active \
   --layout-trace details --output performance/layout-previews/supporting-notes-after.png
 ```

@@ -33,7 +33,7 @@ Reproduce the light100% capture:
 
 ```sh
 python3 performance/capture-layout.py --fixture 103-image-states.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --select 380 370 700 370 --source-unchanged-check \
   --output /tmp/image-toolbar.png
 ```

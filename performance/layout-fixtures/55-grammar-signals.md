@@ -39,7 +39,7 @@ Keep commands selectable and copy their exact source.
 
 ```sh
 cargo build --release --locked
-./target/release/mineral-markdown plan.md
+./target/release/tachyon plan.md
 ```
 
 ## Compact properties

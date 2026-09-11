@@ -11,7 +11,7 @@ Dates belong to their surrounding evidence. Supporting text and technical detail
 >   Supporting evidence remains part of the first event.
 >
 >   ```sh
->   mineral-markdown field-notes.md
+>   tachyon field-notes.md
 >   ```
 >
 > - **2025:** Prototype testing refined the working document.

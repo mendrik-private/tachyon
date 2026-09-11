@@ -32,19 +32,19 @@ Centered table insertion buttons retain their separate action and target.
 
 Fixture: `layout-fixtures/82-authored-table-widths.md`.
 SHA-256: `6108ef32c7358cf0a1e7c1d8714b2da3b5c78d4a3a2cf2f7cf4eedc1225032b4`.
-Binary: `target/debug/mineral-markdown`, layout-validation build,
+Binary: `target/debug/tachyon`, layout-validation build,
 SHA-256: `908eef5752a1675c6538f1383f21908ab86f465b9a280b627a096bfdb901ac3c`.
 Only regression tests changed after that build.
 
 ```sh
 python3 performance/capture-layout.py --fixture 82-authored-table-widths.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --appearance dark --atspi-active --source-unchanged-check \
   --select 416 384 496 384 --table-resize-check \
   --output performance/layout-previews/table-resize-100-qualified.png
 
 python3 performance/capture-layout.py --fixture 82-authored-table-widths.md \
-  --binary target/debug/mineral-markdown --width 1440 --height 1100 \
+  --binary target/debug/tachyon --width 1440 --height 1100 \
   --appearance light --zoom-steps 10 --atspi-active --source-unchanged-check \
   --select 576 787 656 787 --table-resize-check \
   --output performance/layout-previews/table-resize-200-qualified.png

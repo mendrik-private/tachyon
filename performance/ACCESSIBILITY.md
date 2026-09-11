@@ -25,9 +25,9 @@ document plus overscan and changes the child set as the viewport moves.
 
 ## Reproduction checklist
 
-1. Run `cargo build --release --locked --bin mineral-markdown` in a graphical
+1. Run `cargo build --release --locked --bin tachyon` in a graphical
    Wayland login with the distribution's AT-SPI bus enabled.
-2. Start `target/release/mineral-markdown performance/visual-fixture.md`.
+2. Start `target/release/tachyon performance/visual-fixture.md`.
 3. Inspect the application with Accerciser, `pyatspi`, or Orca. Confirm that the
    focused editor is a multiline editable text object and query its text,
    selection, caret, and extents interfaces.

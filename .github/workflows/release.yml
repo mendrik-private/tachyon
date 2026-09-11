@@ -47,22 +47,22 @@ jobs:
       - name: Check workspace
         run: scripts/check.sh
       - name: Build release binary
-        run: cargo build --release --locked --bin mineral-markdown
+        run: cargo build --release --locked --bin tachyon
       - name: Package Linux x86_64 installation
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          bundle="mineral-${RELEASE_TAG}-linux-x86_64"
+          bundle="tachyon-${RELEASE_TAG}-linux-x86_64"
           mkdir -p dist
           packaging/install.sh "$RUNNER_TEMP/$bundle"
-          install -Dm644 README.md "$RUNNER_TEMP/$bundle/share/doc/mineral/README.md"
-          install -Dm644 docs/markdown-layouts.md "$RUNNER_TEMP/$bundle/share/doc/mineral/docs/markdown-layouts.md"
-          install -Dm644 packaging/README.md "$RUNNER_TEMP/$bundle/share/doc/mineral/packaging/README.md"
-          desktop-file-validate "$RUNNER_TEMP/$bundle/share/applications/dev.mineral.Markdown.desktop"
-          xmllint --noout "$RUNNER_TEMP/$bundle/share/metainfo/dev.mineral.Markdown.metainfo.xml"
-          file "$RUNNER_TEMP/$bundle/bin/mineral-markdown"
-          ldd "$RUNNER_TEMP/$bundle/bin/mineral-markdown" > dist/runtime-libraries.txt
+          install -Dm644 README.md "$RUNNER_TEMP/$bundle/share/doc/tachyon/README.md"
+          install -Dm644 docs/markdown-layouts.md "$RUNNER_TEMP/$bundle/share/doc/tachyon/docs/markdown-layouts.md"
+          install -Dm644 packaging/README.md "$RUNNER_TEMP/$bundle/share/doc/tachyon/packaging/README.md"
+          desktop-file-validate "$RUNNER_TEMP/$bundle/share/applications/io.github.mendrik_private.Tachyon.desktop"
+          xmllint --noout "$RUNNER_TEMP/$bundle/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml"
+          file "$RUNNER_TEMP/$bundle/bin/tachyon"
+          ldd "$RUNNER_TEMP/$bundle/bin/tachyon" > dist/runtime-libraries.txt
           if grep -q 'not found' dist/runtime-libraries.txt; then
             cat dist/runtime-libraries.txt
             exit 1
@@ -102,5 +102,5 @@ jobs:
             gh release upload "$RELEASE_TAG" dist/* --clobber
           else
             gh release create "$RELEASE_TAG" dist/* --verify-tag --draft \
-              --title "Mineral $RELEASE_TAG" --generate-notes
+              --title "Tachyon $RELEASE_TAG" --generate-notes
           fi

@@ -39,8 +39,8 @@ def main():
             assert a["y"] + a["height"] <= b["y"], (start, end)
 
     # Readable summaries gain width without compressing technical evidence.
-    before = one(old, "static", "mineral-markdown")["bounds"]
-    after = one(nodes, "static", "mineral-markdown")["bounds"]
+    before = one(old, "static", "tachyon")["bounds"]
+    after = one(nodes, "static", "tachyon")["bounds"]
     assert all(before[key] == after[key] for key in ("x", "width", "height"))
     first = one(nodes, "paragraph", "2024:")["bounds"]
     assert first["height"] == 24, "a short summary fits without premature wrapping"

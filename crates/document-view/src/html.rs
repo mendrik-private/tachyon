@@ -608,7 +608,8 @@ fn render_at_width(
          details[open] > summary {{ margin-bottom: 8px; }}\n\
          details > p:last-child {{ margin-bottom: 0; }}\n\
          a {{ color: #{:06x}; }}\n\
-         code, pre, kbd {{ font-family: 'Spline Sans Mono Tachyon', monospace; }}\n\
+         code, kbd {{ font-family: 'Spline Sans Mono Tachyon', monospace; }}\n\
+         pre, pre code {{ font-family: 'Fira Code Tachyon', monospace; font-variant-ligatures: common-ligatures contextual; }}\n\
          * {{ animation: none !important; transition: none !important; }}",
         palette.page,
         palette.text,

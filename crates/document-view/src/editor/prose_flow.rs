@@ -110,6 +110,7 @@ pub(super) fn measure(
             }
         }
     }
+    suppress_adjacent_columns(plan, projection);
     if keep_arrangements {
         return;
     }
@@ -175,6 +176,31 @@ pub(super) fn measure(
                 start += 1;
                 continue;
             }
+            // Rejected passages also have a settled layout. Reuse that
+            // vertical result when the complete measured run is unchanged.
+            if previous.is_some_and(|old| {
+                plan.compatible_environment(old)
+                    && old.editing_node.is_none()
+                    && !old.measured_rows.edit_locked
+                    && plan.lead == old.lead
+                    && roots[start.saturating_sub(1)..(end + 1).min(roots.len())]
+                        .iter()
+                        .all(|root| {
+                            plan.unchanged_root(old, root.id())
+                                && plan.root_ordinal(root.id()) == old.root_ordinal(root.id())
+                        })
+                    && roots[start..end].iter().all(|root| {
+                        let id = root.id();
+                        old.has_measured_geometry(id)
+                            && plan.unchanged_root(old, id)
+                            && !old.prose_flows.contains_key(&id)
+                            && plan.slots.get(&id) == old.slots.get(&id)
+                            && plan.reading_modes.get(&id) == old.reading_modes.get(&id)
+                    })
+            }) {
+                start = end;
+                continue;
+            }
             let measure = plan.prose_measures.for_role(narrative, false);
             let minimum = measure * 40. / DocumentStyle::PROSE_CHARACTERS;
             let maximum =
@@ -227,6 +253,42 @@ pub(super) fn measure(
             start = end;
         }
     }
+    suppress_adjacent_columns(plan, projection);
+}
+
+/// A passage must have one unambiguous downward-then-across reading path.
+/// Decide against the complete plan before removing anything, so a chain of
+/// adjacent bands cannot alternate between columns and stacks by accident.
+fn suppress_adjacent_columns(plan: &mut AdaptivePlan, projection: &TextProjection) {
+    let roots = projection.roots().collect::<Vec<_>>();
+    let mut rejected = HashSet::new();
+    for flow in plan.prose_flows.values() {
+        if flow.starts.len() > flow.columns {
+            rejected.insert(flow.group);
+        }
+    }
+    for pair in roots.windows(2) {
+        let Some(flow) = plan.prose_flows.get(&pair[0].id()) else {
+            continue;
+        };
+        let next = pair[1].id();
+        let another_flow = plan
+            .prose_flows
+            .get(&next)
+            .is_some_and(|other| other.group != flow.group);
+        let column_text = matches!(pair[1], BlockNode::Paragraph(_))
+            && (plan.inline_lists.contains_key(&next)
+                || plan.slots.get(&next).is_some_and(|slot| slot.columns > 1))
+            || plan
+                .lists
+                .get(&next)
+                .is_some_and(|list| matches!(list.layout, crate::adaptive::ListLayout::Grid(_)));
+        if another_flow || column_text {
+            rejected.insert(flow.group);
+        }
+    }
+    plan.prose_flows
+        .retain(|_, flow| !rejected.contains(&flow.group));
 }
 
 pub(super) fn rebase_after_edit(
@@ -391,6 +453,9 @@ fn measured_candidate(
         return None;
     }
     let starts = crate::adaptive::prose::breaks(&lines, height_limit, columns)?;
+    if starts.len() > columns {
+        return None;
+    }
     let fit = band_fit(&lines, &starts, columns);
     Some((
         Flow {
@@ -572,8 +637,80 @@ mod tests {
         format!(
             "# Reading together\n\nA short introduction.\n\n## The long view\n\n{}\n\n{}\n\n## A new subject\n\nThe next section stays outside the flow.\n",
             SENTENCE.repeat(2),
-            SENTENCE.repeat(23)
+            SENTENCE.repeat(8)
         )
+    }
+
+    #[test]
+    fn adjacent_independent_text_columns_keep_only_the_final_band() {
+        let document =
+            Document::from_markdown("First passage.\n\nSecond passage.\n\nThird passage.\n")
+                .unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let mut plan = AdaptivePlan::build(&projection, 1280., None, false);
+        let ids = projection.roots().map(BlockNode::id).collect::<Vec<_>>();
+        for &id in &ids {
+            let segment = projection.segment_for_node(id).unwrap();
+            plan.prose_flows.insert(
+                id,
+                Arc::new(Flow {
+                    group: id,
+                    canvas: 1280.,
+                    columns: 2,
+                    needs_balance: false,
+                    sources: vec![(
+                        id,
+                        Arc::from(&projection.text()[segment.projection_range()]),
+                    )],
+                    revisions: vec![projection.node_revision(id)],
+                    starts: vec![(id, 0), (id, 6)],
+                }),
+            );
+        }
+        suppress_adjacent_columns(&mut plan, &projection);
+        assert_eq!(plan.prose_flows.len(), 1);
+        assert!(plan.prose_flows.contains_key(&ids[2]));
+    }
+
+    #[gpui::test]
+    fn long_passages_do_not_restart_columns_in_another_band(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = source().replace(&SENTENCE.repeat(8), &SENTENCE.repeat(23));
+            let document = Document::from_markdown(source.as_str()).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            for width in [1280., 1600.] {
+                let plan = arrangement::build_measured_adaptive_plan(
+                    &projection,
+                    width,
+                    900.,
+                    None,
+                    false,
+                    &fonts,
+                );
+                assert!(
+                    plan.prose_flows.is_empty(),
+                    "long passage at {width} must stay vertical"
+                );
+                let lines = arrangement::build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                for segment in projection.segments() {
+                    let rendered = lines
+                        .iter()
+                        .filter(|line| segment.projection_range().contains(&line.projected_start()))
+                        .map(|line| &projection.text()[line.projected_range()])
+                        .collect::<String>();
+                    assert_eq!(rendered, projection.text()[segment.projection_range()]);
+                }
+            }
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
     }
 
     #[test]

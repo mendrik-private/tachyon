@@ -153,6 +153,7 @@ impl DocumentStyle {
     pub const BODY_FONT_FAMILY: &'static str = "Public Sans Tachyon";
     pub const HEADLINE_FONT_FAMILY: &'static str = "Fraunces Tachyon";
     pub const MONOSPACE_FONT_FAMILY: &'static str = "Spline Sans Mono Tachyon";
+    pub const CODE_BLOCK_FONT_FAMILY: &'static str = "Fira Code Tachyon";
     pub const BODY_SIZE: f32 = 21.;
     pub const BODY_LEADING: f32 = Self::BODY_SIZE * 1.5;
     pub const CHECKBOX_SIZE: f32 = 18.;
@@ -178,8 +179,8 @@ impl DocumentStyle {
     pub const CAPTION_LEADING: f32 = 18.;
     pub const METADATA_SIZE: f32 = 14.;
     pub const METADATA_LEADING: f32 = 20.;
-    pub const TABLE_SIZE: f32 = 14.;
-    pub const TABLE_LEADING: f32 = 21.;
+    pub const TABLE_SIZE: f32 = Self::BODY_SIZE * 0.8;
+    pub const TABLE_LEADING: f32 = Self::TABLE_SIZE * 1.5;
     pub const FEATURE_TITLE_SIZE: f32 = 24.;
     pub const QUOTE_INSET: f32 = 24.;
     pub const QUOTE_PADDING: f32 = 16.;

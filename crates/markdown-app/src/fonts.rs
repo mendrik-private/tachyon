@@ -20,6 +20,7 @@ pub fn register(cx: &mut App) {
         include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Semibold.ttf").as_slice(),
         include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Italic.ttf").as_slice(),
+        include_bytes!("../../../assets/fonts/FiraCode-Tachyon-Regular.ttf").as_slice(),
     ]
     .into_iter()
     .map(Cow::Borrowed)
@@ -97,5 +98,25 @@ mod tests {
             let face = ttf_parser::Face::parse(data, 0).expect("valid bundled headline font");
             assert_eq!(face.weight().to_number(), 800);
         }
+    }
+
+    #[test]
+    fn bundled_fira_code_retains_programming_ligature_features() {
+        let face = ttf_parser::Face::parse(
+            include_bytes!("../../../assets/fonts/FiraCode-Tachyon-Regular.ttf"),
+            0,
+        )
+        .expect("valid bundled Fira Code font");
+        let features = face
+            .tables()
+            .gsub
+            .expect("Fira Code must retain its substitution table")
+            .features;
+        assert!(
+            features
+                .into_iter()
+                .any(|feature| feature.tag == ttf_parser::Tag::from_bytes(b"calt")),
+            "Fira Code must include its contextual-ligature feature"
+        );
     }
 }

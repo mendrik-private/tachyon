@@ -27,6 +27,7 @@ pub(crate) const LAYOUT_HEADER: f32 = crate::theme::DocumentStyle::TASK_HEADER_H
 pub(crate) const CARD_PADDING: f32 = crate::theme::DocumentStyle::INSET;
 // Cheap work bound only; native measurements still decide whether a grid fits.
 const SHORT_LIST_ITEMS: std::ops::RangeInclusive<usize> = 2..=12;
+pub(crate) const NEARBY_LIST_GRID_GAP_LINES: usize = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
 pub(crate) enum ListLayout {
@@ -259,6 +260,7 @@ pub(crate) struct AdaptivePlan {
     pub quote_roles: HashMap<NodeId, crate::quotes::TextRole>,
     pub bibliography: HashMap<NodeId, NodeId>,
     pub measured_lists: HashMap<NodeId, candidates::ListDecision>,
+    pub nearby_list_gap_lines: HashMap<NodeId, usize>,
     pub measured_inline_lists: HashMap<NodeId, candidates::ListDecision>,
     pub measured_rows: rows::RowSelection,
     groups: std::sync::Arc<GroupAnalysis>,
@@ -724,7 +726,7 @@ impl AdaptivePlan {
         })
     }
 
-    fn compatible_environment(&self, old: &Self) -> bool {
+    pub(crate) fn compatible_environment(&self, old: &Self) -> bool {
         self.canvas.to_bits() == old.canvas.to_bits()
             && self.resource_generation == old.resource_generation
             && self.measured_rows.viewport.to_bits() == old.measured_rows.viewport.to_bits()
@@ -947,6 +949,139 @@ impl AdaptivePlan {
                 }
             }
             self.measured_lists.insert(list.id, decision);
+        }
+    }
+
+    /// Nearby horizontal lists share the densest grid that every member has
+    /// already measured as legal. Brief prose and headings may bridge the
+    /// lists; richer blocks and longer passages preserve section independence.
+    pub fn align_nearby_list_grids(
+        &mut self,
+        projection: &TextProjection,
+        text_lines: &HashMap<NodeId, usize>,
+    ) {
+        let mut groups = Vec::<Vec<NodeId>>::new();
+        let mut group = Vec::new();
+        let mut gap_lines = 0_usize;
+        let mut gap_is_nearby = true;
+
+        for root in projection.roots() {
+            if let BlockNode::List(list) = root {
+                let horizontal = self
+                    .measured_lists
+                    .get(&list.id)
+                    .is_some_and(|decision| matches!(decision.layout, ListLayout::Grid(_)));
+                if horizontal {
+                    if group.is_empty() || gap_is_nearby && gap_lines <= NEARBY_LIST_GRID_GAP_LINES
+                    {
+                        group.push(list.id);
+                    } else {
+                        if group.len() > 1 {
+                            groups.push(std::mem::take(&mut group));
+                        } else {
+                            group.clear();
+                        }
+                        group.push(list.id);
+                    }
+                    gap_lines = 0;
+                    gap_is_nearby = true;
+                } else {
+                    if group.len() > 1 {
+                        groups.push(std::mem::take(&mut group));
+                    } else {
+                        group.clear();
+                    }
+                    gap_lines = 0;
+                    gap_is_nearby = true;
+                }
+                continue;
+            }
+
+            if group.is_empty() {
+                continue;
+            }
+            match root {
+                BlockNode::Paragraph(_) | BlockNode::Heading(_) => {
+                    let Some(lines) = text_lines.get(&root.id()).copied() else {
+                        gap_is_nearby = false;
+                        continue;
+                    };
+                    gap_lines = gap_lines.saturating_add(lines);
+                    if gap_lines > NEARBY_LIST_GRID_GAP_LINES {
+                        gap_is_nearby = false;
+                    }
+                }
+                _ => gap_is_nearby = false,
+            }
+        }
+        if group.len() > 1 {
+            groups.push(group);
+        }
+
+        for group in groups {
+            let editing_ordinal = self
+                .editing_node
+                .and_then(|node| projection.segment_for_node(node))
+                .and_then(|segment| self.root_ordinal(segment.top_level_node_id));
+            let group_range = group
+                .first()
+                .and_then(|id| self.root_ordinal(*id))
+                .zip(group.last().and_then(|id| self.root_ordinal(*id)));
+            if editing_ordinal.is_some_and(|editing| {
+                group_range.is_some_and(|(start, end)| (start..=end).contains(&editing))
+            }) {
+                continue;
+            }
+            let Some(columns) = (2..=4).rev().find(|columns| {
+                group.iter().all(|id| {
+                    self.measured_lists.get(id).is_some_and(|decision| {
+                        decision.candidates.iter().any(|candidate| {
+                            candidate.columns == *columns && candidate.supports_shared_grid()
+                        })
+                    })
+                })
+            }) else {
+                continue;
+            };
+
+            for id in group {
+                let changed = self
+                    .measured_lists
+                    .get_mut(&id)
+                    .is_some_and(|decision| decision.select_shared_grid(columns));
+                if !changed {
+                    continue;
+                }
+                let Some(BlockNode::List(list)) = projection.block(id) else {
+                    continue;
+                };
+                let decision = self.measured_lists[&id].clone();
+                let facts = ListFacts::analyze(list);
+                self.lists.get_mut(&id).unwrap().layout = decision.layout;
+                self.slots.retain(|_, slot| slot.group != id);
+                for (item, entry) in list.items.iter().enumerate() {
+                    let Some((row, column, columns)) = decision.placement(item) else {
+                        continue;
+                    };
+                    for block in &entry.blocks {
+                        self.slots.insert(
+                            block.id(),
+                            LayoutSlot {
+                                align_components: false,
+                                group: id,
+                                item,
+                                row,
+                                columns,
+                                cards: true,
+                                card_accent: facts.card_accent(list),
+                                track_start: (column * (12 / columns)) as u8,
+                                span: (12 / columns) as u8,
+                                fixed_canvas: None,
+                            },
+                        );
+                    }
+                }
+            }
         }
     }
 

@@ -136,7 +136,7 @@ pub(super) fn paint(
         px(spec.style.font_size),
         &[TextRun {
             len,
-            font: gpui::font("Spline Sans Mono Tachyon"),
+            font: code_block_font(),
             color: rgb(palette.secondary).into(),
             background_color: None,
             underline: None,

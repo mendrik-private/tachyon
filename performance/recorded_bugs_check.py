@@ -63,8 +63,14 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
     def click(bounds):
         input_event("move", bounds["x"] + bounds["width"] // 2,
                     bounds["y"] + bounds["height"] // 2)
+        time.sleep(.1)
         input_event("button", 272, 1)
         input_event("button", 272, 0)
+        time.sleep(.1)
+
+    def dwell(bounds):
+        click(bounds)
+        time.sleep(2.1)
 
     def wait_source(expected):
         deadline = time.monotonic() + 6
@@ -154,8 +160,9 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
                 for placement in (["beginning"] if kind == "knobs" else ["beginning", "middle", "end"]):
                     rows = table_rows(probe(), name)
                     cell = rows[-1][-1] if placement == "end" else rows[0][0]
-                    click(cell["bounds"])
-                    # A pointer hover reveals all four accessible controls.
+                    dwell(cell["bounds"])
+                    # A stationary pointer reveals all four accessible controls
+                    # after the table-cell dwell delay.
                     controls = probe()
                     labels = ["Row above menu", "Column right menu", "Row below menu", "Column left menu"]
                     for label in labels:
@@ -195,6 +202,7 @@ def check(kind, env, input_event, source_path, pid, output, probe_path, work, wi
                     command = "Insert " + edge.replace(" menu", "").lower()
                     menu = _one(menus, "menu item", command)[1]
                     click(menu["bounds"])
+                    time.sleep(.1)
                     label = f"{'paired' if name == 'Palette table' else 'inline'}-{'column' if column else 'row'}-{placement}"
                     immediate = table_rows(probe(), name)
                     if len(immediate) != len(rows) + int(not column) or len(immediate[0]) != len(rows[0]) + int(column):

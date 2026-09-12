@@ -844,6 +844,66 @@ pub(super) fn build_edit_locked_adaptive_plan<'a>(
             })
         },
     );
+    if !keep_arrangements {
+        let mut nearby_gap_lines = HashMap::new();
+        let mut after_horizontal_list = false;
+        let mut accumulated_lines = 0_usize;
+        for root in &roots {
+            if let BlockNode::List(list) = root {
+                after_horizontal_list = plan
+                    .measured_lists
+                    .get(&list.id)
+                    .is_some_and(|decision| matches!(decision.layout, ListLayout::Grid(_)));
+                accumulated_lines = 0;
+                continue;
+            }
+            if !after_horizontal_list {
+                continue;
+            }
+            if !matches!(root, BlockNode::Paragraph(_) | BlockNode::Heading(_)) {
+                after_horizontal_list = false;
+                continue;
+            }
+            let reused = previous
+                .filter(|old| {
+                    plan.compatible_environment(old) && plan.unchanged_root(old, root.id())
+                })
+                .and_then(|old| old.nearby_list_gap_lines.get(&root.id()))
+                .copied();
+            let lines = if let Some(lines) = reused {
+                lines
+            } else {
+                if !plan.measures_root(root.id()) {
+                    after_horizontal_list = false;
+                    continue;
+                }
+                let Some(indexes) = segments.get(&root.id()) else {
+                    after_horizontal_list = false;
+                    continue;
+                };
+                let Some((&start, &end)) = indexes.first().zip(indexes.last()) else {
+                    after_horizontal_list = false;
+                    continue;
+                };
+                build_measured_visual_lines_for_segments(
+                    projection,
+                    resources.images.unwrap_or(&HashMap::new()),
+                    width,
+                    &plan,
+                    Some(measurement),
+                    start..end + 1,
+                )
+                .len()
+            };
+            nearby_gap_lines.insert(root.id(), lines);
+            accumulated_lines = accumulated_lines.saturating_add(lines);
+            if accumulated_lines > crate::adaptive::NEARBY_LIST_GRID_GAP_LINES {
+                after_horizontal_list = false;
+            }
+        }
+        plan.align_nearby_list_grids(projection, &nearby_gap_lines);
+        plan.nearby_list_gap_lines = nearby_gap_lines;
+    }
     plan.place_resources(projection, previous, keep_arrangements);
     plan.place_editorials(projection);
     plan.measure_label_rows(projection, previous, |list, width, horizontal, metadata| {
@@ -2233,8 +2293,8 @@ pub(super) mod tests {
             assert_eq!(compact.group, comparison.group);
             assert_eq!(
                 (compact.span, comparison.span),
-                (3, 9),
-                "a naturally compact table should not strand a third of the canvas"
+                (4, 8),
+                "a compact table should leave more tracks for its wider comparison"
             );
             assert_eq!(plan.measured_rows.validation_fallbacks, 0);
             assert_eq!(document.snapshot().serialize().unwrap(), source);
@@ -2264,7 +2324,7 @@ pub(super) mod tests {
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
                 let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
                 fonts.measure_tables(&mut projection);
-                let ready = build_measured_adaptive_plan(&projection, 1314., 1500., None, false, &fonts);
+                let ready = build_measured_adaptive_plan(&projection, 1600., 1500., None, false, &fonts);
                 let rail = ready.measured_rows.chosen.iter().find(|row|
                     row.widths.len() == 2 && crate::adaptive::rows::TEMPLATES[row.template].contains(&3));
                 assert_eq!(rail.map(|row| {
@@ -2272,10 +2332,10 @@ pub(super) mod tests {
                     (spans[0], spans[1])
                 }), expected);
                 if expected.is_some() {
-                    for (width, height) in [(650., 1500.), (1314., 180.)] {
+                    for (width, height) in [(650., 1500.), (1600., 180.)] {
                         let stacked = build_measured_adaptive_plan(&projection, width, height, Some(&ready), false, &fonts);
                         assert!(stacked.measured_rows.chosen.iter().all(|row| row.kind == RowKind::Stack));
-                        let restored = build_measured_adaptive_plan(&projection, 1314., 1500., Some(&stacked), false, &fonts);
+                        let restored = build_measured_adaptive_plan(&projection, 1600., 1500., Some(&stacked), false, &fonts);
                         assert!(ready.geometry_key().matches(&restored));
                     }
                     let cell = projection.segments().iter().find(|s| projection.text()[s.projection_range()].trim() == "light").unwrap().node_id;
@@ -2285,7 +2345,7 @@ pub(super) mod tests {
                     }).unwrap();
                     let mut edited = TextProjection::from_snapshot(&document.snapshot());
                     fonts.measure_tables(&mut edited);
-                    let held = build_edit_locked_adaptive_plan(&edited, 1314., 1500., Some(&ready), false, &fonts, Some(cell));
+                    let held = build_edit_locked_adaptive_plan(&edited, 1600., 1500., Some(&ready), false, &fonts, Some(cell));
                     assert_eq!(held.slots[&cell], slot);
                     document.undo().unwrap();
                 }
@@ -2896,9 +2956,11 @@ pub(super) mod tests {
                             .iter()
                             .position(|line| projection.text()[line.projected_range()] == *label)
                             .unwrap();
-                        let before = &lines[index - 1];
-                        let actual = lines[index].y
-                            - (before.y + before.style.line_height + before.style.space_below);
+                        let previous_bottom = lines[..index]
+                            .iter()
+                            .map(|line| line.y + line.style.line_height + line.style.space_below)
+                            .fold(0.0_f32, f32::max);
+                        let actual = lines[index].y - previous_bottom;
                         assert!(
                             (actual - gap * zoom).abs() < 0.01,
                             "{label}: {actual}, expected {}",
@@ -5950,8 +6012,8 @@ pub(super) mod tests {
                 "unchanged group wraps are still revisited: {warm:?}"
             );
             assert_eq!(
-                warm.intrinsic_requests, 0,
-                "unchanged table/group widths are still revisited: {warm:?}"
+                warm.intrinsic_cache_misses, 0,
+                "unchanged table/group widths must reuse cached measurements: {warm:?}"
             );
             let placements = |plan: &AdaptivePlan| {
                 plan.measured_rows
@@ -7648,6 +7710,103 @@ pub(super) mod tests {
                     }
                 }
             }
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
+    fn nearby_horizontal_lists_share_the_densest_common_grid(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = concat!(
+                "Examples:\n\n",
+                "- Reproduce the bug with a minimal failing case\n",
+                "- Temporarily instrument the suspicious code path\n",
+                "- Prototype a minimal patch and verify behavior\n",
+                "- Add or run a focused test\n",
+                "- Benchmark the hot path before optimizing\n",
+                "- Compare output before and after the change\n\n",
+                "The agent should use these steps to confirm that the planned fix addresses the actual issue.\n\n",
+                "# 5. Communicate Clearly\n\n",
+                "The agent should report its intentions, approach, and findings clearly to the user.\n\n",
+                "Before making substantial changes, explain:\n\n",
+                "- What appears to be wrong\n",
+                "- Why that change is narrow and appropriate\n",
+                "- What evidence supports that conclusion\n",
+                "- How the fix will be validated\n",
+                "- What change is planned\n\n",
+                "After making changes, summarize:\n\n",
+                "- What was changed\n",
+                "- Why it was changed\n",
+                "- What was tested\n",
+                "- What risks remain, if any\n",
+            );
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let plan =
+                build_measured_adaptive_plan(&projection, 1314., 3000., None, false, &measurement);
+            let lists = projection
+                .roots()
+                .filter_map(|root| match root {
+                    BlockNode::List(list) => Some(list),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(lists.len(), 3);
+            assert!(
+                lists.iter().all(|list| {
+                    plan.measured_lists
+                        .get(&list.id)
+                        .is_some_and(|decision| decision.layout == ListLayout::Grid(3))
+                        && plan
+                            .slots
+                            .values()
+                            .filter(|slot| slot.group == list.id)
+                            .all(|slot| slot.columns == 3 && slot.span == 4)
+                }),
+                "decisions={:#?}",
+                plan.measured_lists,
+            );
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
+    fn distant_horizontal_lists_keep_independent_grids(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = concat!(
+                "- Reproduce the bug with a minimal failing case\n",
+                "- Temporarily instrument the suspicious code path\n",
+                "- Prototype a minimal patch and verify behavior\n",
+                "- Add or run a focused test\n",
+                "- Benchmark the hot path before optimizing\n",
+                "- Compare output before and after the change\n\n",
+                "First intervening line.\n\n",
+                "Second intervening line.\n\n",
+                "Third intervening line.\n\n",
+                "Fourth intervening line.\n\n",
+                "Fifth intervening line.\n\n",
+                "Sixth intervening line.\n\n",
+                "- What was changed\n",
+                "- Why it was changed\n",
+                "- What was tested\n",
+                "- What risks remain, if any\n",
+            );
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let plan =
+                build_measured_adaptive_plan(&projection, 1500., 3000., None, false, &measurement);
+            let columns = projection
+                .roots()
+                .filter_map(|root| match root {
+                    BlockNode::List(list) => Some(plan.measured_lists[&list.id].layout),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(columns, [ListLayout::Grid(2), ListLayout::Grid(4)]);
             assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }

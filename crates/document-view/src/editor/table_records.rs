@@ -567,7 +567,7 @@ mod tests {
         cx.update(|cx| {
             let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
             let compact = "| Name | Description | Owner |\n| --- | --- | --- |\n| Atlas | A sustained explanation describes this independent service and the context in which it should be used. | Research |\n";
-            for (source, width, expected_inline) in [(ENTITIES, 420., true), (compact, 260., false)] {
+            for (source, width, expected_inline) in [(ENTITIES, 500., true), (compact, 310., false)] {
                 let document = Document::from_markdown(source).unwrap();
                 let mut projection = TextProjection::from_snapshot(&document.snapshot());
                 fonts.measure_tables(&mut projection);
@@ -832,9 +832,9 @@ mod tests {
                         "property labels and values must stack on the same leading edge"
                     );
                     assert!(value_line.y > key_line.y);
-                    assert_eq!(
-                        value_line.y - key_line.y - key_line.style.line_height,
-                        LABEL_GAP
+                    assert!(
+                        (value_line.y - key_line.y - key_line.style.line_height - LABEL_GAP).abs()
+                            < 0.01
                     );
                     assert_eq!(key_line.inset, INSET);
                     assert_eq!(value_line.inset, INSET);
@@ -850,9 +850,10 @@ mod tests {
                                 == value.node_id
                         })
                         .unwrap();
-                    assert_eq!(
-                        bounds.top + bounds.height - last.y - last.style.line_height,
-                        INSET
+                    assert!(
+                        (bounds.top + bounds.height - last.y - last.style.line_height - INSET)
+                            .abs()
+                            < 0.01
                     );
                     for line in lines.iter().filter(|l| l.table_record.is_some()) {
                         assert!(

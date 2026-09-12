@@ -28,6 +28,7 @@ pub(super) fn context() -> FontContext {
                     .as_slice(),
                 include_bytes!("../../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf")
                     .as_slice(),
+                include_bytes!("../../../../assets/fonts/FiraCode-Tachyon-Regular.ttf").as_slice(),
                 blitz_dom::BULLET_FONT,
             ] {
                 fonts.collection.register_fonts(bytes.to_vec().into(), None);
@@ -49,7 +50,11 @@ mod tests {
     fn preview_contexts_reuse_registered_bundled_font_sources() {
         let mut first = context();
         let mut second = context();
-        for name in ["Public Sans Tachyon", "Spline Sans Mono Tachyon"] {
+        for name in [
+            "Public Sans Tachyon",
+            "Spline Sans Mono Tachyon",
+            "Fira Code Tachyon",
+        ] {
             let a = first.collection.family_by_name(name).unwrap();
             let b = second.collection.family_by_name(name).unwrap();
             assert_eq!(

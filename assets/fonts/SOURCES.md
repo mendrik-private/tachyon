@@ -12,6 +12,7 @@ The font binaries in this directory are generated from Google Fonts commit
   weight; 400, 600, and 700 faces retain native UI and authored emphasis.
   Each weight has a true italic companion.
 - Spline Sans Mono includes upright 400/600 and the upstream italic 400 face.
+- Fira Code is the ligature-enabled face for fenced code blocks.
 - Noto Sans upright/italic faces provide bundled Latin, Greek, Cyrillic, and
   Vietnamese fallback coverage. GPUI's platform fallback remains available for
   scripts outside those bundled ranges.

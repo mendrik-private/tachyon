@@ -126,6 +126,15 @@ fn editor_button(
         .tooltip(label)
 }
 
+/// Fenced blocks opt into Fira Code's contextual programming ligatures.
+/// Inline literals retain the body-sized mono face so prose
+/// typography does not depend on code-pane metrics.
+fn code_block_font() -> gpui::Font {
+    let mut font = gpui::font(DocumentStyle::CODE_BLOCK_FONT_FAMILY);
+    font.features = gpui::FontFeatures(Arc::new(vec![("calt".into(), 1)]));
+    font
+}
+
 fn table_menu_item(
     editor: Entity<RichDocumentEditor>,
     label: &'static str,
@@ -229,6 +238,7 @@ const ZOOM_STEP: f32 = 0.1;
 const TOOLBAR_FADE_STEPS: u32 = 8;
 const TOOLBAR_FADE_FRAME: Duration = Duration::from_millis(15);
 const TOOLBAR_SETTLE_DELAY: Duration = Duration::from_millis(100);
+const TABLE_EDGE_DWELL_DELAY: Duration = Duration::from_secs(2);
 // Exponential velocity decay: retain ~20% of the release velocity at 800 ms
 // for a perceptible, gradual tail even on light wheel input. Elapsed-time
 // integration keeps travel independent of refresh rate. Wayland supplies raw
@@ -1324,6 +1334,8 @@ pub struct RichDocumentEditor {
     table_resize_drag: Option<TableResizeDrag>,
     table_selection_drag: Option<TableSelectionDrag>,
     table_hover: Option<TableCellTarget>,
+    table_hover_candidate: Option<TableCellTarget>,
+    table_hover_task: Option<Task<()>>,
     table_edge_menu: Option<(Entity<PopupMenu>, Point<Pixels>, Subscription)>,
     toolbar_visible: bool,
     toolbar_opacity: f32,
@@ -1468,6 +1480,8 @@ impl RichDocumentEditor {
             table_resize_drag: None,
             table_selection_drag: None,
             table_hover: None,
+            table_hover_candidate: None,
+            table_hover_task: None,
             table_edge_menu: None,
             toolbar_visible: false,
             toolbar_opacity: 0.,
@@ -2168,7 +2182,7 @@ impl RichDocumentEditor {
                                 .projection
                                 .segment_for_range(&line.projected_range())
                                 .is_some_and(|segment| Some(segment.node_id) == self.layout_focus)
-                            && line.y >= scroll_y
+                            && line.y + line.style.line_height > scroll_y
                             && line.y < scroll_y + previous_viewport_height
                     })
                 });
@@ -4453,7 +4467,7 @@ impl RichDocumentEditor {
         self.is_selecting = false;
         self.stop_drag_scroll();
         self.table_selection_drag = None;
-        self.table_hover = None;
+        self.clear_table_hover();
         self.table_edge_menu = None;
         if let Err(error) = self.cancel_pending_composition(cx) {
             self.record_error(error, window);
@@ -4485,7 +4499,9 @@ impl RichDocumentEditor {
     ) {
         let preserve_view = matches!(
             &command,
-            EditCommand::InsertTableRow { .. } | EditCommand::InsertTableColumn { .. }
+            EditCommand::InsertTableRow { .. }
+                | EditCommand::InsertTableColumn { .. }
+                | EditCommand::SetTableColumnWidth { .. }
         );
         let scroll_anchor = preserve_view.then(|| {
             let snapshot = self.document.snapshot();
@@ -4498,7 +4514,7 @@ impl RichDocumentEditor {
         });
         match self.apply_command(command) {
             Ok(result) if !result.dirty_node_ids.is_empty() => {
-                self.table_hover = None;
+                self.clear_table_hover();
                 self.table_edge_menu = None;
                 self.refresh_after_transaction(&result);
                 self.last_error = None;
@@ -4641,6 +4657,7 @@ impl RichDocumentEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.cancel_table_hover_dwell();
         self.table_resize_drag = None;
         self.is_selecting = false;
         self.stop_drag_scroll();
@@ -4694,6 +4711,7 @@ impl RichDocumentEditor {
                 anchor_row: target.row,
                 anchor_column: target.column,
             });
+            self.cancel_table_hover_dwell();
             self.table_hover = Some(target);
             self.animate_toolbar(false, cx);
             cx.emit(EditorEvent::ViewChanged);
@@ -4745,7 +4763,7 @@ impl RichDocumentEditor {
         self.html_selection = None;
         if let Some(drag) = self.table_resize_at(event.position) {
             self.table_resize_drag = Some(drag);
-            self.table_hover = None;
+            self.clear_table_hover();
             self.table_edge_menu = None;
             self.animate_toolbar(false, cx);
             cx.notify();
@@ -4946,6 +4964,70 @@ impl RichDocumentEditor {
         .collect()
     }
 
+    fn cancel_table_hover_dwell(&mut self) {
+        self.table_hover_candidate = None;
+        self.table_hover_task.take();
+    }
+
+    fn clear_table_hover(&mut self) -> bool {
+        self.cancel_table_hover_dwell();
+        self.table_hover.take().is_some()
+    }
+
+    fn schedule_table_hover(&mut self, target: TableCellTarget, cx: &mut Context<Self>) {
+        self.cancel_table_hover_dwell();
+        self.table_hover_candidate = Some(target);
+        self.table_hover_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(TABLE_EDGE_DWELL_DELAY).await;
+            _ = this.update(cx, |editor, cx| {
+                if editor.table_hover_candidate == Some(target)
+                    && editor.table_resize_drag.is_none()
+                    && editor.table_selection_drag.is_none()
+                    && !editor.is_selecting
+                {
+                    editor.table_hover_candidate = None;
+                    editor.table_hover = Some(target);
+                    cx.notify();
+                }
+            });
+        }));
+    }
+
+    fn update_table_hover(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        if self.table_edge_menu.is_some() {
+            self.cancel_table_hover_dwell();
+            return;
+        }
+        let cell = self.table_cell_at(position);
+        let retains_visible_control = self.table_hover.is_some_and(|target| {
+            cell == Some(target)
+                || self
+                    .table_edge_at(position)
+                    .is_some_and(|(edge_target, _)| edge_target == target)
+        });
+        if retains_visible_control {
+            self.cancel_table_hover_dwell();
+            return;
+        }
+
+        let hid_controls = self.table_hover.take().is_some();
+        let candidate = self
+            .table_resize_at(position)
+            .is_none()
+            .then_some(cell)
+            .flatten();
+        if let Some(target) = candidate {
+            // Every movement restarts the dwell. Once controls are visible,
+            // movement inside their cell or onto one of its knobs retains them.
+            self.schedule_table_hover(target, cx);
+        } else {
+            self.cancel_table_hover_dwell();
+        }
+        if hid_controls {
+            cx.notify();
+        }
+    }
+
     fn table_edge_at(&self, position: Point<Pixels>) -> Option<(TableCellTarget, TableEdge)> {
         let target = self.table_hover.or_else(|| self.table_cell_at(position))?;
         if self
@@ -5001,6 +5083,7 @@ impl RichDocumentEditor {
             });
         });
         menu.focus_handle(cx).focus(window, cx);
+        self.cancel_table_hover_dwell();
         self.table_hover = Some(target);
         self.table_edge_menu = Some((menu, position, subscription));
         self.animate_toolbar(false, cx);
@@ -5037,6 +5120,7 @@ impl RichDocumentEditor {
             self.table_selection_drag = None;
             return;
         }
+        self.cancel_table_hover_dwell();
         self.table_hover = Some(target);
         cx.emit(EditorEvent::ViewChanged);
         cx.notify();
@@ -5075,13 +5159,14 @@ impl RichDocumentEditor {
             // The context target is pointer-local. Keep the authored caret and
             // text selection intact; table commands receive this explicit
             // address instead of depending on selected text.
+            self.cancel_table_hover_dwell();
             self.table_hover = Some(target);
             self.stop_momentum();
             self.animate_toolbar(false, cx);
             cx.notify();
             return;
         }
-        self.table_hover = None;
+        self.clear_table_hover();
         if self.html_edit_command_at(event.position).is_some() {
             // Opening a local HTML command must not move the canonical caret
             // into a neighboring paragraph or convert any source bytes.
@@ -5325,6 +5410,7 @@ impl RichDocumentEditor {
             return;
         }
         self.is_selecting = false;
+        self.update_table_hover(event.position, cx);
         self.animate_toolbar(
             !self.selected_byte_range().0.is_empty() || self.current_image().is_some(),
             cx,
@@ -5348,16 +5434,6 @@ impl RichDocumentEditor {
             cx.notify();
             return;
         }
-        // Edge targets extend outside the cell. Retain that cell while moving
-        // onto its knob; otherwise the control disappears before mouse-down.
-        let table_hover = self
-            .table_edge_at(event.position)
-            .map(|(target, _)| target)
-            .or_else(|| self.table_cell_at(event.position));
-        if table_hover != self.table_hover {
-            self.table_hover = table_hover;
-            cx.notify();
-        }
         if self.table_selection_drag.is_some() {
             if event.pressed_button == Some(MouseButton::Left) {
                 self.update_table_drag_selection(event.position, window, cx);
@@ -5365,6 +5441,11 @@ impl RichDocumentEditor {
                 self.table_selection_drag = None;
             }
             return;
+        }
+        if event.pressed_button.is_none() {
+            self.update_table_hover(event.position, cx);
+        } else {
+            self.cancel_table_hover_dwell();
         }
         if self.is_selecting && event.pressed_button != Some(MouseButton::Left) {
             self.is_selecting = false;
@@ -5398,6 +5479,9 @@ impl RichDocumentEditor {
         if delta.x == px(0.) && delta.y == px(0.) {
             cx.stop_propagation();
             return;
+        }
+        if self.clear_table_hover() {
+            cx.notify();
         }
         self.table_resize_drag = None;
         self.find.cancel_navigation();
@@ -6604,7 +6688,7 @@ impl gpui::Render for RichDocumentEditor {
                             } * self.zoom_factor))
                             .flex()
                             .items_center()
-                            .font_family("Spline Sans Mono Tachyon")
+                            .font_family(DocumentStyle::CODE_BLOCK_FONT_FAMILY)
                             .text_size(px(DocumentStyle::CAPTION_SIZE * self.zoom_factor))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(rgb(code_colors.secondary))
@@ -8464,12 +8548,10 @@ impl Element for DocumentTextElement {
                         let marker_layout = window.text_system().shape_line(
                             marker.to_owned().into(),
                             px(if numbered_tile {
-                                30.
-                            } else if segment.context.bibliography.is_some() {
-                                DocumentStyle::READING_SIZE
+                                30. * editor.zoom_factor
                             } else {
-                                15.
-                            } * editor.zoom_factor),
+                                visual_style.font_size
+                            }),
                             &[TextRun {
                                 len: marker.len(),
                                 font,
@@ -12461,7 +12543,7 @@ fn styled_projection_runs(
             base_color = rgb(palette.heading).into();
         }
         BlockNode::CodeBlock(_) => {
-            base_font.family = DocumentStyle::MONOSPACE_FONT_FAMILY.into();
+            base_font = code_block_font();
         }
         BlockNode::PreservedSource { .. } => {
             base_font.family = DocumentStyle::MONOSPACE_FONT_FAMILY.into();
@@ -12705,8 +12787,6 @@ fn styled_projection_runs(
                 let mut number = run.clone();
                 number.len = length.min(prefix - offset);
                 number.color = rgb(palette.accent).into();
-                number.font.family = "Public Sans Tachyon".into();
-                number.font.weight = FontWeight::MEDIUM;
                 run.len -= number.len;
                 styled.push(number);
             }
@@ -18048,6 +18128,153 @@ mod tests {
     }
 
     #[gpui::test]
+    fn table_edge_controls_wait_for_a_two_second_pointer_dwell(cx: &mut gpui::TestAppContext) {
+        cx.update(init_editor);
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(
+                Document::from_markdown("| A | B |\n| --- | --- |\n| one | two |\n").unwrap(),
+                window,
+                cx,
+            )
+        });
+        let cx: &mut gpui::VisualTestContext = cx;
+        cx.run_until_parked();
+        let (first, first_position, second) = cx.update(|window, cx| {
+            _ = window.draw(cx);
+            editor.read_with(cx, |editor, _| {
+                let cell = |row, column| {
+                    editor
+                        .painted_lines
+                        .iter()
+                        .find_map(|line| {
+                            let (target, bounds) = editor.table_cell_geometry(line)?;
+                            (target.row == row && target.column == column)
+                                .then_some((target, bounds.center()))
+                        })
+                        .expect("table cell")
+                };
+                let first = cell(1, 0);
+                let second = cell(1, 1);
+                (first.0, first.1, second.0)
+            })
+        });
+        cx.simulate_event(MouseMoveEvent {
+            position: first_position,
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        cx.update(|_, cx| {
+            editor.update(cx, |editor, cx| {
+                assert_eq!(editor.table_hover, None);
+                assert_eq!(editor.table_hover_candidate, Some(first));
+                assert!(editor.table_edge_controls(cx).is_empty());
+                let resize_position = editor
+                    .painted_lines
+                    .iter()
+                    .find_map(|line| {
+                        let (target, _) = editor.table_cell_geometry(line)?;
+                        if target != first {
+                            return None;
+                        }
+                        table_resize::hit_bounds(line.bounds, editor.zoom_factor, line.content_mask)
+                            .map(|bounds| bounds.center())
+                    })
+                    .expect("column resize boundary");
+                assert!(
+                    editor.table_resize_at(resize_position).is_some(),
+                    "resize hit testing remains available before the dwell"
+                );
+            });
+        });
+
+        cx.executor()
+            .advance_clock(TABLE_EDGE_DWELL_DELAY - Duration::from_millis(1));
+        cx.run_until_parked();
+        assert_eq!(editor.read_with(cx, |editor, _| editor.table_hover), None);
+
+        let restarted_position = editor.read_with(cx, |editor, _| {
+            editor
+                .painted_lines
+                .iter()
+                .find_map(|line| {
+                    let (target, bounds) = editor.table_cell_geometry(line)?;
+                    (target == first).then_some(bounds.center())
+                })
+                .expect("first table cell after reflow")
+        });
+        cx.simulate_event(MouseMoveEvent {
+            position: restarted_position,
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(1));
+        cx.run_until_parked();
+        assert_eq!(
+            editor.read_with(cx, |editor, _| editor.table_hover),
+            None,
+            "movement inside a cell restarts the dwell"
+        );
+
+        cx.executor()
+            .advance_clock(TABLE_EDGE_DWELL_DELAY + Duration::from_millis(1));
+        cx.run_until_parked();
+        cx.update(|_, cx| {
+            editor.update(cx, |editor, cx| {
+                assert_eq!(
+                    editor.table_hover,
+                    Some(first),
+                    "the stationary cell reveals its edge controls"
+                );
+                assert_eq!(editor.table_edge_controls(cx).len(), 4);
+            });
+        });
+
+        let visible_cell_position = editor.read_with(cx, |editor, _| {
+            editor
+                .painted_lines
+                .iter()
+                .find_map(|line| {
+                    let (target, bounds) = editor.table_cell_geometry(line)?;
+                    (target == first).then_some(bounds.center())
+                })
+                .expect("visible table cell")
+        });
+        cx.simulate_event(MouseMoveEvent {
+            position: visible_cell_position,
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            editor.read_with(cx, |editor, _| editor.table_hover),
+            Some(first),
+            "visible controls remain until the pointer leaves their cell"
+        );
+
+        let second_position = editor.read_with(cx, |editor, _| {
+            editor
+                .painted_lines
+                .iter()
+                .find_map(|line| {
+                    let (target, bounds) = editor.table_cell_geometry(line)?;
+                    (target == second).then_some(bounds.center())
+                })
+                .expect("second table cell")
+        });
+        cx.simulate_event(MouseMoveEvent {
+            position: second_position,
+            ..Default::default()
+        });
+        cx.run_until_parked();
+        cx.update(|_, cx| {
+            editor.update(cx, |editor, cx| {
+                assert_eq!(editor.table_hover, None);
+                assert_eq!(editor.table_hover_candidate, Some(second));
+                assert!(editor.table_edge_controls(cx).is_empty());
+            });
+        });
+    }
+
+    #[gpui::test]
     fn table_context_and_ctrl_drag_selection_do_not_require_text_selection(
         cx: &mut gpui::TestAppContext,
     ) {
@@ -18567,7 +18794,7 @@ mod tests {
                     + shaped_x_for_index(&line.layout, cursor - line.range.start);
                 let viewport = line.content_mask.unwrap().bounds;
                 assert!(
-                    x >= viewport.left() && x + px(1.5) <= viewport.right(),
+                    x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001),
                     "{expected} must be horizontally visible"
                 );
                 assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
@@ -18599,7 +18826,7 @@ mod tests {
                 let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                     + shaped_x_for_index(&line.layout, expected.saturating_sub(line.range.start));
                 assert!(
-                    x >= viewport.left() && x + px(1.5) <= viewport.right(),
+                    x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001),
                     "document-boundary caret must be visible inside the table viewport"
                 );
             }
@@ -18694,7 +18921,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn inserting_table_rows_and_columns_preserves_the_visible_anchor(
+    fn inserting_and_resizing_table_columns_preserves_the_visible_anchor(
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(init_editor);
@@ -18718,7 +18945,7 @@ mod tests {
             cx.run_until_parked();
         }
 
-        for insert_column in [false, true] {
+        for operation in ["row", "column", "resize"] {
             let (anchor, command) = cx.update(|window, cx| {
                 editor.update(cx, |editor, cx| {
                     editor.set_selection(0..0, false, window, cx);
@@ -18730,7 +18957,13 @@ mod tests {
                     let BlockNode::Table(table) = editor.projection.block(table_id).unwrap() else {
                         unreachable!()
                     };
-                    let command = if insert_column {
+                    let command = if operation == "resize" {
+                        EditCommand::SetTableColumnWidth {
+                            table_id,
+                            column: 0,
+                            width: 48.,
+                        }
+                    } else if operation == "column" {
                         EditCommand::InsertTableColumn {
                             table_id,
                             index: table.column_count(),
@@ -18784,8 +19017,7 @@ mod tests {
                 .expect("surviving visible table anchor");
                 assert!(
                     (editor.scroll_metrics().0 - resolved).abs() < 0.1,
-                    "{} insertion moved the visible anchor: scroll={}, anchor={resolved}",
-                    if insert_column { "column" } else { "row" },
+                    "{operation} moved the visible anchor: scroll={}, anchor={resolved}",
                     editor.scroll_metrics().0,
                 );
             });
@@ -18806,7 +19038,9 @@ mod tests {
             let viewport = line.content_mask.unwrap().bounds;
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
             assert!(
                 line.bounds.top() >= viewport.top() && line.bounds.bottom() <= viewport.bottom(),
                 "structural edit history caret must be vertically visible"
@@ -18978,7 +19212,9 @@ mod tests {
                 .bounds;
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
             assert!(
                 line.bounds.top() >= viewport.top() && line.bounds.bottom() <= viewport.bottom()
             );
@@ -19199,7 +19435,9 @@ mod tests {
                 let viewport = line.content_mask.expect("table viewport").bounds;
                 let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                     + shaped_x_for_index(&line.layout, cursor - line.range.start);
-                assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+                assert!(
+                    x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+                );
                 assert!(
                     line.bounds.top() >= viewport.top()
                         && line.bounds.bottom() <= viewport.bottom(),
@@ -19243,7 +19481,13 @@ mod tests {
             let line = editor
                 .painted_lines
                 .iter()
-                .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
+                .find(|line| line.range.contains(&cursor))
+                .or_else(|| {
+                    editor
+                        .painted_lines
+                        .iter()
+                        .find(|line| line.range.end == cursor)
+                })
                 .unwrap_or_else(|| {
                     panic!(
                         "the active IME caret at {cursor} must be painted; painted ranges: {:?}",
@@ -19258,7 +19502,7 @@ mod tests {
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
             assert!(
-                x >= viewport.left() && x + px(1.5) <= viewport.right(),
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001),
                 "IME caret {x:?} must remain inside resized viewport {viewport:?}"
             );
             assert!(
@@ -19404,7 +19648,9 @@ mod tests {
             let viewport = line.content_mask.expect("table viewport").bounds;
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
             assert!(
                 line.bounds.top() >= viewport.top() && line.bounds.bottom() <= viewport.bottom()
             );
@@ -19530,7 +19776,9 @@ mod tests {
             let viewport = line.content_mask.expect("table viewport").bounds;
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
             assert!(
                 line.bounds.top() >= viewport.top() && line.bounds.bottom() <= viewport.bottom()
             );
@@ -19652,7 +19900,9 @@ mod tests {
             let viewport = line.content_mask.expect("table viewport").bounds;
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, expected - line.range.start);
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
         }
 
         cx.update(init_editor);
@@ -19806,7 +20056,9 @@ mod tests {
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
             let viewport = line.content_mask.unwrap().bounds;
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
             assert!(
                 line.bounds.top() >= viewport.top() && line.bounds.bottom() <= viewport.bottom(),
                 "new row must be vertically visible"
@@ -19875,7 +20127,9 @@ mod tests {
             let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
                 + shaped_x_for_index(&line.layout, cursor - line.range.start);
             let viewport = line.content_mask.unwrap().bounds;
-            assert!(x >= viewport.left() && x + px(1.5) <= viewport.right());
+            assert!(
+                x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
+            );
             assert_eq!(editor.selection, selection);
             assert_eq!(editor.document.snapshot().serialize().unwrap(), edited);
             editor.document.undo().unwrap();

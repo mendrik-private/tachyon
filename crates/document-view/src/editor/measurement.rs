@@ -152,7 +152,7 @@ impl FontMeasurement {
     }
 
     pub(super) fn command_language_width(&self, value: &str) -> f32 {
-        let mut font = gpui::font("Spline Sans Mono Tachyon");
+        let mut font = code_block_font();
         font.weight = FontWeight::SEMIBOLD;
         let run = TextRun {
             len: value.len(),
@@ -555,7 +555,7 @@ impl FontMeasurement {
             .map(|digit| {
                 let run = TextRun {
                     len: 1,
-                    font: gpui::font("Spline Sans Mono Tachyon"),
+                    font: code_block_font(),
                     color: rgb(TachyonPalette::LIGHT.secondary).into(),
                     background_color: None,
                     underline: None,

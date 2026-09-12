@@ -23,11 +23,13 @@ download "$base/publicsans/PublicSans%5Bwght%5D.ttf" "$work_directory/public-san
 download "$base/publicsans/PublicSans-Italic%5Bwght%5D.ttf" "$work_directory/public-sans-italic.ttf"
 download "$base/splinesansmono/SplineSansMono%5Bwght%5D.ttf" "$work_directory/spline-mono.ttf"
 download "$base/splinesansmono/SplineSansMono-Italic%5Bwght%5D.ttf" "$work_directory/spline-mono-italic.ttf"
+download "$base/firacode/FiraCode%5Bwght%5D.ttf" "$work_directory/fira-code.ttf"
 download "$base/notosans/NotoSans%5Bwdth%2Cwght%5D.ttf" "$work_directory/noto-sans.ttf"
 download "$base/notosans/NotoSans-Italic%5Bwdth%2Cwght%5D.ttf" "$work_directory/noto-sans-italic.ttf"
 download "$base/fraunces/OFL.txt" "$work_directory/OFL-Fraunces.txt"
 download "$base/publicsans/OFL.txt" "$work_directory/OFL-Public-Sans.txt"
 download "$base/splinesansmono/OFL.txt" "$work_directory/OFL-Spline-Sans-Mono.txt"
+download "$base/firacode/OFL.txt" "$work_directory/OFL-Fira-Code.txt"
 download "$base/notosans/OFL.txt" "$work_directory/OFL-Noto-Sans.txt"
 
 instance() {
@@ -52,6 +54,7 @@ instance public-sans-italic.ttf PublicSans-Tachyon-BoldItalic.ttf wght=700
 instance spline-mono.ttf SplineSansMono-Tachyon-Regular.ttf wght=400
 instance spline-mono.ttf SplineSansMono-Tachyon-Semibold.ttf wght=600
 instance spline-mono-italic.ttf SplineSansMono-Tachyon-Italic.ttf wght=400
+instance fira-code.ttf FiraCode-Tachyon-Regular.ttf wght=400
 instance noto-sans.ttf NotoSans-Tachyon-Regular.ttf wght=400 wdth=100
 instance noto-sans-italic.ttf NotoSans-Tachyon-Italic.ttf wght=400 wdth=100
 
@@ -85,6 +88,7 @@ rename(root / "PublicSans-Tachyon-BoldItalic.ttf", "Public Sans Tachyon", "Bold 
 rename(root / "SplineSansMono-Tachyon-Regular.ttf", "Spline Sans Mono Tachyon", "Regular")
 rename(root / "SplineSansMono-Tachyon-Semibold.ttf", "Spline Sans Mono Tachyon", "Semibold")
 rename(root / "SplineSansMono-Tachyon-Italic.ttf", "Spline Sans Mono Tachyon", "Italic")
+rename(root / "FiraCode-Tachyon-Regular.ttf", "Fira Code Tachyon", "Regular")
 rename(root / "NotoSans-Tachyon-Regular.ttf", "Noto Sans Tachyon", "Regular")
 rename(root / "NotoSans-Tachyon-Italic.ttf", "Noto Sans Tachyon", "Italic")
 PY
@@ -105,6 +109,7 @@ generated=(
     SplineSansMono-Tachyon-Regular.ttf
     SplineSansMono-Tachyon-Semibold.ttf
     SplineSansMono-Tachyon-Italic.ttf
+    FiraCode-Tachyon-Regular.ttf
     NotoSans-Tachyon-Regular.ttf
     NotoSans-Tachyon-Italic.ttf
 )

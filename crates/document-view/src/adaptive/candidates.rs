@@ -63,6 +63,10 @@ impl ListCandidate {
     pub fn cost(&self) -> f32 {
         self.rows.iter().map(|row| row.weighted()).sum::<f32>() / self.rows.len().max(1) as f32
     }
+
+    pub(super) fn supports_shared_grid(&self) -> bool {
+        matches!(self.rejected, None | Some(Rejection::UnevenHeights))
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -107,6 +111,24 @@ impl ListDecision {
                     .abs()
                     < 0.01
         })
+    }
+
+    /// Adopt one measured grid for a nearby collection without rerunning
+    /// native shaping. Shared anchors may tolerate mild natural-height
+    /// variation, while every fit and wrapping rejection remains binding.
+    pub fn select_shared_grid(&mut self, columns: usize) -> bool {
+        let Some(index) = self
+            .candidates
+            .iter()
+            .position(|candidate| candidate.columns == columns && candidate.supports_shared_grid())
+        else {
+            return false;
+        };
+        self.candidates[index].rejected = None;
+        self.layout = ListLayout::Grid(columns);
+        self.row_columns = self.candidates[index].row_columns.clone();
+        self.retained_previous = false;
+        true
     }
 }
 
@@ -236,7 +258,7 @@ pub(crate) fn choose_list(
                 None
             };
         }
-        if candidate.rejected.is_none() {
+        if candidate.supports_shared_grid() {
             let mut start = 0;
             for &columns in &candidate.row_columns {
                 let row = &candidate.items[start..(start + columns).min(count)];

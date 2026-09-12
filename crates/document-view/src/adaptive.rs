@@ -1307,6 +1307,12 @@ impl AdaptivePlan {
         {
             return 16.;
         }
+        // Tables are dense, ruled components. Give their top edge a clear
+        // boundary from any preceding content; document-start tables never
+        // call this pairwise spacing policy and retain the page inset alone.
+        if matches!(next, BlockNode::Table(_)) {
+            return DocumentStyle::TABLE_TOP_GAP;
+        }
         if let BlockNode::Heading(previous) = previous {
             return if matches!(next, BlockNode::Heading(next) if previous.level == 1 && next.level == 2)
             {

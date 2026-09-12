@@ -188,6 +188,7 @@ impl DocumentStyle {
     pub const PULL_QUOTE_LEADING: f32 = Self::PULL_QUOTE_SIZE * 1.5;
     pub const BIBLIOGRAPHY_HANG: f32 = 24.;
     pub const BIBLIOGRAPHY_GAP: f32 = 12.;
+    pub const TABLE_TOP_GAP: f32 = 32.;
     pub const EQUATION_GAP: f32 = 24.;
     pub const EQUATION_SCROLL_RAIL: f32 = 16.;
     pub const METRIC_VALUE_SIZE: f32 = 40.;

@@ -8335,7 +8335,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn pairwise_gaps_attach_headings_and_keep_table_padding_inside_the_table() {
+    fn pairwise_gaps_attach_headings_and_separate_tables_from_preceding_content() {
         let source = "# Title\n\nIntro.\n\nA second paragraph.\n\n## Section\n\nText.\n\n| A | B |\n| - | - |\n| C | D |\n\nAfter table.\n\n---\n\nAfter break.\n";
         let document = Document::from_markdown(source).unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
@@ -8364,7 +8364,7 @@ pub(super) mod tests {
         let table = first(5);
         near(
             table.table_row_y - first(4).y - first(4).style.line_height,
-            12.,
+            DocumentStyle::TABLE_TOP_GAP,
         );
         near(table.y - table.table_row_y, 10.);
         let table_last = lines
@@ -8379,6 +8379,20 @@ pub(super) mod tests {
         assert!(matches!(roots[7], BlockNode::ThematicBreak { .. }));
         assert_eq!(first(7).style.line_height, 1.);
         near(first(8).y - first(7).y - 1., 24.);
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+    }
+
+    #[test]
+    fn table_at_document_start_has_no_extra_top_gap() {
+        let source = "| A | B |\n| - | - |\n| C | D |\n\nAfter table.\n";
+        let document = Document::from_markdown(source).unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let plan = AdaptivePlan::build(&projection, 1000., None, false);
+        let lines = build_arranged_visual_lines(&projection, &HashMap::new(), 1000., &plan);
+        let first = lines.first().unwrap();
+
+        assert_eq!(first.gap_before, 0.);
+        assert_eq!(first.table_row_y, 0.);
         assert_eq!(document.snapshot().serialize().unwrap(), source);
     }
 

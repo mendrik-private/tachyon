@@ -23,6 +23,12 @@ impl std::hash::Hash for ContentIdentity {
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
+struct HyphenKey {
+    content: ContentIdentity,
+    range: Range<usize>,
+}
+
+#[derive(Clone, Hash, PartialEq, Eq)]
 struct MeasureKey {
     node: NodeId,
     revision: Revision,
@@ -31,6 +37,7 @@ struct MeasureKey {
     font_size: u32,
     runs: u64,
     refine_ending: bool,
+    hyphenate: bool,
     // IDs/revisions can repeat in another document. Retaining the exact input
     // also makes cache hits collision-safe without a second editable store.
     text: Arc<str>,
@@ -56,6 +63,8 @@ struct ListItemMeasureKey {
 
 pub(super) struct FontMeasurement {
     pub identity: Arc<()>,
+    pub(super) typography: typography::Options,
+    hyphen_cache: Mutex<BoundedLru<HyphenKey, Vec<usize>>>,
     pub(super) geometry: Mutex<super::geometry_cache::GeometryCache>,
     fonts: Arc<gpui::TextSystem>,
     style: gpui::TextStyle,
@@ -77,6 +86,71 @@ pub(super) struct FontMeasurement {
 }
 
 impl FontMeasurement {
+    pub(super) fn with_typography(mut self, options: typography::Options) -> Self {
+        self.typography = options;
+        self
+    }
+
+    pub(super) fn hyphen_breaks(
+        &self,
+        projection: &TextProjection,
+        segment: &crate::ProjectionSegment,
+    ) -> Vec<usize> {
+        if !self.typography.hyphenate || !typography::eligible(projection, segment) {
+            return Vec::new();
+        }
+        let Some(node) = projection.block_handle(segment.node_id) else {
+            return Vec::new();
+        };
+        let key = HyphenKey {
+            content: ContentIdentity(node.clone()),
+            range: segment.node_range.clone(),
+        };
+        let start = segment.projection_start();
+        if let Some(local) = self
+            .hyphen_cache
+            .lock()
+            .ok()
+            .and_then(|mut cache| cache.get(&key))
+        {
+            return local.into_iter().map(|i| start + i).collect();
+        }
+        let breaks = typography::breaks(projection, segment);
+        if let Ok(mut cache) = self.hyphen_cache.lock() {
+            cache.insert(key, breaks.iter().map(|i| i - start).collect());
+        }
+        breaks
+    }
+
+    pub(super) fn hyphenated_width(
+        &self,
+        projection: &TextProjection,
+        range: Range<usize>,
+        font_size: f32,
+        hyphen: bool,
+    ) -> Option<f32> {
+        if !hyphen {
+            return self.line_width(projection, range, font_size);
+        }
+        let text = &projection.text()[range.clone()];
+        let mut runs = styled_projection_runs(
+            projection,
+            &range,
+            text.len(),
+            &self.style,
+            false,
+            TachyonPalette::for_dark(false),
+        );
+        let display = typography::with_suffix(text, &mut runs, true);
+        let line = gpui::WindowTextSystem::new(self.fonts.clone()).shape_line(
+            display.into(),
+            px(font_size * self.zoom),
+            &runs,
+            None,
+        );
+        Some(f32::from(line.width()) / self.zoom)
+    }
+
     pub(super) fn command_language_width(&self, value: &str) -> f32 {
         let mut font = gpui::font("Spline Sans Mono Tachyon");
         font.weight = FontWeight::SEMIBOLD;
@@ -501,6 +575,8 @@ impl FontMeasurement {
             .fold(0., f32::max);
         Self {
             identity: Arc::new(()),
+            typography: typography::Options::default(),
+            hyphen_cache: Mutex::new(BoundedLru::new(256)),
             geometry: Mutex::new(super::geometry_cache::GeometryCache::new()),
             fonts,
             style: gpui::TextStyle {
@@ -577,6 +653,7 @@ impl FontMeasurement {
             runs: hasher.finish(),
             text: text.clone(),
             refine_ending: paragraph_endings::eligible(projection, segment, &range),
+            hyphenate: self.typography.hyphenate && typography::eligible(projection, segment),
         };
         if let Some(cached) = self.cache.lock().ok().and_then(|mut cache| cache.get(&key)) {
             diagnostics::count(|counts| counts.wrap_cache_hits += 1);
@@ -663,7 +740,32 @@ impl FontMeasurement {
         ) {
             local = repaired;
         }
-        if key.refine_ending {
+        let hyphens = self
+            .hyphen_breaks(projection, segment)
+            .into_iter()
+            .filter(|i| *i > range.start && *i < range.end)
+            .map(|i| i - range.start)
+            .collect::<Vec<_>>();
+        let hyphenated = typography::wrap(
+            &text,
+            &line.unwrapped_layout,
+            &hyphens,
+            width,
+            self.zoom,
+            |local, hyphen| {
+                self.hyphenated_width(
+                    projection,
+                    range.start + local.start..range.start + local.end,
+                    font_size,
+                    hyphen,
+                )
+            },
+        );
+        let used_hyphenation = hyphenated.is_some();
+        if let Some(lines) = hyphenated {
+            local = lines;
+        }
+        if key.refine_ending && !used_hyphenation && !self.typography.justify {
             paragraph_endings::refine(&text, &mut local, &graphemes, width, |local| {
                 self.line_width(
                     projection,

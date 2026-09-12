@@ -286,7 +286,7 @@ def inspect(env, input_event, source_path, pid, output, probe_path, work, expect
     key(33, control=True)
     key(1)
     def pointer_title(name):
-        target, = (n for n in nodes() if n['role'] == 'button' and n['name'] == name)
+        target, = (n for n in nodes() if n['role'] in ('button', 'toggle button') and n['name'] == name)
         b = target['screen_bounds']
         input_event('move', round((b['x'] + b['width'] / 2) / scale),
                     round((b['y'] + b['height'] / 2) / scale))
@@ -310,6 +310,52 @@ def inspect(env, input_event, source_path, pid, output, probe_path, work, expect
             if reset['description'] == f'Current document zoom: {percent}%': return
             if time.monotonic() > deadline: raise RuntimeError(f'Zoom did not become {percent}%')
             time.sleep(.05)
+
+    def require_toggle(name, enabled):
+        deadline = time.monotonic() + 4
+        while True:
+            target, = (n for n in nodes() if n['name'] == name and n['role'] == 'toggle button')
+            pressed = bool({'pressed', 'checked'} & set(target['states']))
+            if pressed == enabled: return
+            if time.monotonic() > deadline:
+                raise RuntimeError(f'{name} did not become {enabled}: {target}')
+            time.sleep(.05)
+
+    def copy_body():
+        sentinel = 'typography-clipboard-sentinel'
+        subprocess.run(['wl-copy', '--seat', 'tachyon-test', '--type', 'text/plain'],
+                       input=sentinel, text=True, env=env, check=True, timeout=5)
+        key(33, control=True)
+        key(1)  # Return focus to the editor without moving the selection.
+        key(30, control=True)
+        key(46, control=True)
+        deadline = time.monotonic() + 4
+        while True:
+            result = subprocess.run(['wl-paste', '--no-newline', '--seat', 'tachyon-test'],
+                                    env=env, capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout != sentinel: return result.stdout
+            if time.monotonic() > deadline: raise RuntimeError(result.stderr)
+            time.sleep(.05)
+
+    baseline_copy = copy_body()
+    key(106)  # Collapse the selection before comparing typography screenshots.
+    capture('typography-off')
+    for name in ('Justify body text', 'Hyphenation'):
+        require_toggle(name, False)
+        pointer_title(name)
+        require_toggle(name, True)
+    time.sleep(.8)
+    input_event('move', 3, 60)
+    capture('typography-on')
+    if copy_body() != baseline_copy:
+        raise RuntimeError('Display typography changed the native clipboard text')
+    key(106)
+    keyboard_title('Justify body text', 57)
+    require_toggle('Justify body text', False)
+    require_toggle('Hyphenation', True)
+    keyboard_title('Hyphenation', 28)
+    require_toggle('Hyphenation', False)
+    require_toggle('Justify body text', False)
 
     pointer_title('Reset zoom')
     require_zoom(100)
@@ -338,6 +384,7 @@ def inspect(env, input_event, source_path, pid, output, probe_path, work, expect
                 observed_coordinate_scale=scale, keyboard_close_focus=True,
                 keyboard_menu=True, pointer_menu=True, feedback_samples=samples, disabled_controls=disabled_names,
                 pointer_and_keyboard_zoom=True, keyboard_search=True,
+                typography_pointer_and_keyboard=True, typography_clipboard_unchanged=True,
                 source_unchanged=True)
 
 

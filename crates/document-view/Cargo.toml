@@ -31,6 +31,8 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 smallvec.workspace = true
 thiserror.workspace = true
+hyphenation.workspace = true
+whatlang.workspace = true
 unicode-bidi.workspace = true
 unicode-linebreak.workspace = true
 unicode-segmentation.workspace = true

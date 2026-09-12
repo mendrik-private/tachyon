@@ -64,6 +64,7 @@ mod resource;
 #[cfg(test)]
 mod signals;
 mod task_strips;
+mod typography;
 #[cfg(test)]
 use arrangement::build_measured_adaptive_plan;
 use arrangement::{
@@ -1173,6 +1174,7 @@ struct ShapeCacheKey {
     width_bits: u32,
     scale_bits: u32,
     marked_fragment: Option<Range<usize>>,
+    typography: (bool, bool),
 }
 
 struct ShapeCacheInput<'a> {
@@ -1341,6 +1343,7 @@ pub struct RichDocumentEditor {
     has_painted: bool,
     zoom_factor: f32,
     requested_zoom_factor: f32,
+    typography: typography::Options,
     adaptive: AdaptivePlan,
     components: Arc<ComponentIndex>,
     published_geometry: Option<Arc<PublishedGeometry>>,
@@ -1484,6 +1487,7 @@ impl RichDocumentEditor {
             has_painted: false,
             zoom_factor: 1.,
             requested_zoom_factor: 1.,
+            typography: typography::Options::default(),
             adaptive: prepared.adaptive,
             components: prepared.components,
             published_geometry: prepared.published_geometry,
@@ -2452,6 +2456,35 @@ impl RichDocumentEditor {
         cx.emit(EditorEvent::ViewChanged);
         cx.notify();
         Ok(true)
+    }
+
+    pub fn body_justified(&self) -> bool {
+        self.typography.justify
+    }
+
+    pub fn hyphenation_enabled(&self) -> bool {
+        self.typography.hyphenate
+    }
+
+    pub fn toggle_body_justification(&mut self, cx: &mut Context<Self>) {
+        self.typography.justify = !self.typography.justify;
+        self.typography_changed(cx);
+    }
+
+    pub fn toggle_hyphenation(&mut self, cx: &mut Context<Self>) {
+        self.typography.hyphenate = !self.typography.hyphenate;
+        self.typography_changed(cx);
+    }
+
+    fn typography_changed(&mut self, cx: &mut Context<Self>) {
+        self.projection.table_layout_lock = None;
+        self.published_geometry = None;
+        self.measured_layout = false;
+        self.text_environment_pending = true;
+        self.geometry_generation = self.geometry_generation.wrapping_add(1);
+        self.shaped_line_cache.borrow_mut().clear();
+        cx.emit(EditorEvent::ViewChanged);
+        cx.notify();
     }
 
     #[must_use]
@@ -5879,12 +5912,16 @@ impl gpui::Render for RichDocumentEditor {
         if !self
             .measurement
             .matches(&cx.theme().font_family, self.zoom_factor)
+            || self.measurement.typography != self.typography
         {
-            self.measurement = Arc::new(FontMeasurement::new(
-                cx.text_system().clone(),
-                cx.theme().font_family.clone(),
-                self.zoom_factor,
-            ));
+            self.measurement = Arc::new(
+                FontMeasurement::new(
+                    cx.text_system().clone(),
+                    cx.theme().font_family.clone(),
+                    self.zoom_factor,
+                )
+                .with_typography(self.typography),
+            );
             self.projection.table_layout_lock = None;
             self.measured_layout = false;
             self.text_environment_pending = true;
@@ -8511,7 +8548,7 @@ impl Element for DocumentTextElement {
             } else {
                 runs
             };
-            let cache_key = shape_cache_key(ShapeCacheInput {
+            let mut cache_key = shape_cache_key(ShapeCacheInput {
                 snapshot: &snapshot,
                 segment,
                 range: &range,
@@ -8522,14 +8559,47 @@ impl Element for DocumentTextElement {
                 scale: window.scale_factor(),
                 marked: marked.as_ref(),
             });
+            let prose = segment
+                .is_some_and(|segment| typography::eligible(&editor.projection, segment))
+                && spec.inline_math.is_none()
+                && spec.html_preview.is_none();
+            let hyphen = prose
+                && editor.typography.hyphenate
+                && segment.is_some_and(|segment| {
+                    editor
+                        .measurement
+                        .hyphen_breaks(&editor.projection, segment)
+                        .binary_search(&range.end)
+                        .is_ok()
+                });
+            let justify = prose
+                && editor.typography.justify
+                && segment.is_some_and(|segment| {
+                    typography::continues(
+                        &editor.projection,
+                        segment,
+                        &range,
+                        spec.label_row.map(|(part, _)| part),
+                    )
+                });
+            cache_key.typography = (justify, hyphen);
             let cached = editor.shaped_line_cache.borrow_mut().get(&cache_key);
             let layout = cached.unwrap_or_else(|| {
-                let layout = window.text_system().shape_line(
-                    line_text.to_owned().into(),
+                let mut runs = runs.clone();
+                let display = typography::with_suffix(line_text, &mut runs, hyphen);
+                let mut layout = window.text_system().shape_line(
+                    display.into(),
                     px(visual_style.font_size),
                     &runs,
                     None,
                 );
+                if hyphen {
+                    layout = layout.with_len(line_text.len());
+                    layout.text = line_text.to_owned().into();
+                }
+                if justify {
+                    layout = typography::justify(layout, line_bounds.size.width);
+                }
                 editor
                     .shaped_line_cache
                     .borrow_mut()
@@ -8869,6 +8939,7 @@ fn shape_cache_key(input: ShapeCacheInput<'_>) -> ShapeCacheKey {
         width_bits: width.to_bits(),
         scale_bits: scale.to_bits(),
         marked_fragment,
+        typography: (false, false),
     }
 }
 

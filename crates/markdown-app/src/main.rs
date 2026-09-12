@@ -45,6 +45,7 @@ use persistence::{
 };
 
 mod title_bar;
+use gpui_component::Selectable as _;
 use title_bar::TitleBar;
 
 mod assets;
@@ -4299,6 +4300,35 @@ impl Render for MarkdownWindow {
                                         cx.stop_propagation();
                                         window.dispatch_action(Box::new(FindDocumentAction), cx);
                                     }),
+                            )
+                            .child(
+                                title_bar::button("title-body-justify", cx)
+                                    .icon(Icon::default().path("tachyon/justify.svg"))
+                                    .selected(self.editor.read(cx).body_justified())
+                                    .toggled(self.editor.read(cx).body_justified())
+                                    .accessible_name("Justify body text")
+                                    .tooltip("Justify body text")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        this.editor.update(cx, |editor, cx| {
+                                            editor.toggle_body_justification(cx)
+                                        });
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                title_bar::button("title-hyphenation", cx)
+                                    .icon(Icon::default().path("tachyon/hyphenation.svg"))
+                                    .selected(self.editor.read(cx).hyphenation_enabled())
+                                    .toggled(self.editor.read(cx).hyphenation_enabled())
+                                    .accessible_name("Hyphenation")
+                                    .tooltip("Hyphenation — detect language automatically")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        this.editor
+                                            .update(cx, |editor, cx| editor.toggle_hyphenation(cx));
+                                        cx.notify();
+                                    })),
                             )
                             .child(zoom_controls),
                     ),

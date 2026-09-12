@@ -34,7 +34,11 @@ pub(super) fn eligible(
             run.styles.iter().all(|style| {
                 matches!(
                     style,
-                    InlineStyle::Bold | InlineStyle::Italic | InlineStyle::Strikethrough
+                    InlineStyle::Bold
+                        | InlineStyle::Italic
+                        | InlineStyle::Strikethrough
+                        | InlineStyle::Code
+                        | InlineStyle::Link(_)
                 )
             })
         })
@@ -53,7 +57,9 @@ pub(super) fn refine(
     }
     let previous = lines[count - 2].clone();
     let last = lines[count - 1].clone();
-    if last.end - previous.start > 2048 || text[last.clone()].split_whitespace().count() != 1 {
+    if last.end - previous.start > 2048
+        || !(1..=3).contains(&text[last.clone()].split_whitespace().count())
+    {
         return;
     }
     let Some(last_width) = measure(last.clone()) else {
@@ -64,7 +70,7 @@ pub(super) fn refine(
     }
     // Only ordinary spaces provide new boundaries. NBSP, tabs, CJK and
     // unbreakable tokens keep their native layout. Inspect at most 2 KiB and
-    // measure at most three candidates, leaving at least two preceding words.
+    // measure at most four candidates, leaving at least two preceding words.
     let words = text[previous.clone()]
         .match_indices(|c: char| !c.is_whitespace())
         .filter_map(|(offset, _)| {
@@ -74,7 +80,7 @@ pub(super) fn refine(
         .collect::<Vec<_>>();
     let mut best = None;
     let mut imbalance = width - last_width;
-    for moved in 2..=4 {
+    for moved in 1..=4 {
         let Some(index) = words.len().checked_sub(moved).filter(|index| *index >= 2) else {
             continue;
         };
@@ -105,12 +111,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn short_phrases_gain_words_without_changing_source() {
+        for ending in ["me.", "for me.", "just for me."] {
+            let text = format!("One two three four five six seven {ending}");
+            let start = text.find(ending).unwrap();
+            let mut lines = vec![0..start, start..text.len()];
+            let boundaries = text
+                .grapheme_indices(true)
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>();
+            refine(&text, &mut lines, &boundaries, 48., |range| {
+                Some(text[range].chars().count() as f32)
+            });
+            assert!(lines[1].start < start);
+            assert_eq!(
+                lines
+                    .iter()
+                    .map(|range| &text[range.clone()])
+                    .collect::<String>(),
+                text
+            );
+        }
+    }
+
+    #[test]
+    fn inline_code_matches_body_font_and_uses_theme_syntax_color() {
+        let document =
+            Document::from_markdown("A typed `Result FsError Catalog` gives a contract.").unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let segment = &projection.segments()[0];
+        let range = segment.projection_range();
+        assert!(eligible(&projection, segment, &range));
+        for palette in [TachyonPalette::LIGHT, TachyonPalette::DARK] {
+            let runs = styled_projection_runs(
+                &projection,
+                &range,
+                range.len(),
+                &gpui::TextStyle::default(),
+                false,
+                palette,
+            );
+            assert!(runs.len() >= 3);
+            assert_eq!(runs[0].font, runs[1].font);
+            assert_eq!(runs[1].color, rgb(palette.syntax_number).into());
+            assert_ne!(runs[0].color, runs[1].color);
+        }
+    }
+
+    #[test]
     fn eligibility_preserves_authored_and_specialized_content() {
         for source in [
             "# A heading with a final word.",
             "A paragraph with an authored  \nline break.",
-            "A paragraph with `literal code` inside.",
-            "A paragraph with [a protected link](https://example.com).",
             "A paragraph with $x^2$ inside.",
             "A paragraph with ![an image](image.png) inside.",
             "```text\nA literal block with a final word.\n```",
@@ -141,6 +193,33 @@ mod tests {
         assert!(!eligible(&projection, segment, &segment.projection_range()));
     }
 
+    #[gpui::test]
+    fn runt_refinement_keeps_inline_spans_intact(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            for span in ["`Result FsError Catalog`", "[a useful contract](https://example.com)"] {
+                let source = format!("The explanation keeps its evidence together with {span} and the original document just for me.");
+                let document = Document::from_markdown(source.as_str()).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let segment = &projection.segments()[0];
+                let rich = projection.block(segment.node_id).unwrap().text().unwrap();
+                let mut unrefined = segment.clone();
+                unrefined.context.metadata = true;
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+                for width in (200..600).step_by(20) {
+                    let original = fonts.wrap(&projection, &unrefined, segment.projection_range(), width as f32, 18.).unwrap();
+                    let refined = fonts.wrap(&projection, segment, segment.projection_range(), width as f32, 18.).unwrap();
+                    assert_eq!(refined.len(), original.len());
+                    for line in &refined {
+                        if original.iter().any(|old| old.start == line.start) { continue; }
+                        let offset = line.start - segment.projection_start();
+                        assert!(!rich.runs().iter().any(|run| run.styles.iter().any(|style| matches!(style, InlineStyle::Code | InlineStyle::Link(_))) && run.range.start < offset && offset < run.range.end));
+                    }
+                    assert_eq!(refined.iter().map(|r| &projection.text()[r.clone()]).collect::<String>(), projection.text()[segment.projection_range()]);
+                }
+            }
+        });
+    }
+
     #[test]
     fn refinement_is_bounded_contiguous_and_grapheme_safe() {
         let text = "One two cafe\u{301} four five six end.";
@@ -157,7 +236,7 @@ mod tests {
             Some(text[r].graphemes(true).count() as f32)
         });
         assert_ne!(lines, original);
-        assert!(calls <= 7);
+        assert!(calls <= 9);
         assert_eq!(lines[0].end, lines[1].start);
         assert!(graphemes.contains(&lines[1].start));
         assert_eq!(
@@ -189,6 +268,32 @@ mod tests {
     }
 
     #[gpui::test]
+    fn typography_toggles_do_not_strand_the_final_word(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "The explanation keeps its evidence and qualifications together so another reader can understand the original document.";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            for justify in [false, true] {
+                for hyphenate in [false, true] {
+                    let fonts = FontMeasurement::new(
+                        cx.text_system().clone(), "Public Sans Tachyon".into(), 1.,
+                    ).with_typography(typography::Options { justify, hyphenate });
+                    for width in (300..700).step_by(5) {
+                        let lines = fonts.wrap(&projection, segment, segment.projection_range(), width as f32, 18.).unwrap();
+                        let last = lines.last().unwrap();
+                        if lines.len() > 1 && fonts.line_width(&projection, last.clone(), 18.).unwrap() <= width as f32 * 0.25 {
+                            assert!(projection.text()[last.clone()].split_whitespace().count() > 1,
+                                "stranded ending at width={width}, justify={justify}, hyphenate={hyphenate}: {:?}", &projection.text()[last.clone()]);
+                        }
+                        assert_eq!(lines.iter().map(|range| &projection.text()[range.clone()]).collect::<String>(), source);
+                    }
+                }
+            }
+        });
+    }
+
+    #[gpui::test]
     fn native_paragraph_endings_balance_without_changing_source_or_line_count(
         cx: &mut gpui::TestAppContext,
     ) {
@@ -216,8 +321,8 @@ mod tests {
                 let cold_scope = diagnostics::MeasurementScope::new();
                 let refined = fonts.wrap(&projection, segment, segment.projection_range(), width, 18.).unwrap();
                 let cold = cold_scope.take_stage();
-                assert!(cold.intrinsic_requests <= 7);
-                assert!(cold.shaping_calls <= 8);
+                assert!(cold.intrinsic_requests <= 9);
+                assert!(cold.shaping_calls <= 10);
                 assert!(projection.text()[refined.last().unwrap().clone()].split_whitespace().count() >= 3,
                     "an isolated short final word should gain its preceding words: width={width}, original={original:?}, refined={refined:?}");
                 assert_eq!(refined.len(), original.len());

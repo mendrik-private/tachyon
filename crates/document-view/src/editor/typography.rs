@@ -152,8 +152,8 @@ pub(super) fn breaks(
                 .into_iter()
                 .filter(|offset| {
                     word.is_char_boundary(*offset)
-                        && word[..*offset].chars().count() >= 2
-                        && word[*offset..].chars().count() >= 2
+                        && word[..*offset].chars().count() >= 3
+                        && word[*offset..].chars().count() >= 3
                 })
                 .map(|offset| range.start + start + offset),
         );
@@ -287,6 +287,7 @@ pub(super) fn wrap(
     }
     let mut result = Vec::new();
     let mut start_ix = 0;
+    let mut consecutive_hyphens = 0;
     let width = width.max(1.);
     while start_ix + 1 < points.len() {
         let (start, x) = points[start_ix];
@@ -298,6 +299,12 @@ pub(super) fn wrap(
         let mut end = start;
         while candidate > 0 && legal[candidate - 1] > start {
             let next = legal[candidate - 1];
+            if consecutive_hyphens >= 2
+                && (hyphens.binary_search(&next).is_ok() || text[..next].trim_end().ends_with('-'))
+            {
+                candidate -= 1;
+                continue;
+            }
             if measure(start..next, hyphens.binary_search(&next).is_ok())? <= width {
                 end = next;
                 break;
@@ -307,16 +314,25 @@ pub(super) fn wrap(
         if end == start {
             let mut index = fit;
             while index > start_ix + 1
-                && measure(
-                    start..points[index].0,
-                    hyphens.binary_search(&points[index].0).is_ok(),
-                )? > width
+                && ((consecutive_hyphens >= 2
+                    && (hyphens.binary_search(&points[index].0).is_ok()
+                        || text[..points[index].0].trim_end().ends_with('-')))
+                    || measure(
+                        start..points[index].0,
+                        hyphens.binary_search(&points[index].0).is_ok(),
+                    )? > width)
             {
                 index -= 1;
             }
             end = points[index].0;
         }
         result.push(start..end);
+        consecutive_hyphens =
+            if hyphens.binary_search(&end).is_ok() || text[start..end].trim_end().ends_with('-') {
+                consecutive_hyphens + 1
+            } else {
+                0
+            };
         start_ix = points.binary_search_by_key(&end, |p| p.0).ok()?;
     }
     Some(result)
@@ -360,6 +376,15 @@ mod tests {
         let segment = &projection.segments()[0];
         let candidates = breaks(&projection, segment);
         assert!(!candidates.is_empty());
+        for &boundary in &candidates {
+            let (start, word) = projection
+                .text()
+                .unicode_word_indices()
+                .find(|(start, word)| *start < boundary && boundary < start + word.len())
+                .unwrap();
+            assert!(word[..boundary - start].chars().count() >= 3);
+            assert!(word[boundary - start..].chars().count() >= 3);
+        }
         let first_protected = projection.text().find("internationalization").unwrap();
         assert!(candidates.iter().all(|offset| *offset < first_protected));
         assert_eq!(document.snapshot().serialize().unwrap(), source);
@@ -382,8 +407,11 @@ mod tests {
                         let lines = fonts.wrap(&projection, segment, segment.projection_range(), width, 18.).unwrap();
                         let reconstructed = lines.iter().map(|r| &projection.text()[r.clone()]).collect::<String>();
                         assert_eq!(reconstructed, &projection.text()[segment.projection_range()]);
+                        let mut streak = 0;
                         for range in &lines {
                             let hyphen = candidates.binary_search(&range.end).is_ok();
+                            streak = if hyphen { streak + 1 } else { 0 };
+                            assert!(streak <= 2, "stacked hyphens at width={width}, zoom={zoom}");
                             hyphenated_lines += usize::from(hyphen);
                             assert!(fonts.hyphenated_width(&projection, range.clone(), 18., hyphen).unwrap() <= width + 0.01);
                         }

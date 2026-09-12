@@ -41,12 +41,12 @@ stack; they are not static binaries. Each release includes `SHA256SUMS` and a
 `runtime-libraries.txt` build-host dependency inventory.
 
 Download the archive and checksum files from this repository's **Releases**
-page. For a release tagged `v0.1.3`, verify and run it with:
+page. For a release tagged `v0.1.4`, verify and run it with:
 
 ```sh
 sha256sum --check SHA256SUMS
-tar -xzf tachyon-v0.1.3-linux-x86_64.tar.gz
-./tachyon-v0.1.3-linux-x86_64/bin/tachyon path/to/document.md
+tar -xzf tachyon-v0.1.4-linux-x86_64.tar.gz
+./tachyon-v0.1.4-linux-x86_64/bin/tachyon path/to/document.md
 ```
 
 Download `runtime-libraries.txt` too: the checksum file covers both assets.

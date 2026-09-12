@@ -193,33 +193,59 @@ pub(crate) fn breaks(lines: &[Line], height_limit: f32, band_columns: usize) -> 
         {
             return true;
         }
-        // At least three lines of a split paragraph on both sides.
-        index >= 3
-            && index + 3 <= lines.len()
-            && lines[index - 3].paragraph == lines[index].paragraph
-            && lines[index + 2].paragraph == lines[index].paragraph
+        // Two lines on each side prevent widows and orphans without forcing
+        // a four- or five-line paragraph to stay entirely in one column.
+        index >= 2
+            && index + 2 <= lines.len()
+            && lines[index - 2].paragraph == lines[index].paragraph
+            && lines[index + 1].paragraph == lines[index].paragraph
     };
     let minimum = ((*prefix.last()? / (band_columns as f32 * height_limit)).ceil() as usize).max(1)
         * band_columns;
     // Try the minimum band count first; do not create extra sparse bands for
     // a marginal improvement in balance. More bands are an overflow escape.
-    for columns in (minimum..=lines.len() / 4).step_by(band_columns).take(4) {
+    for columns in (minimum..=(lines.len() + 1) / 4)
+        .step_by(band_columns)
+        .take(4)
+    {
         let target = *prefix.last()? / columns as f32;
         let mut costs = vec![vec![f32::INFINITY; lines.len() + 1]; columns + 1];
         let mut previous = vec![vec![0; lines.len() + 1]; columns + 1];
         costs[0][0] = 0.;
         for count in 1..=columns {
-            for end in count * 4..=lines.len() {
+            // The last column may close with three lines. All other columns
+            // retain the useful four-line minimum; safe() still protects both
+            // sides of every paragraph split, regardless of balance.
+            let minimum_lines = if count == columns { 3 } else { 4 };
+            for end in (count - 1) * 4 + minimum_lines..=lines.len() {
                 if !safe(end) {
                     continue;
                 }
-                for start in ((count - 1) * 4..=end - 4).rev() {
+                for start in ((count - 1) * 4..=end - minimum_lines).rev() {
                     let h = height(start, end);
                     if h > height_limit + 0.5 {
                         break;
                     }
                     if !safe(start) || !costs[count - 1][start].is_finite() {
                         continue;
+                    }
+                    // Closing columns must fit below every preceding column
+                    // in this band, including paragraph gaps. A balance score
+                    // must never buy its way out of this typesetting rule.
+                    if count % band_columns == 0 {
+                        let mut boundary = start;
+                        let mut fits = true;
+                        for earlier in (count - band_columns + 1..count).rev() {
+                            let before = previous[earlier][boundary];
+                            if h > height(before, boundary) + 0.5 {
+                                fits = false;
+                                break;
+                            }
+                            boundary = before;
+                        }
+                        if !fits {
+                            continue;
+                        }
                     }
                     let split =
                         if end < lines.len() && lines[end - 1].paragraph == lines[end].paragraph {
@@ -253,6 +279,78 @@ pub(crate) fn breaks(lines: &[Line], height_limit: f32, band_columns: usize) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn closing_column_never_exceeds_earlier_columns() {
+        for (counts, columns, expected) in [
+            // Split the middle paragraph 2/2, giving seven lines on the
+            // left and five on the right, with one paragraph gap in each.
+            (vec![5, 4, 3], 2, vec![0, 7]),
+            (vec![5, 4, 4], 3, vec![0, 5, 9]),
+        ] {
+            let lines = counts
+                .into_iter()
+                .enumerate()
+                .flat_map(|(paragraph, count)| {
+                    (0..count).map(move |index| Line {
+                        height: 28.,
+                        gap: if paragraph > 0 && index == 0 { 24. } else { 0. },
+                        paragraph,
+                    })
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(breaks(&lines, 560., columns).unwrap(), expected);
+        }
+        for columns in [2, 3] {
+            for count in 12..100 {
+                let lines = (0..count)
+                    .map(|i| Line {
+                        height: 24. + (i / 7 % 3) as f32 * 4.,
+                        gap: if i > 0 && i % 7 == 0 { 24. } else { 0. },
+                        paragraph: i / 7,
+                    })
+                    .collect::<Vec<_>>();
+                if let Some(starts) = breaks(&lines, 400., columns) {
+                    let heights = starts
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &start)| {
+                            let end = starts.get(i + 1).copied().unwrap_or(count);
+                            lines[start..end]
+                                .iter()
+                                .map(|l| l.height + l.gap)
+                                .sum::<f32>()
+                                - lines[start].gap
+                        })
+                        .collect::<Vec<_>>();
+                    for band in heights.chunks(columns) {
+                        assert!(
+                            band[..columns - 1]
+                                .iter()
+                                .all(|h| *band.last().unwrap() <= *h + 0.5),
+                            "{heights:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_short_final_column_is_better_than_a_bottom_heavy_band() {
+        let lines = [4, 5, 3]
+            .into_iter()
+            .enumerate()
+            .flat_map(|(paragraph, count)| {
+                (0..count).map(move |index| Line {
+                    height: 28.,
+                    gap: if paragraph > 0 && index == 0 { 24. } else { 0. },
+                    paragraph,
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(breaks(&lines, 560., 2).unwrap(), [0, 6]);
+    }
+
     #[test]
     fn three_column_bands_balance_without_sparse_columns_or_widows() {
         for count in [12, 24, 36, 72, 144, 288] {
@@ -310,7 +408,30 @@ mod tests {
                     .collect::<Vec<_>>()
                     .windows(2)
                 {
-                    assert!(pair[1] - pair[0] >= 4);
+                    assert!(pair[1] - pair[0] >= if pair[1] == count { 3 } else { 4 });
+                    for &boundary in pair {
+                        if boundary > 0
+                            && boundary < count
+                            && lines[boundary - 1].paragraph == lines[boundary].paragraph
+                        {
+                            let paragraph = lines[boundary].paragraph;
+                            assert!(
+                                lines[..boundary]
+                                    .iter()
+                                    .rev()
+                                    .take_while(|line| line.paragraph == paragraph)
+                                    .count()
+                                    >= 2
+                            );
+                            assert!(
+                                lines[boundary..]
+                                    .iter()
+                                    .take_while(|line| line.paragraph == paragraph)
+                                    .count()
+                                    >= 2
+                            );
+                        }
+                    }
                     assert!(
                         lines[pair[0]..pair[1]]
                             .iter()

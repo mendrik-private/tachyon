@@ -274,9 +274,8 @@ fn candidate(
     if fit.0 <= 1.5 {
         return Some(original);
     }
-    // A five-line paragraph cannot split with three lines on either side.
-    // Try a few slightly narrower, still readable measures before accepting
-    // a large hole. Never trade that hole for a taller document or more bands.
+    // Try a few slightly narrower, still readable measures when legal splits
+    // leave a large hole. Never trade that hole for a taller document or more bands.
     let narrative = projection
         .segment_for_node(roots.first()?.id())?
         .context
@@ -307,6 +306,7 @@ fn candidate(
 }
 
 /// Worst within-band imbalance and total occupied band height, including gaps.
+/// A shorter final column is intentional and does not justify narrowing text.
 fn band_fit(lines: &[Line], starts: &[usize], columns: usize) -> (f32, f32) {
     let heights = starts
         .iter()
@@ -321,8 +321,14 @@ fn band_fit(lines: &[Line], starts: &[usize], columns: usize) -> (f32, f32) {
         .collect::<Vec<_>>();
     heights
         .chunks(columns)
-        .fold((1., 0.), |(ratio, total), band| {
-            let shortest = band.iter().copied().fold(f32::INFINITY, f32::min);
+        .enumerate()
+        .fold((1., 0.), |(ratio, total), (index, band)| {
+            let peers = if (index + 1) * columns >= heights.len() && band.len() > 1 {
+                &band[..band.len() - 1]
+            } else {
+                band
+            };
+            let shortest = peers.iter().copied().fold(f32::INFINITY, f32::min);
             let tallest = band.iter().copied().fold(0., f32::max);
             (ratio.max(tallest / shortest.max(1.)), total + tallest)
         })
@@ -587,8 +593,12 @@ mod tests {
         };
         let original = measured([4, 5, 3]);
         let starts = crate::adaptive::prose::breaks(&original, 560., 2).unwrap();
-        assert_eq!(starts, [0, 4]);
-        assert_eq!(band_fit(&original, &starts, 2), (248. / 112., 248.));
+        assert_eq!(
+            starts,
+            [0, 6],
+            "split the middle paragraph 2/3 for equal column heights"
+        );
+        assert_eq!(band_fit(&original, &starts, 2), (1., 192.));
         let narrower = measured([4, 6, 3]);
         let starts = crate::adaptive::prose::breaks(&narrower, 560., 2).unwrap();
         assert_eq!(
@@ -596,7 +606,7 @@ mod tests {
             [0, 7],
             "three lines of the middle paragraph on each side"
         );
-        assert_eq!(band_fit(&narrower, &starts, 2), (220. / 192., 220.));
+        assert_eq!(band_fit(&narrower, &starts, 2), (1., 220.));
     }
 
     #[test]

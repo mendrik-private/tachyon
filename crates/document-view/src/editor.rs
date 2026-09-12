@@ -12628,7 +12628,11 @@ fn styled_projection_runs(
                             thickness: px(1.),
                         });
                     }
-                    InlineStyle::Code | InlineStyle::Math { .. } => {
+                    InlineStyle::Code => {
+                        color = rgb(palette.syntax_number).into();
+                        background_color = Some(rgb(palette.surface).into());
+                    }
+                    InlineStyle::Math { .. } => {
                         font.family = DocumentStyle::MONOSPACE_FONT_FAMILY.into();
                         background_color = Some(rgb(palette.surface).into());
                     }

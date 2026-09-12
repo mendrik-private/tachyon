@@ -761,12 +761,40 @@ impl FontMeasurement {
                 )
             },
         );
-        let used_hyphenation = hyphenated.is_some();
         if let Some(lines) = hyphenated {
             local = lines;
         }
-        if key.refine_ending && !used_hyphenation && !self.typography.justify {
-            paragraph_endings::refine(&text, &mut local, &graphemes, width, |local| {
+        if key.refine_ending {
+            // Moving words between the last two lines must not introduce a
+            // new break inside an inline code span or a link label.
+            let protected = projection
+                .block(segment.node_id)
+                .and_then(BlockNode::text)
+                .map(|rich| {
+                    rich.runs()
+                        .iter()
+                        .filter(|run| {
+                            run.styles.iter().any(|style| {
+                                matches!(style, InlineStyle::Code | InlineStyle::Link(_))
+                            })
+                        })
+                        .map(|run| run.range.clone())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let ending_breaks = graphemes
+                .iter()
+                .copied()
+                .filter(|offset| {
+                    let node_offset = segment.node_range.start + range.start
+                        - segment.projection_start()
+                        + offset;
+                    !protected
+                        .iter()
+                        .any(|span| span.start < node_offset && node_offset < span.end)
+                })
+                .collect::<Vec<_>>();
+            paragraph_endings::refine(&text, &mut local, &ending_breaks, width, |local| {
                 self.line_width(
                     projection,
                     range.start + local.start..range.start + local.end,
@@ -1048,10 +1076,11 @@ mod tests {
                 .wrap(&projection, segment, segment.projection_range(), 220., 18.)
                 .unwrap();
             let cold = scope.take_stage();
-            assert_eq!(cold.shaping_calls, 2);
+            // Wrapping also measures the short final phrase for runt repair.
+            assert_eq!(cold.shaping_calls, 3);
             assert_eq!(
                 (cold.wrap_cache_misses, cold.intrinsic_cache_misses),
-                (1, 1)
+                (1, 2)
             );
             assert_eq!(
                 measurement.line_width(&projection, segment.projection_range(), 18.),

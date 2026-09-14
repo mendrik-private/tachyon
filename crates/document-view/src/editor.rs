@@ -460,10 +460,23 @@ impl PreparedDocumentView {
             trace.stage("loaded_image_dimensions");
         }
         deadline.check()?;
+        let build_stack_plan = || {
+            let mut plan =
+                AdaptivePlan::build(&projection, layout_width / zoom_factor, None, false);
+            if let Some(scope) = &visible_roots {
+                // Recovery must be ready before optimization, but distant
+                // prose must not turn that prerequisite into a whole-document
+                // shaping pass. Keep complete estimated source outside the
+                // requested windows, just as the adaptive renderer does.
+                let ranges = plan.windows_for(scope);
+                plan.measurement_ranges = Some(ranges.clone());
+                plan.measured_rows.covered = ranges;
+            }
+            plan
+        };
         let stack_geometry =
             if let Some(recovery) = control.recovery.filter(|_| editing_node.is_none()) {
-                let stack_plan =
-                    AdaptivePlan::build(&projection, layout_width / zoom_factor, None, false);
+                let stack_plan = build_stack_plan();
                 let input = GeometryInputs {
                     projection: &projection,
                     images: &image_dimensions,
@@ -522,7 +535,7 @@ impl PreparedDocumentView {
                 arrangement::LayoutMeasurement {
                     text: measurement,
                     images: Some(&image_dimensions),
-                    scope: visible_roots,
+                    scope: visible_roots.clone(),
                     resource_generation,
                 },
                 editing_node,
@@ -536,9 +549,7 @@ impl PreparedDocumentView {
             // Keep the published view until focus/inputs permit a safe retry.
             return Err(*failure);
         }
-        let adaptive = planned.unwrap_or_else(|_| {
-            AdaptivePlan::build(&projection, layout_width / zoom_factor, None, false)
-        });
+        let adaptive = planned.unwrap_or_else(|_| build_stack_plan());
         if let Some(trace) = &mut trace {
             trace.stage("planning");
         }
@@ -17233,6 +17244,64 @@ mod tests {
                     .any(|list| matches!(list.layout, ListLayout::Grid(_)))
             );
             assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
+    fn cold_recovery_measures_requested_windows_without_shaping_distant_prose(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let source = (0..40).map(|chapter| format!(
+                "## Chapter {chapter}\n\nThe international organization provides comprehensive documentation and extraordinary opportunities for understanding typography and communication in chapter {chapter}.\n\n"
+            )).collect::<String>();
+            let document = Document::from_markdown(source.as_str()).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            for (width, zoom) in [(760., 1.), (1440., 1.25)] {
+                let measurement = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom)
+                    .with_typography(typography::Options { justify: true, hyphenate: true });
+                let previous = AdaptivePlan::build(&projection, width / zoom, None, false);
+                let reference = build_measured_visual_lines(&projection, &HashMap::new(), width / zoom, &previous, Some(&measurement));
+                for requested in [0..2, 40..42] {
+                    let measurement = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom)
+                        .with_typography(typography::Options { justify: true, hyphenate: true });
+                    // Exercise the real supervisor path, including its retained
+                    // recovery and a planner failure, rather than a fixture-only
+                    // preparation that omits the expensive fallback entirely.
+                    let recovery = reflow::Recovery::default();
+                    let mut deadline = reflow::Deadline::unlimited();
+                    deadline.fail_planner = true;
+                    let (prepared, _, report) = PreparedDocumentView::try_prepare_snapshot_with_images(
+                        &document.snapshot(), &HashMap::new(), None,
+                        ReflowViewport { published_geometry: None, width, height: 900., zoom,
+                            preview_edit_node: None, expanded_code_tail: None, editing_node: None, table_layout_lock: None,
+                            html_disclosures: Arc::default(), html_loaded_images: Arc::default(),
+                            trace_mode: LayoutTraceMode::Summary, visible_roots: Some(requested.clone()), resource_generation: 0 },
+                        &previous, &measurement, ReflowControl { deadline: &deadline, recovery: Some(&recovery) },
+                    ).unwrap();
+                    let fallback = recovery.take().unwrap().0;
+                    let report = serde_json::to_value(report.unwrap()).unwrap();
+                    let stage = report["stages"].as_array().unwrap().iter().find(|s| s["name"] == "recovery_stack").unwrap();
+                    assert!(stage["measurements"]["wrap_requests"].as_u64().unwrap() < 10,
+                        "opening a chapter must not wrap all 40 chapters: {stage}");
+                    assert!(stage["measurements"]["deferred_text_segments"].as_u64().unwrap() > 60);
+                    assert!(Arc::ptr_eq(fallback.published_geometry.as_ref().unwrap(), prepared.published_geometry.as_ref().unwrap()),
+                        "planner failure must reuse the scoped fallback, not shape the whole document again");
+                    let ranges = previous.windows_for(&requested);
+                    for segment in projection.segments() {
+                        let ordinal = previous.root_ordinal(segment.top_level_node_id).unwrap();
+                        assert_eq!(fallback.adaptive.has_measured_geometry(segment.top_level_node_id),
+                            ranges.iter().any(|range| range.contains(&ordinal)));
+                        let actual = fallback.visual_lines.iter().filter(|line| segment.projection_range().contains(&line.projected_start())).map(|line| (line.projected_range(), line.hyphenated)).collect::<Vec<_>>();
+                        assert!(!actual.is_empty(), "deferred source must still be present");
+                        if ranges.iter().any(|range| range.contains(&ordinal)) {
+                            let expected = reference.iter().filter(|line| segment.projection_range().contains(&line.projected_start())).map(|line| (line.projected_range(), line.hyphenated)).collect::<Vec<_>>();
+                            assert_eq!(actual, expected, "visible wrapping must match full native measurement");
+                        }
+                    }
+                }
+            }
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }
 

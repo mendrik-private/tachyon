@@ -24,11 +24,12 @@ use futures::{
 };
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Entity, EntityId, Focusable as _, FontFallbacks,
-    InteractiveElement as _, KeyBinding, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, ParentElement as _, PathPromptOptions, QuitMode, Render, Resource, Role,
-    StatefulInteractiveElement as _, Styled as _, UniformListScrollHandle, WeakEntity,
-    WindowBounds, WindowDecorations, WindowOptions, div, font, image_cache as image_cache_element,
-    point, prelude::FluentBuilder as _, px, relative, rgb, size, uniform_list,
+    InteractiveElement as _, IntoElement as _, KeyBinding, KeyDownEvent, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, PathPromptOptions, QuitMode,
+    Render, Resource, Role, StatefulInteractiveElement as _, Styled as _, UniformListScrollHandle,
+    WeakEntity, WindowBounds, WindowDecorations, WindowOptions, div, font,
+    image_cache as image_cache_element, point, prelude::FluentBuilder as _, px, relative, rgb,
+    size, uniform_list,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Root, Sizable as _, Theme, WindowExt as _,
@@ -520,6 +521,15 @@ struct ReloadCandidate {
     prepared: PreparedDocumentView,
     identity: SourceIdentity,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DocumentNotice {
+    message: String,
+    recovery_action: bool,
+    conflict_actions: bool,
+}
+
+struct DocumentNoticeNotification;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SaveTargetMode {
@@ -1017,6 +1027,7 @@ struct MarkdownWindow {
     outline_request: u64,
     outline_cancel_epoch: Arc<AtomicU64>,
     startup_error: Option<String>,
+    presented_notice: Option<DocumentNotice>,
     startup_config: Option<performance::StartupConfig>,
     startup_started_at: SystemTime,
     startup_trace_started_at: Instant,
@@ -1287,6 +1298,7 @@ impl MarkdownWindow {
             outline_request: 0,
             outline_cancel_epoch: Arc::new(AtomicU64::new(0)),
             startup_error: initial_file.as_ref().map(|_| "Loading document…".into()),
+            presented_notice: None,
             startup_config: startup,
             startup_started_at,
             startup_trace_started_at,
@@ -3253,6 +3265,162 @@ impl MarkdownWindow {
         }
     }
 
+    fn reconcile_notice(
+        &mut self,
+        message: Option<String>,
+        window: &gpui::Window,
+        cx: &mut gpui::Context<Self>,
+    ) {
+        let notice = message
+            .or_else(|| {
+                self.conflict.then(|| {
+                    "File changed outside Tachyon. Choose Reload, Save copy, or Overwrite."
+                        .to_owned()
+                })
+            })
+            .or_else(|| {
+                self.recovery_entry
+                    .is_some()
+                    .then(|| "An unsaved draft from the previous session is available.".to_owned())
+            })
+            .map(|message| DocumentNotice {
+                message,
+                recovery_action: self.recovery_entry.is_some(),
+                conflict_actions: self.conflict,
+            });
+
+        if self.presented_notice == notice {
+            return;
+        }
+        self.presented_notice = notice.clone();
+
+        cx.defer_in(window, move |_, window, cx| match notice {
+            Some(notice) => {
+                let owner = cx.entity().downgrade();
+                let palette = TachyonPalette::for_dark(cx.theme().is_dark());
+                window.push_notification(Self::notice_notification(notice, owner, palette), cx);
+            }
+            None => window.remove_notification::<DocumentNoticeNotification>(cx),
+        });
+    }
+
+    fn notice_notification(
+        notice: DocumentNotice,
+        owner: WeakEntity<Self>,
+        palette: TachyonPalette,
+    ) -> Notification {
+        let is_warning = notice.conflict_actions || notice.recovery_action;
+        let is_loading = notice.message == "Loading document…";
+        let is_success = notice.message.starts_with("Saved a copy to ")
+            && !notice.message.contains("needs attention");
+        let signal = if is_warning {
+            palette.warning
+        } else if is_loading {
+            palette.info
+        } else if is_success {
+            palette.success
+        } else {
+            palette.error
+        };
+        let mut notification = if is_warning {
+            Notification::warning(notice.message)
+        } else if is_loading {
+            Notification::info(notice.message)
+        } else if is_success {
+            Notification::success(notice.message)
+        } else {
+            Notification::error(notice.message)
+        }
+        .id::<DocumentNoticeNotification>()
+        .autohide(false)
+        .placement(gpui::Anchor::BottomCenter)
+        .bg(rgb(palette.panel))
+        .border_color(rgb(signal))
+        .text_color(rgb(palette.text));
+
+        if notice.recovery_action || notice.conflict_actions {
+            notification = notification.content(move |_, _, cx| {
+                let dismiss = cx.entity().downgrade();
+                let mut actions = gpui_component::h_flex().mt(px(10.)).flex_wrap().gap(px(8.));
+
+                if notice.recovery_action {
+                    let owner = owner.clone();
+                    let dismiss = dismiss.clone();
+                    actions = actions.child(
+                        Button::new("notice-restore-recovery")
+                            .label("Restore")
+                            .small()
+                            .on_click(move |_, window, cx| {
+                                let _ = owner.update(cx, |this, cx| {
+                                    this.editor.focus_handle(cx).focus(window, cx);
+                                    this.restore_recovery(cx);
+                                });
+                                let _ = dismiss.update(cx, |notice, cx| {
+                                    notice.dismiss(window, cx);
+                                });
+                            }),
+                    );
+                }
+                if notice.conflict_actions {
+                    let reload_owner = owner.clone();
+                    let reload_dismiss = dismiss.clone();
+                    actions = actions.child(
+                        Button::new("notice-reload-external")
+                            .label("Reload")
+                            .small()
+                            .on_click(move |_, window, cx| {
+                                let _ = reload_owner.update(cx, |this, cx| {
+                                    this.editor.focus_handle(cx).focus(window, cx);
+                                    this.reload_external(cx);
+                                });
+                                let _ = reload_dismiss.update(cx, |notice, cx| {
+                                    notice.dismiss(window, cx);
+                                });
+                            }),
+                    );
+
+                    let copy_owner = owner.clone();
+                    let copy_dismiss = dismiss.clone();
+                    actions = actions.child(
+                        Button::new("notice-save-conflict-copy")
+                            .label("Save copy")
+                            .small()
+                            .on_click(move |_, window, cx| {
+                                let _ = copy_owner.update(cx, |this, cx| {
+                                    this.editor.focus_handle(cx).focus(window, cx);
+                                    this.prompt_save_target(SaveTargetMode::Copy, cx);
+                                });
+                                let _ = copy_dismiss.update(cx, |notice, cx| {
+                                    notice.dismiss(window, cx);
+                                });
+                            }),
+                    );
+
+                    let overwrite_owner = owner.clone();
+                    let overwrite_dismiss = dismiss.clone();
+                    actions = actions.child(
+                        Button::new("notice-overwrite-external")
+                            .label("Overwrite")
+                            .small()
+                            .primary()
+                            .on_click(move |_, window, cx| {
+                                let _ = overwrite_owner.update(cx, |this, cx| {
+                                    this.editor.focus_handle(cx).focus(window, cx);
+                                    this.overwrite_external(cx);
+                                });
+                                let _ = overwrite_dismiss.update(cx, |notice, cx| {
+                                    notice.dismiss(window, cx);
+                                });
+                            }),
+                    );
+                }
+                actions.into_any_element()
+            });
+        }
+
+        notification
+    }
+
     fn queue_save(&mut self, explicit: bool, cx: &mut gpui::Context<Self>) {
         if self.save_in_flight || (self.conflict && !explicit) {
             return;
@@ -3604,6 +3772,7 @@ impl Render for MarkdownWindow {
         let document_padding = ResponsiveLayout::document_padding(document_pane_width);
         let runtime_error = self.editor.read(cx).last_error().map(ToOwned::to_owned);
         let status = runtime_error.or_else(|| self.startup_error.clone());
+        self.reconcile_notice(status, window, cx);
         let active_path = self.source_path.clone();
         let active_heading = self.active_heading;
         let files_empty = self.navigation_nodes.is_empty();
@@ -4007,69 +4176,6 @@ impl Render for MarkdownWindow {
         let reset_zoom_editor = self.editor.clone();
         let zoom_in_editor = self.editor.clone();
         let application_menu_focus = self.editor.focus_handle(cx);
-        let show_status = status.is_some() || self.recovery_entry.is_some() || self.conflict;
-        let status_bar = div()
-            .id("document-status")
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .flex_shrink_0()
-            .gap(px(8.))
-            .px(px(12.))
-            .py(px(6.))
-            .bg(rgb(palette.panel))
-            .text_size(px(13.))
-            .when_some(status, |header, message| {
-                header.child(
-                    div()
-                        .max_w(px(420.))
-                        .text_color(rgb(palette.error))
-                        .overflow_hidden()
-                        .child(message),
-                )
-            })
-            .when(self.recovery_entry.is_some(), |header| {
-                header.child(
-                    Button::new("restore-recovery")
-                        .label("Restore")
-                        .small()
-                        .on_click(cx.listener(|this, _, window, cx| {
-                            this.editor.focus_handle(cx).focus(window, cx);
-                            this.restore_recovery(cx);
-                        })),
-                )
-            })
-            .when(self.conflict, |header| {
-                header
-                    .child(
-                        Button::new("reload-external")
-                            .label("Reload")
-                            .small()
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.editor.focus_handle(cx).focus(window, cx);
-                                this.reload_external(cx);
-                            })),
-                    )
-                    .child(
-                        Button::new("save-conflict-copy")
-                            .label("Save copy")
-                            .small()
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.editor.focus_handle(cx).focus(window, cx);
-                                this.prompt_save_target(SaveTargetMode::Copy, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new("overwrite-external")
-                            .label("Overwrite")
-                            .small()
-                            .primary()
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.editor.focus_handle(cx).focus(window, cx);
-                                this.overwrite_external(cx);
-                            })),
-                    )
-            });
         let zoom_controls = div()
             .id("title-zoom-controls")
             .on_click(|_, _, cx| cx.stop_propagation())
@@ -4422,7 +4528,6 @@ impl Render for MarkdownWindow {
                             .child(zoom_controls),
                     ),
             )
-            .when(show_status, |root| root.child(status_bar))
             .child(
                 div()
                     .flex()

@@ -233,12 +233,14 @@ pub(super) fn justify(mut line: ShapedLine, width: Pixels) -> ShapedLine {
         return line;
     }
     let step = extra / spaces.len() as f32;
-    // The caller excludes paragraph endings and authored hard breaks. Preserve
-    // natural spacing when filling the measure would make the word gaps read
-    // as a grid rather than prose.
+    // The caller excludes paragraph endings and authored hard breaks. A full
+    // prose line can distribute extra width across several gaps; applying the
+    // sparse-line limit there silently disables otherwise modest justification.
+    // Keep the stricter limit for lines with only one or two word spaces.
+    let expansion_limit = if spaces.len() >= 3 { 1.0 } else { 0.5 };
     if spaces.iter().any(|&space| {
         let natural = f32::from(line.x_for_index(space + 1) - line.x_for_index(space));
-        !natural.is_finite() || step > natural * 0.5
+        !natural.is_finite() || step > natural * expansion_limit
     }) {
         return line;
     }
@@ -358,6 +360,61 @@ mod tests {
     use super::*;
 
     const ENGLISH: &str = "The international organization provides comprehensive documentation and extraordinary opportunities for understanding typography and communication.";
+
+    #[gpui::test]
+    fn justification_aligns_wrapped_dependency_policy(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_editor);
+        let source = "## 5. Dependency policy\n\nGPUI and `gpui-component` evolve quickly and must be treated as one compatibility unit.\n\n- Select GPUI, `gpui-component`, assets, and platform dependencies from a mutually compatible release or pinned revision set.\n- Keep dependency provenance and required system packages current when the compatibility unit changes.\n- Keep GPUI dependencies inside `nudge-ui` unless another crate has a real presentation concern.\n";
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        let cx: &mut gpui::VisualTestContext = cx;
+        cx.update(|_, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.toggle_body_justification(cx);
+                editor.toggle_hyphenation(cx);
+            })
+        });
+        for width in [800., 1000., 1150., 1280., 1500., 1920.] {
+            cx.simulate_resize(size(px(width), px(1200.)));
+            for _ in 0..5 {
+                cx.update(|window, cx| {
+                    _ = window.draw(cx);
+                });
+                cx.run_until_parked();
+            }
+            cx.update(|_, cx| {
+                let editor = editor.read(cx);
+                let mut checked = 0;
+                for line in &editor.painted_lines {
+                    let Some(segment) = editor.projection.segments().iter().find(|segment| {
+                        segment.projection_range().contains(&line.range.start)
+                    }) else {
+                        continue;
+                    };
+                    if !eligible(&editor.projection, segment)
+                        || !continues(&editor.projection, segment, &line.range, None)
+                    {
+                        continue;
+                    }
+                    let end = line.layout.text.trim_end_matches(' ').len();
+                    let right = if end < line.layout.text.len() {
+                        line.layout.x_for_index(end)
+                    } else {
+                        line.layout.width()
+                    };
+                    assert!(
+                        (f32::from(line.bounds.size.width - right)).abs() < 1.,
+                        "wrapped prose must reach its right edge at width {width}: {:?}, content={right:?}, bounds={:?}",
+                        line.layout.text, line.bounds
+                    );
+                    checked += 1;
+                }
+                assert!(checked >= 3, "must exercise paragraph and list continuations, checked={checked}");
+                assert_eq!(editor.document().snapshot().serialize().unwrap(), source);
+            });
+        }
+    }
 
     #[gpui::test]
     fn technical_list_hyphenates_references_before_stretching(cx: &mut gpui::TestAppContext) {

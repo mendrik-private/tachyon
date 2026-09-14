@@ -4387,7 +4387,7 @@ dependencies = [
 
 [[package]]
 name = "markdown-app"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "ashpd",
  "document-core",

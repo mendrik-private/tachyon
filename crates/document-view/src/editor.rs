@@ -135,6 +135,31 @@ fn code_block_font() -> gpui::Font {
     font
 }
 
+fn list_number_typography(
+    mut font: gpui::Font,
+    fallback_size: f32,
+    steps: bool,
+    numbered_tile: bool,
+    zoom: f32,
+) -> (gpui::Font, f32) {
+    font.family = if steps || numbered_tile {
+        DocumentStyle::HEADLINE_FONT_FAMILY.into()
+    } else {
+        DocumentStyle::BODY_FONT_FAMILY.into()
+    };
+    if steps || numbered_tile {
+        font.weight = FontWeight::EXTRA_BOLD;
+    }
+    let size = if numbered_tile {
+        30. * zoom
+    } else if steps {
+        DocumentStyle::STEP_NUMBER_SIZE * zoom
+    } else {
+        fallback_size
+    };
+    (font, size)
+}
+
 fn table_menu_item(
     editor: Entity<RichDocumentEditor>,
     label: &'static str,
@@ -8539,19 +8564,17 @@ impl Element for DocumentTextElement {
                         });
                     }
                     if task.is_none() && numbered {
-                        let mut font = text_style.font();
-                        font.family = DocumentStyle::BODY_FONT_FAMILY.into();
-                        if numbered_tile {
-                            font.family = DocumentStyle::HEADLINE_FONT_FAMILY.into();
-                            font.weight = FontWeight::EXTRA_BOLD;
-                        }
+                        let steps = list_layout == Some(ListLayout::Steps);
+                        let (font, marker_font_size) = list_number_typography(
+                            text_style.font(),
+                            visual_style.font_size,
+                            steps,
+                            numbered_tile,
+                            editor.zoom_factor,
+                        );
                         let marker_layout = window.text_system().shape_line(
                             marker.to_owned().into(),
-                            px(if numbered_tile {
-                                30. * editor.zoom_factor
-                            } else {
-                                visual_style.font_size
-                            }),
+                            px(marker_font_size),
                             &[TextRun {
                                 len: marker.len(),
                                 font,
@@ -15351,6 +15374,23 @@ mod tests {
                 );
                 assert_eq!(badge.size, size(px(25. * zoom), px(25. * zoom)));
             }
+        }
+    }
+
+    #[test]
+    fn step_numbers_use_compact_bold_headline_type() {
+        for zoom in [MIN_ZOOM, 1., 1.25, MAX_ZOOM] {
+            let (font, font_size) = list_number_typography(
+                gpui::font(DocumentStyle::BODY_FONT_FAMILY),
+                DocumentStyle::BODY_SIZE * zoom,
+                true,
+                false,
+                zoom,
+            );
+            assert_eq!(font.family.as_ref(), DocumentStyle::HEADLINE_FONT_FAMILY);
+            assert_eq!(font.weight, FontWeight::EXTRA_BOLD);
+            assert_eq!(font_size, DocumentStyle::STEP_NUMBER_SIZE * zoom);
+            assert!(font_size < DocumentStyle::BODY_SIZE * zoom);
         }
     }
 

@@ -24,6 +24,7 @@ impl AssetSource for Assets {
             "tachyon/column-right.svg" => include_bytes!("../assets/icons/column-right.svg"),
             "tachyon/align.svg" => include_bytes!("../assets/icons/align.svg"),
             "tachyon/border.svg" => include_bytes!("../assets/icons/border.svg"),
+            "tachyon/outline.svg" => include_bytes!("../assets/icons/outline.svg"),
             _ => return gpui_component_assets::Assets.load(path),
         };
         Ok(Some(Cow::Borrowed(icon)))
@@ -35,6 +36,7 @@ impl AssetSource for Assets {
             "tachyon/flag.svg",
             "tachyon/justify.svg",
             "tachyon/hyphenation.svg",
+            "tachyon/outline.svg",
         ] {
             if icon.starts_with(path) {
                 result.push(icon.into());

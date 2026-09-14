@@ -156,6 +156,7 @@ impl DocumentStyle {
     pub const CODE_BLOCK_FONT_FAMILY: &'static str = "Fira Code Tachyon";
     pub const BODY_SIZE: f32 = 21.;
     pub const BODY_LEADING: f32 = Self::BODY_SIZE * 1.5;
+    pub const STEP_NUMBER_SIZE: f32 = 16.;
     pub const CHECKBOX_SIZE: f32 = 18.;
     pub const CHECKBOX_TEXT_GAP: f32 = 13.;
     pub const TASK_INDENT_EXTRA: f32 = Self::CHECKBOX_SIZE + Self::CHECKBOX_TEXT_GAP + 1. - 24.;

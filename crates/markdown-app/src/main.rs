@@ -26,14 +26,15 @@ use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Entity, EntityId, Focusable as _, FontFallbacks,
     InteractiveElement as _, KeyBinding, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
     MouseUpEvent, ParentElement as _, PathPromptOptions, QuitMode, Render, Resource, Role,
-    StatefulInteractiveElement as _, Styled as _, WeakEntity, WindowBounds, WindowDecorations,
-    WindowOptions, div, font, image_cache as image_cache_element, point,
-    prelude::FluentBuilder as _, px, relative, rgb, size, uniform_list,
+    StatefulInteractiveElement as _, Styled as _, UniformListScrollHandle, WeakEntity,
+    WindowBounds, WindowDecorations, WindowOptions, div, font, image_cache as image_cache_element,
+    point, prelude::FluentBuilder as _, px, relative, rgb, size, uniform_list,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, Root, Sizable as _, Theme, WindowExt as _,
     button::{Button, ButtonVariants as _},
     menu::PopupMenuItem,
+    notification::Notification,
     scroll::{Scrollbar, ScrollbarMode},
 };
 use notify::Watcher as _;
@@ -1000,8 +1001,8 @@ struct MarkdownWindow {
     navigation_collapsed: bool,
     navigation_width: f32,
     navigation_dragging: bool,
-    navigation_split: f32,
-    navigation_split_dragging: bool,
+    navigation_tab: NavigationTab,
+    outline_scroll: UniformListScrollHandle,
     outline_in_flight: bool,
     outline_requested: Option<Revision>,
     outline_request: u64,
@@ -1020,6 +1021,13 @@ struct MarkdownWindow {
 enum WorkspaceStateWake {
     Flush,
     Rearm(u64),
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum NavigationTab {
+    #[default]
+    Outline,
+    Browser,
 }
 
 #[derive(Default)]
@@ -1263,8 +1271,8 @@ impl MarkdownWindow {
             navigation_collapsed: false,
             navigation_width: 224.,
             navigation_dragging: false,
-            navigation_split: 1.,
-            navigation_split_dragging: false,
+            navigation_tab: NavigationTab::default(),
+            outline_scroll: UniformListScrollHandle::new(),
             outline_in_flight: false,
             outline_requested: None,
             outline_request: 0,
@@ -1763,18 +1771,35 @@ impl MarkdownWindow {
                 {
                     return;
                 }
-                this.startup_error = Some(match result {
-                    Ok(path)
-                        if this.editor.read(cx).document().snapshot().revision() == revision =>
-                    {
-                        format!("Exported paged HTML to {}", path.display())
+                match result {
+                    Ok(path) => {
+                        let message = if this.editor.read(cx).document().snapshot().revision()
+                            == revision
+                        {
+                            format!("Exported paged HTML to {}", path.display())
+                        } else {
+                            format!(
+                                "Exported an earlier document revision to {}; newer edits remain in Tachyon.",
+                                path.display()
+                            )
+                        };
+                        this.startup_error = None;
+                        let _ = this.window_handle.update(cx, |_, window, cx| {
+                            let palette = TachyonPalette::for_dark(cx.theme().is_dark());
+                            window.push_notification(
+                                Notification::success(message)
+                                    .placement(gpui::Anchor::BottomCenter)
+                                    .bg(rgb(palette.panel))
+                                    .border_color(rgb(palette.success))
+                                    .text_color(rgb(palette.success)),
+                                cx,
+                            );
+                        });
                     }
-                    Ok(path) => format!(
-                        "Exported an earlier document revision to {}; newer edits remain in Tachyon.",
-                        path.display()
-                    ),
-                    Err(error) => format!("Paged HTML export failed: {error}"),
-                });
+                    Err(error) => {
+                        this.startup_error = Some(format!("Paged HTML export failed: {error}"));
+                    }
+                }
                 cx.notify();
             });
         })
@@ -2171,7 +2196,6 @@ impl MarkdownWindow {
                         });
                     }
                     this.navigation_width = clamp_navigation_width(state.navigation_width);
-                    this.navigation_split = clamp_navigation_split(state.navigation_split);
                     this.expanded_folders = state.expanded_folders.into_iter().collect();
                     if !this.navigation_root_explicit
                         && let Some(root) = state.navigation_root
@@ -2237,7 +2261,6 @@ impl MarkdownWindow {
                 .then(|| self.recovery_key.clone()),
             navigation_root: self.navigation_root.clone(),
             navigation_width: self.navigation_width,
-            navigation_split: self.navigation_split,
             expanded_folders,
             selection_start: view_state.selection.start,
             selection_end: view_state.selection.end,
@@ -3209,60 +3232,6 @@ impl MarkdownWindow {
         }
     }
 
-    fn navigation_split_start(
-        &mut self,
-        _: &MouseDownEvent,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        self.navigation_split_dragging = true;
-        window.prevent_default();
-        cx.stop_propagation();
-    }
-
-    fn navigation_split_move(
-        &mut self,
-        event: &MouseMoveEvent,
-        window: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        if !self.navigation_split_dragging {
-            return;
-        }
-        let window_height: f32 = window.bounds().size.height.into();
-        let content_height = (window_height - 68.).max(1.);
-        let pointer_y: f32 = event.position.y.into();
-        self.navigation_split = clamp_navigation_split((pointer_y - 52.) / content_height);
-        cx.notify();
-    }
-
-    fn navigation_split_end(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        if self.navigation_split_dragging {
-            self.navigation_split_dragging = false;
-            self.queue_workspace_state(cx);
-            cx.notify();
-        }
-    }
-
-    fn adjust_navigation_split(
-        &mut self,
-        delta: f32,
-        window: &gpui::Window,
-        cx: &mut gpui::Context<Self>,
-    ) {
-        let available = (f32::from(window.viewport_size().height) - 64.).max(1.);
-        let current =
-            navigation_outline_height(available, self.outline.len(), self.navigation_split);
-        self.navigation_split = clamp_navigation_split(current / available + delta);
-        self.queue_workspace_state(cx);
-        cx.notify();
-    }
-
     fn queue_save(&mut self, explicit: bool, cx: &mut gpui::Context<Self>) {
         if self.save_in_flight || (self.conflict && !explicit) {
             return;
@@ -3524,26 +3493,6 @@ fn clamp_navigation_width(width: f32) -> f32 {
     width.clamp(180., 320.)
 }
 
-const NAVIGATION_ROW_HEIGHT: f32 = 28.;
-const NAVIGATION_SECTION_HEADER: f32 = 28.;
-const NAVIGATION_FILES_MIN_HEIGHT: f32 = NAVIGATION_SECTION_HEADER + 5. * NAVIGATION_ROW_HEIGHT;
-
-fn clamp_navigation_split(split: f32) -> f32 {
-    if split.is_finite() {
-        split.clamp(0., 1.)
-    } else {
-        1.
-    }
-}
-
-fn navigation_outline_height(available: f32, count: usize, limit: f32) -> f32 {
-    let minimum = NAVIGATION_SECTION_HEADER + NAVIGATION_ROW_HEIGHT;
-    let maximum = (available - 12. - NAVIGATION_FILES_MIN_HEIGHT).max(minimum);
-    (NAVIGATION_SECTION_HEADER + count.max(1) as f32 * NAVIGATION_ROW_HEIGHT)
-        .min(available * clamp_navigation_split(limit))
-        .clamp(minimum, maximum)
-}
-
 fn outline_completion_is_current(
     current_request: u64,
     current_session: DocumentSessionId,
@@ -3783,7 +3732,8 @@ impl Render for MarkdownWindow {
             },
         )
         .min_h_0()
-        .h_full();
+        .h_full()
+        .track_scroll(&self.outline_scroll);
         let outline_rows = div()
             .id("outline-tree")
             .role(Role::Tree)
@@ -3807,13 +3757,201 @@ impl Render for MarkdownWindow {
             .and_then(|name| name.to_str())
             .unwrap_or("Files")
             .to_owned();
-        let navigation_height = (f32::from(window.viewport_size().height) - 64.).max(1.);
-        let outline_height =
-            navigation_outline_height(navigation_height, outline_count, self.navigation_split);
+        let navigation_tab = self.navigation_tab;
+        let outline_tab_entity = cx.entity();
+        let browser_tab_entity = cx.entity();
+        let outline_selected = navigation_tab == NavigationTab::Outline;
+        let browser_selected = navigation_tab == NavigationTab::Browser;
+        let navigation_tabs = div()
+            .id("navigation-tabs")
+            .role(Role::TabList)
+            .w_full()
+            .h(px(38.))
+            .flex_shrink_0()
+            .flex()
+            .items_center()
+            .overflow_hidden()
+            .rounded(px(7.))
+            .border_1()
+            .border_color(rgb(palette.border))
+            .bg(rgb(palette.panel))
+            .text_size(px(14.))
+            .child(
+                div()
+                    .id("navigation-outline-tab")
+                    .role(Role::Tab)
+                    .aria_label("Show document outline")
+                    .aria_selected(outline_selected)
+                    .flex_1()
+                    .h_full()
+                    .tab_stop(true)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .gap(px(8.))
+                    .px(px(10.))
+                    .text_color(rgb(if outline_selected {
+                        palette.text
+                    } else {
+                        palette.secondary
+                    }))
+                    .when(outline_selected, |tab| {
+                        tab.bg(rgb(palette.surface))
+                            .border_r_1()
+                            .border_color(rgb(palette.border))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                    })
+                    .hover(move |style| {
+                        style.bg(rgb(if outline_selected {
+                            palette.hover
+                        } else {
+                            palette.surface_quiet
+                        }))
+                    })
+                    .active(|style| style.bg(rgb(palette.selection)))
+                    .focus(|style| style.border_2().border_color(rgb(palette.accent)))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.navigation_tab = NavigationTab::Outline;
+                        cx.notify();
+                    }))
+                    .on_key_down(move |event: &KeyDownEvent, _, cx| {
+                        let tab = match event.keystroke.key.as_str() {
+                            "enter" | "space" | "left" | "up" => NavigationTab::Outline,
+                            "right" | "down" => NavigationTab::Browser,
+                            _ => return,
+                        };
+                        outline_tab_entity.update(cx, |this, cx| {
+                            this.navigation_tab = tab;
+                            cx.notify();
+                        });
+                        cx.stop_propagation();
+                    })
+                    .child(
+                        Icon::empty()
+                            .path("tachyon/outline.svg")
+                            .size(px(18.))
+                            .text_color(rgb(palette.accent)),
+                    )
+                    .child("Outline"),
+            )
+            .child(
+                div()
+                    .id("navigation-browser-tab")
+                    .role(Role::Tab)
+                    .aria_label("Show file browser")
+                    .aria_selected(browser_selected)
+                    .flex_1()
+                    .h_full()
+                    .tab_stop(true)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .gap(px(8.))
+                    .px(px(10.))
+                    .text_color(rgb(if browser_selected {
+                        palette.text
+                    } else {
+                        palette.secondary
+                    }))
+                    .when(browser_selected, |tab| {
+                        tab.bg(rgb(palette.surface))
+                            .border_l_1()
+                            .border_color(rgb(palette.border))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                    })
+                    .hover(move |style| {
+                        style.bg(rgb(if browser_selected {
+                            palette.hover
+                        } else {
+                            palette.surface_quiet
+                        }))
+                    })
+                    .active(|style| style.bg(rgb(palette.selection)))
+                    .focus(|style| style.border_2().border_color(rgb(palette.accent)))
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.navigation_tab = NavigationTab::Browser;
+                        cx.notify();
+                    }))
+                    .on_key_down(move |event: &KeyDownEvent, _, cx| {
+                        let tab = match event.keystroke.key.as_str() {
+                            "enter" | "space" | "right" | "down" => NavigationTab::Browser,
+                            "left" | "up" => NavigationTab::Outline,
+                            _ => return,
+                        };
+                        browser_tab_entity.update(cx, |this, cx| {
+                            this.navigation_tab = tab;
+                            cx.notify();
+                        });
+                        cx.stop_propagation();
+                    })
+                    .child(Icon::new(IconName::Folder).size(px(18.)).text_color(rgb(
+                        if browser_selected {
+                            palette.accent
+                        } else {
+                            palette.secondary
+                        },
+                    )))
+                    .child("Browser"),
+            );
+        let navigation_content = match navigation_tab {
+            NavigationTab::Outline => div()
+                .id("navigation-outline-panel")
+                .relative()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_h_0()
+                .overflow_hidden()
+                .child(outline_rows)
+                .child(
+                    div().absolute().inset_0().child(
+                        Scrollbar::vertical(&self.outline_scroll)
+                            .viewport_from_layout()
+                            .id("outline-scrollbar")
+                            .mode(ScrollbarMode::Hover),
+                    ),
+                ),
+            NavigationTab::Browser => div()
+                .id("navigation-browser-panel")
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_h_0()
+                .gap(px(6.))
+                .child(
+                    div()
+                        .flex_shrink_0()
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(rgb(palette.text))
+                        .child(root_label),
+                )
+                .child(
+                    div()
+                        .id("navigation-files-scroll")
+                        .role(Role::Tree)
+                        .aria_label("Markdown folders and files")
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .children(file_rows)
+                        .when(files_empty, |tree| {
+                            tree.child(
+                                div()
+                                    .px(px(8.))
+                                    .py(px(6.))
+                                    .child("No Markdown files in this folder"),
+                            )
+                        }),
+                ),
+        };
         let navigation = div()
             .id("document-navigation")
             .role(Role::Navigation)
-            .aria_label("Files and document outline")
+            .aria_label("Document outline and browser")
             .flex()
             .flex_col()
             .w(px(self.navigation_width))
@@ -3827,6 +3965,7 @@ impl Render for MarkdownWindow {
             .bg(rgb(palette.panel))
             .text_size(px(13.))
             .text_color(rgb(palette.secondary))
+            .gap(px(10.))
             .when(!wide_navigation, |navigation| {
                 navigation
                     .absolute()
@@ -3834,81 +3973,8 @@ impl Render for MarkdownWindow {
                     .bottom(px(0.))
                     .left(px(0.))
             })
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .h(px(outline_height))
-                    .min_h(px(NAVIGATION_SECTION_HEADER + NAVIGATION_ROW_HEIGHT))
-                    .gap(px(6.))
-                    .child(
-                        div()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(rgb(palette.text))
-                            .child("Outline"),
-                    )
-                    .child(outline_rows),
-            )
-            .child(
-                div()
-                    .id("navigation-section-split")
-                    .role(Role::Slider)
-                    .aria_label("Resize files and outline sections")
-                    .aria_min_numeric_value(0.)
-                    .aria_max_numeric_value(100.)
-                    .aria_numeric_value(f64::from(outline_height / navigation_height * 100.))
-                    .aria_numeric_value_step(5.)
-                    .tab_stop(true)
-                    .flex_shrink_0()
-                    .h(px(12.))
-                    .w_full()
-                    .cursor(gpui::CursorStyle::ResizeUpDown)
-                    .on_mouse_down(MouseButton::Left, cx.listener(Self::navigation_split_start))
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::navigation_split_end))
-                    .on_mouse_up_out(MouseButton::Left, cx.listener(Self::navigation_split_end))
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                        match event.keystroke.key.as_str() {
-                            "up" | "left" => this.adjust_navigation_split(-0.05, window, cx),
-                            "down" | "right" => this.adjust_navigation_split(0.05, window, cx),
-                            _ => return,
-                        }
-                        cx.stop_propagation();
-                    })),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h(px(NAVIGATION_FILES_MIN_HEIGHT))
-                    .gap(px(6.))
-                    .child(
-                        div()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(rgb(palette.text))
-                            .child(root_label),
-                    )
-                    .child(
-                        div()
-                            .id("navigation-files-scroll")
-                            .role(Role::Tree)
-                            .aria_label("Markdown folders and files")
-                            .flex()
-                            .flex_col()
-                            .flex_1()
-                            .min_h_0()
-                            .overflow_y_scroll()
-                            .children(file_rows)
-                            .when(files_empty, |tree| {
-                                tree.child(
-                                    div()
-                                        .px(px(8.))
-                                        .py(px(6.))
-                                        .child("No Markdown files in this folder"),
-                                )
-                            }),
-                    ),
-            );
+            .child(navigation_tabs)
+            .child(navigation_content);
         let mut body_font = font("Public Sans Tachyon");
         body_font.fallbacks = Some(FontFallbacks::from_fonts(vec![
             "Noto Sans Tachyon".into(),
@@ -4341,11 +4407,8 @@ impl Render for MarkdownWindow {
                     .min_h_0()
                     .relative()
                     .on_mouse_move(cx.listener(Self::navigation_resize_move))
-                    .on_mouse_move(cx.listener(Self::navigation_split_move))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::navigation_resize_end))
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::navigation_split_end))
                     .on_mouse_up_out(MouseButton::Left, cx.listener(Self::navigation_resize_end))
-                    .on_mouse_up_out(MouseButton::Left, cx.listener(Self::navigation_split_end))
                     .when(navigation_visible, |workspace| workspace.child(navigation))
                     .when(wide_navigation && navigation_visible, |workspace| {
                         workspace.child(
@@ -4412,7 +4475,9 @@ impl Render for MarkdownWindow {
                     ),
             );
         startup_trace(self.startup_trace_started_at, "root-render-end");
-        scene.children(Root::render_dialog_layer(window, cx))
+        scene
+            .children(Root::render_notification_layer(window, cx))
+            .children(Root::render_dialog_layer(window, cx))
     }
 }
 
@@ -4737,22 +4802,8 @@ mod tests {
     }
 
     #[test]
-    fn navigation_split_keeps_both_scroll_regions_usable() {
-        assert_eq!(clamp_navigation_split(-0.1), 0.);
-        assert_eq!(clamp_navigation_split(0.6), 0.6);
-        assert_eq!(clamp_navigation_split(1.5), 1.);
-        assert_eq!(clamp_navigation_split(f32::NAN), 1.);
-        for available in [296., 600., 1200.] {
-            for count in [0, 1, 3, 30, 1000] {
-                let height = navigation_outline_height(available, count, 1.);
-                assert!(available - height - 12. >= NAVIGATION_FILES_MIN_HEIGHT);
-                let natural =
-                    NAVIGATION_SECTION_HEADER + count.max(1) as f32 * NAVIGATION_ROW_HEIGHT;
-                if natural + NAVIGATION_FILES_MIN_HEIGHT + 12. <= available {
-                    assert_eq!(height, natural);
-                }
-            }
-        }
+    fn navigation_defaults_to_outline() {
+        assert_eq!(NavigationTab::default(), NavigationTab::Outline);
     }
 
     #[test]

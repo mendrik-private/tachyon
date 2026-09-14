@@ -563,12 +563,6 @@ pub struct WorkspaceState {
     #[serde(default)]
     pub navigation_root: Option<PathBuf>,
     pub navigation_width: f32,
-    // The old Files-first ratio does not describe the new content-sized Outline.
-    #[serde(
-        rename = "outline_height_limit",
-        default = "default_outline_height_limit"
-    )]
-    pub navigation_split: f32,
     pub expanded_folders: Vec<PathBuf>,
     pub selection_start: usize,
     pub selection_end: usize,
@@ -581,10 +575,6 @@ pub struct WorkspaceState {
     pub scroll_anchor_intra_line_offset: f32,
 }
 
-fn default_outline_height_limit() -> f32 {
-    1.
-}
-
 impl Default for WorkspaceState {
     fn default() -> Self {
         Self {
@@ -593,7 +583,6 @@ impl Default for WorkspaceState {
             draft_recovery_key: None,
             navigation_root: None,
             navigation_width: 224.,
-            navigation_split: 1.,
             expanded_folders: Vec::new(),
             selection_start: 0,
             selection_end: 0,
@@ -1150,7 +1139,6 @@ mod tests {
             draft_recovery_key: None,
             navigation_root: Some(directory.clone()),
             navigation_width: 287.,
-            navigation_split: 0.67,
             expanded_folders: vec![directory.join("archive")],
             selection_start: 7,
             selection_end: 12,

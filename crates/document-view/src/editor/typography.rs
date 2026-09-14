@@ -152,7 +152,10 @@ pub(super) fn breaks(
                 .into_iter()
                 .filter(|offset| {
                     word.is_char_boundary(*offset)
-                        && word[..*offset].chars().count() >= 3
+                        // English dictionaries legitimately use breaks such as
+                        // `to-ward`; retain those while still avoiding a very
+                        // short remainder at the start of the next line.
+                        && word[..*offset].chars().count() >= 2
                         && word[*offset..].chars().count() >= 3
                 })
                 .map(|offset| range.start + start + offset),
@@ -357,6 +360,54 @@ mod tests {
     }
 
     #[test]
+    fn english_two_letter_prefixes_remain_hyphenation_candidates() {
+        let source = "Demonstrating empathy and kindness toward other people.";
+        let document = Document::from_markdown(source).unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let segment = &projection.segments()[0];
+        let toward = projection.text().find("toward").unwrap();
+
+        assert!(
+            breaks(&projection, segment).contains(&(toward + 2)),
+            "the English dictionary break to-ward must reach the layout engine"
+        );
+    }
+
+    #[gpui::test]
+    fn english_two_letter_prefixes_can_drive_measured_wraps(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "Demonstrating empathy and kindness toward other people.";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let toward = projection.text().find("toward").unwrap();
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.)
+                    .with_typography(Options {
+                        justify: false,
+                        hyphenate: true,
+                    });
+
+            assert!(
+                (100..700).step_by(2).any(|width| {
+                    fonts
+                        .wrap(
+                            &projection,
+                            segment,
+                            segment.projection_range(),
+                            width as f32,
+                            18.,
+                        )
+                        .unwrap()
+                        .iter()
+                        .any(|line| line.end == toward + 2)
+                }),
+                "a measured line must be able to end at the dictionary break to-ward"
+            );
+        });
+    }
+
+    #[test]
     fn typography_detects_prose_and_preserves_protected_content() {
         assert_eq!(language(ENGLISH), Some(Language::EnglishUS));
         assert_eq!(
@@ -394,7 +445,7 @@ mod tests {
                 .unicode_word_indices()
                 .find(|(start, word)| *start < boundary && boundary < start + word.len())
                 .unwrap();
-            assert!(word[..boundary - start].chars().count() >= 3);
+            assert!(word[..boundary - start].chars().count() >= 2);
             assert!(word[boundary - start..].chars().count() >= 3);
         }
         let first_protected = projection.text().find("internationalization").unwrap();

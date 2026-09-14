@@ -14,6 +14,7 @@ pub(super) fn eligible(projection: &TextProjection, segment: &crate::ProjectionS
         projection.block(segment.node_id),
         Some(BlockNode::Paragraph(_))
     ) && !segment.context.metadata
+        && segment.context.alert.is_none()
         && segment.context.table_cell.is_none()
         && segment.context.image_source.is_none()
         && segment.context.figure_text.is_none()
@@ -192,6 +193,9 @@ pub(super) fn continues(
     if text[range.clone()].ends_with(['\n', '\r']) {
         return false;
     }
+    if segment.context.list_depth > 0 && range.end == segment.projection_range().end {
+        return false;
+    }
     text.get(range.end..segment.projection_range().end)
         .and_then(|tail| tail.split(['\n', '\r']).next())
         .is_some_and(|tail| !tail.trim().is_empty())
@@ -217,13 +221,13 @@ pub(super) fn justify(mut line: ShapedLine, width: Pixels) -> ShapedLine {
         line.width()
     };
     let extra = f32::from(width - content_width);
-    if !extra.is_finite() || extra <= 0. {
+    if !extra.is_finite() || extra <= 0. || extra > f32::from(content_width) * 0.15 {
         return line;
     }
     let step = extra / spaces.len() as f32;
-    // The caller excludes paragraph endings and authored hard breaks. Every
-    // remaining line with word spaces fills the requested measure, including
-    // lines shortened by a long next word or final-line balancing.
+    // The caller excludes paragraph endings and authored hard breaks. Preserve
+    // natural spacing when filling the measure would make the word gaps read
+    // as a grid rather than prose.
     let mut runs = line.runs.clone();
     for glyph in runs.iter_mut().flat_map(|run| &mut run.glyphs) {
         glyph.position.x += px(step * spaces.partition_point(|space| *space < glyph.index) as f32);
@@ -620,7 +624,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn typography_continuing_lines_fill_the_measure_even_with_few_spaces(
+    fn typography_preserves_natural_spacing_when_a_line_is_too_short_to_justify(
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
@@ -641,14 +645,14 @@ mod tests {
             );
             let width = natural.width() + px(300.);
             let result = justify(natural.clone(), width);
-            assert_eq!(
-                result.width(),
-                width,
-                "a continuing line must reach the justified edge even when its gaps grow beyond twice their natural width"
-            );
+            assert_eq!(result.width(), natural.width());
+            assert_ne!(result.width(), width);
             assert_eq!(result.text, natural.text);
             let word = text.find("words").unwrap();
-            assert_eq!(shaped_index_for_x(&result, shaped_x_for_index(&result, word)), word);
+            assert_eq!(
+                shaped_index_for_x(&result, shaped_x_for_index(&result, word)),
+                word
+            );
         });
     }
 

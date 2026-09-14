@@ -178,8 +178,8 @@ impl DocumentStyle {
     pub const CODE_LEADING: f32 = 21.;
     pub const CAPTION_SIZE: f32 = 13.;
     pub const CAPTION_LEADING: f32 = 18.;
-    pub const METADATA_SIZE: f32 = 14.;
-    pub const METADATA_LEADING: f32 = 20.;
+    pub const METADATA_SIZE: f32 = Self::BODY_SIZE;
+    pub const METADATA_LEADING: f32 = Self::BODY_LEADING;
     pub const TABLE_SIZE: f32 = Self::BODY_SIZE * 0.8;
     pub const TABLE_LEADING: f32 = Self::TABLE_SIZE * 1.5;
     pub const FEATURE_TITLE_SIZE: f32 = 24.;
@@ -205,7 +205,7 @@ impl DocumentStyle {
     pub const PROSE_CHARACTERS: f32 = 72.;
     /// Bounded expansion for standalone prose and broad reading bands.
     pub const MAX_PROSE_CHARACTERS: f32 = 84.;
-    pub const GUTTER: f32 = 24.;
+    pub const GUTTER: f32 = 48.;
     pub const INSTRUCTION_GAP: f32 = 12.;
     pub const INSET: f32 = 24.;
     pub const RADIUS: f32 = 4.;

@@ -20,9 +20,10 @@ impl InlineList {
     }
 }
 
-/// An authored introduction ending in a colon, followed by explicit clauses.
-/// Comma-only prose, nested delimiters, code/link punctuation and unfinished
-/// or overlong clauses do not provide sufficient evidence for this family.
+/// An authored introduction ending in a colon, followed by explicitly labeled
+/// clauses. Comma-only prose, nested delimiters, code/link punctuation and
+/// unfinished or overlong clauses do not provide sufficient evidence for this
+/// family.
 pub(crate) fn starts(content: &RichText) -> Option<Vec<usize>> {
     if content.len() > 4096 {
         return None;
@@ -89,11 +90,33 @@ pub(crate) fn starts(content: &RichText) -> Option<Vec<usize>> {
     for (index, &start) in boundaries.iter().enumerate().skip(1) {
         let end = boundaries.get(index + 1).copied().unwrap_or(text.len());
         let clause = text.get(start..end)?.trim().trim_end_matches(';').trim();
-        if clause.is_empty() || clause.len() > 512 {
+        if clause.is_empty() || clause.len() > 512 || !explicit_clause_label(clause) {
             return None;
         }
     }
     Some(boundaries)
+}
+
+/// A semicolon alone is ordinary prose punctuation. The author must mark every
+/// item with either a parenthesized enumerator or a short term followed by a
+/// colon before the renderer can turn the paragraph into a grid.
+fn explicit_clause_label(clause: &str) -> bool {
+    let clause = clause.trim_start();
+    if let Some(marker) = clause
+        .strip_prefix('(')
+        .and_then(|rest| rest.split_once(')').map(|(marker, _)| marker))
+        && (1..=4).contains(&marker.chars().count())
+        && marker.chars().all(char::is_alphanumeric)
+    {
+        return true;
+    }
+    let Some((label, _)) = clause.split_once(':') else {
+        return false;
+    };
+    let label = label.trim();
+    (1..=48).contains(&label.chars().count())
+        && label.chars().any(char::is_alphabetic)
+        && !label.contains(['/', '@'])
 }
 
 #[cfg(test)]
@@ -105,8 +128,8 @@ mod tests {
     fn explicit_clauses_keep_every_delimiter_and_rich_range() {
         for source in [
             "Consider: (a) field notes; (b) reading notes; (c) review notes.",
-            "Evidence: **direct observation**; `a;b`; [published work](https://example.test).",
-            "Methods: analyse café; compare 結果; review outcomes.",
+            "Evidence: **Direct observation:** notes; `a;b`: source code; [Published work](https://example.test): review.",
+            "Methods: (a) analyse café; (b) compare 結果; (c) review outcomes.",
         ] {
             let document = Document::from_markdown(source).unwrap();
             let snapshot = document.snapshot();
@@ -134,7 +157,7 @@ mod tests {
             let text = format!(
                 "Consider: {}.",
                 (0..count)
-                    .map(|n| format!("clause {n}"))
+                    .map(|n| format!("({}) clause {n}", n + 1))
                     .collect::<Vec<_>>()
                     .join("; ")
             );
@@ -168,5 +191,14 @@ mod tests {
         ] {
             assert!(starts(&RichText::new(source)).is_none(), "{source}");
         }
+    }
+
+    #[test]
+    fn ranking_prose_with_semicolon_phrases_stays_a_paragraph() {
+        let source = "Sort inside a group: pin descending; hard consequence before soft; action-required before waiting; human before service at equal consequence; exact next applicable time ascending (unknown last); last factual change descending; stable object ID ascending. Locale text is never a sort predicate.";
+        assert!(
+            starts(&RichText::new(source)).is_none(),
+            "a prose ranking sentence must not be converted into a visual grid"
+        );
     }
 }

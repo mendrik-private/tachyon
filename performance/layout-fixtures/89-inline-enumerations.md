@@ -12,7 +12,7 @@ Consider the available forms: **Local files:** keep the original material on you
 
 ## Preserve literal punctuation
 
-Keep examples literal: `left;right` is a single code example; [A; B](https://example.test/reference) is one link label; the final clause retains its own words.
+Keep examples literal: `left;right`: a single code example; [A; B](https://example.test/reference): one link label; Final clause: retains its own words.
 
 ## Ordinary prose stays prose
 

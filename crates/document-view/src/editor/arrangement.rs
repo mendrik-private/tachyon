@@ -3539,9 +3539,10 @@ pub(super) mod tests {
                         "a short code label belongs above its example: {label}, width={width}"
                     );
                 }
-                assert!(
+                assert_eq!(
                     plan.slots.contains_key(&find("Tachyon requires Linux")),
-                    "substantial explanation can retain a measured pair"
+                    width >= 1320.,
+                    "the wider column gap stacks a cramped explanation and retains a measured pair when it fits"
                 );
             }
         });
@@ -4244,7 +4245,7 @@ pub(super) mod tests {
             assert!(
                 (first(6).x_fraction * width
                     - (first(4).x_fraction * width + pair.widths[0])
-                    - 24.)
+                    - LAYOUT_GAP)
                     .abs()
                     < 0.01
             );
@@ -7817,7 +7818,7 @@ pub(super) mod tests {
                     _ => None,
                 })
                 .collect::<Vec<_>>();
-            assert_eq!(columns, [ListLayout::Grid(2), ListLayout::Grid(4)]);
+            assert_eq!(columns, [ListLayout::Grid(2), ListLayout::Grid(3)]);
             assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }
@@ -8029,7 +8030,7 @@ pub(super) mod tests {
                     );
                     let decision = plan.measured_lists.values().next().unwrap();
                     assert!(decision.is_valid(count, width, None));
-                    if width < 1112. {
+                    if width < 1184. {
                         assert!(!decision.row_columns.contains(&4));
                         continue;
                     }

@@ -4528,7 +4528,9 @@ impl RichDocumentEditor {
         let preserve_view = matches!(
             &command,
             EditCommand::InsertTableRow { .. }
+                | EditCommand::DeleteTableRow { .. }
                 | EditCommand::InsertTableColumn { .. }
+                | EditCommand::DeleteTableColumn { .. }
                 | EditCommand::SetTableColumnWidth { .. }
         );
         let scroll_anchor = preserve_view.then(|| {
@@ -7477,7 +7479,7 @@ fn table_edge_hit_bounds(cell: Bounds<Pixels>, edge: TableEdge) -> Bounds<Pixels
             size(px(28.), px(14.)),
         ),
         TableEdge::Left => Bounds::new(
-            point(cell.left() - px(7.), cell.center().y - px(14.)),
+            point(cell.left(), cell.center().y - px(14.)),
             size(px(14.), px(28.)),
         ),
     }
@@ -11161,6 +11163,13 @@ fn visual_line_bounds(
                             12. * editor.zoom_factor
                         } else if let Some(slot) = spec.slot {
                             slot.inset() * editor.zoom_factor
+                        } else if segment_for_line(&editor.projection, &spec.projected_range())
+                            .is_some_and(|segment| {
+                                segment.context.alert.is_some()
+                                    && segment.context.table_cell.is_none()
+                            })
+                        {
+                            ALERT_CONTENT_INSET * editor.zoom_factor
                         } else {
                             8. * editor.zoom_factor
                         })
@@ -18425,7 +18434,7 @@ mod tests {
     }
 
     #[test]
-    fn table_edge_hit_targets_are_centered_on_the_cell_edges() {
+    fn table_edge_hit_targets_stay_inside_the_first_column() {
         let cell = Bounds::new(point(px(100.), px(60.)), size(px(240.), px(80.)));
         for edge in [
             TableEdge::Top,
@@ -18440,7 +18449,9 @@ mod tests {
                     TableEdge::Top => point(cell.center().x, cell.top()),
                     TableEdge::Right => point(cell.right(), cell.center().y),
                     TableEdge::Bottom => point(cell.center().x, cell.bottom()),
-                    TableEdge::Left => point(cell.left(), cell.center().y),
+                    // The row menu is the left-edge control. Its full round
+                    // knob must remain visible even in the first column.
+                    TableEdge::Left => point(cell.left() + px(7.), cell.center().y),
                 }
             );
             assert!(hit.size.width == px(14.) || hit.size.height == px(14.));

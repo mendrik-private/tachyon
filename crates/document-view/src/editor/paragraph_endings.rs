@@ -268,7 +268,35 @@ mod tests {
     }
 
     #[gpui::test]
-    fn typography_toggles_do_not_strand_the_final_word(cx: &mut gpui::TestAppContext) {
+    fn justified_prose_does_not_pull_words_down_to_lengthen_the_last_line(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let source = "The explanation keeps its evidence and qualifications together so another reader can understand the original document.";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let mut unbalanced = segment.clone();
+            unbalanced.context.metadata = true;
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.)
+                .with_typography(typography::Options { justify: true, hyphenate: false });
+            let mut short_endings = 0;
+            for width in (300..700).step_by(5) {
+                let expected = fonts.wrap(&projection, &unbalanced, segment.projection_range(), width as f32, 18.).unwrap();
+                let actual = fonts.wrap(&projection, segment, segment.projection_range(), width as f32, 18.).unwrap();
+                assert_eq!(actual, expected, "justification must not move words off the preceding line at width={width}");
+                let last = actual.last().unwrap();
+                short_endings += usize::from(projection.text()[last.clone()].split_whitespace().count() == 1);
+                assert!(!typography::continues(&projection, segment, last, None));
+            }
+            assert!(short_endings > 0, "exercise naturally short final lines");
+        });
+    }
+
+    #[gpui::test]
+    fn typography_toggles_preserve_source_and_only_balance_ragged_prose(
+        cx: &mut gpui::TestAppContext,
+    ) {
         cx.update(|cx| {
             let source = "The explanation keeps its evidence and qualifications together so another reader can understand the original document.";
             let document = Document::from_markdown(source).unwrap();
@@ -282,7 +310,7 @@ mod tests {
                     for width in (300..700).step_by(5) {
                         let lines = fonts.wrap(&projection, segment, segment.projection_range(), width as f32, 18.).unwrap();
                         let last = lines.last().unwrap();
-                        if lines.len() > 1 && fonts.line_width(&projection, last.clone(), 18.).unwrap() <= width as f32 * 0.25 {
+                        if !justify && lines.len() > 1 && fonts.line_width(&projection, last.clone(), 18.).unwrap() <= width as f32 * 0.25 {
                             assert!(projection.text()[last.clone()].split_whitespace().count() > 1,
                                 "stranded ending at width={width}, justify={justify}, hyphenate={hyphenate}: {:?}", &projection.text()[last.clone()]);
                         }

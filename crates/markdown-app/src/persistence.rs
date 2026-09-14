@@ -563,6 +563,8 @@ pub struct WorkspaceState {
     #[serde(default)]
     pub navigation_root: Option<PathBuf>,
     pub navigation_width: f32,
+    pub justify: bool,
+    pub hyphenate: bool,
     pub expanded_folders: Vec<PathBuf>,
     pub selection_start: usize,
     pub selection_end: usize,
@@ -583,6 +585,8 @@ impl Default for WorkspaceState {
             draft_recovery_key: None,
             navigation_root: None,
             navigation_width: 224.,
+            justify: false,
+            hyphenate: false,
             expanded_folders: Vec::new(),
             selection_start: 0,
             selection_end: 0,
@@ -611,7 +615,7 @@ impl WorkspaceStateStore {
     }
 
     #[cfg(test)]
-    fn at_path(path: PathBuf) -> Self {
+    pub(crate) fn at_path(path: PathBuf) -> Self {
         Self { path }
     }
 
@@ -1121,6 +1125,8 @@ mod tests {
             serde_json::from_str(r#"{"active_path":"/tmp/notes.md","navigation_width":287.0}"#)
                 .expect("older workspace state remains readable");
         assert_eq!(state.last_open_directory, None);
+        assert!(!state.justify);
+        assert!(!state.hyphenate);
         assert_eq!(state.active_path, Some(PathBuf::from("/tmp/notes.md")));
         assert_eq!(state.navigation_width, 287.);
     }
@@ -1139,6 +1145,8 @@ mod tests {
             draft_recovery_key: None,
             navigation_root: Some(directory.clone()),
             navigation_width: 287.,
+            justify: true,
+            hyphenate: true,
             expanded_folders: vec![directory.join("archive")],
             selection_start: 7,
             selection_end: 12,

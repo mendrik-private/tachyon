@@ -2,7 +2,10 @@
 //! PathPromptOptions does not expose the portal's current_folder option.
 use std::path::{Path, PathBuf};
 
-use ashpd::desktop::{ResponseError, file_chooser::OpenFileRequest};
+use ashpd::desktop::{
+    ResponseError,
+    file_chooser::{FileFilter, OpenFileRequest},
+};
 
 pub fn existing_directory(candidates: &[PathBuf]) -> Option<PathBuf> {
     candidates.iter().find(|path| path.is_dir()).cloned()
@@ -17,12 +20,18 @@ fn local_path(uri: &str) -> Result<PathBuf, String> {
 
 pub async fn open_file(directory: Option<&Path>) -> Result<Option<PathBuf>, String> {
     let result = async {
+        let markdown = FileFilter::new("Markdown files (*.md, *.markdown)")
+            .glob("*.[mM][dD]")
+            .glob("*.[mM][aA][rR][kK][dD][oO][wW][nN]");
         let request = OpenFileRequest::default()
             .title("Open a Markdown file")
             .accept_label("Open")
             .modal(true)
             .multiple(false)
             .directory(false)
+            .filter(markdown.clone())
+            .filter(FileFilter::new("All files").glob("*"))
+            .current_filter(markdown)
             .current_folder::<&Path>(directory)?
             .send()
             .await?;

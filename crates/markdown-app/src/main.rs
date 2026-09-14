@@ -373,7 +373,16 @@ fn open_markdown_window(
     startup_trace(instrumentation.trace_started_at, "before-open-window");
     cx.open_window(window_options(), move |window, cx| {
         startup_trace(instrumentation.trace_started_at, "window-opened");
-        let view = cx.new(|cx| MarkdownWindow::new(path, sessions, instrumentation, window, cx));
+        let view = cx.new(|cx| {
+            MarkdownWindow::new(
+                path,
+                sessions,
+                instrumentation,
+                WorkspaceStateStore::for_current_user(),
+                window,
+                cx,
+            )
+        });
         cx.new(|cx| Root::new(view, window, cx))
     })
     .map(Into::into)
@@ -1125,6 +1134,7 @@ impl MarkdownWindow {
         path: Option<PathBuf>,
         session_registry: SharedSessionRegistry,
         instrumentation: LaunchInstrumentation,
+        workspace_state_store: WorkspaceStateStore,
         window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> Self {
@@ -1172,7 +1182,6 @@ impl MarkdownWindow {
         let recovery_key = initial_file
             .clone()
             .unwrap_or_else(new_untitled_recovery_key);
-        let workspace_state_store = WorkspaceStateStore::for_current_user();
         cx.subscribe(&editor, |this, _editor, event, cx| {
             match event {
                 EditorEvent::Ready => this.finish_startup_measurement(cx),
@@ -2186,6 +2195,14 @@ impl MarkdownWindow {
             let result = load.await;
             let _ = this.update(cx, |this, cx| match result {
                 Ok(state) => {
+                    this.editor.update(cx, |editor, cx| {
+                        if editor.body_justified() != state.justify {
+                            editor.toggle_body_justification(cx);
+                        }
+                        if editor.hyphenation_enabled() != state.hyphenate {
+                            editor.toggle_hyphenation(cx);
+                        }
+                    });
                     if this.last_open_directory.is_none() {
                         this.last_open_directory = state.last_open_directory.or_else(|| {
                             state
@@ -2202,6 +2219,12 @@ impl MarkdownWindow {
                     {
                         this.navigation_root = Some(root);
                         this.navigation_root_explicit = true;
+                    }
+                    // Restoring an active document does not load an explicit browser root.
+                    // Load the remembered tree independently, including when the file fails to open.
+                    if let Some(root) = this.navigation_root.clone() {
+                        let explicit = this.navigation_root_explicit;
+                        this.load_navigation(root, explicit, cx);
                     }
                     if restore_active && let Some(path) = state.active_path {
                         this.pending_view_state = Some(EditorViewState {
@@ -2223,10 +2246,6 @@ impl MarkdownWindow {
                         if restore_active && let Some(key) = state.draft_recovery_key {
                             this.recovery_key = key.clone();
                             this.load_untitled_recovery(key, cx);
-                        }
-                        if let Some(root) = this.navigation_root.clone() {
-                            let explicit = this.navigation_root_explicit;
-                            this.load_navigation(root, explicit, cx);
                         }
                         cx.notify();
                     }
@@ -2261,6 +2280,8 @@ impl MarkdownWindow {
                 .then(|| self.recovery_key.clone()),
             navigation_root: self.navigation_root.clone(),
             navigation_width: self.navigation_width,
+            justify: self.editor.read(cx).body_justified(),
+            hyphenate: self.editor.read(cx).hyphenation_enabled(),
             expanded_folders,
             selection_start: view_state.selection.start,
             selection_end: view_state.selection.end,
@@ -4379,6 +4400,7 @@ impl Render for MarkdownWindow {
                                         this.editor.update(cx, |editor, cx| {
                                             editor.toggle_body_justification(cx)
                                         });
+                                        this.queue_workspace_state(cx);
                                         cx.notify();
                                     })),
                             )
@@ -4393,6 +4415,7 @@ impl Render for MarkdownWindow {
                                         cx.stop_propagation();
                                         this.editor
                                             .update(cx, |editor, cx| editor.toggle_hyphenation(cx));
+                                        this.queue_workspace_state(cx);
                                         cx.notify();
                                     })),
                             )
@@ -4862,5 +4885,108 @@ mod tests {
         assert_eq!(rows[1].depth, 1);
         assert_eq!(rows[1].label, "nested.markdown");
         std::fs::remove_dir_all(root).expect("cleanup isolated navigation fixture");
+    }
+
+    #[gpui::test]
+    fn restored_document_also_loads_remembered_browser_folder(cx: &mut gpui::TestAppContext) {
+        let root = std::env::temp_dir().join(format!(
+            "tachyon-restore-navigation-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let active = root.join("README.md");
+        std::fs::write(&active, "# Restored document").unwrap();
+        let store = WorkspaceStateStore::at_path(root.join("workspace.json"));
+        store
+            .write(&WorkspaceState {
+                active_path: Some(active.clone()),
+                navigation_root: Some(root.clone()),
+                justify: true,
+                hyphenate: false,
+                ..WorkspaceState::default()
+            })
+            .unwrap();
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            init_editor(cx);
+        });
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            MarkdownWindow::new(
+                None,
+                Rc::new(RefCell::new(SessionRegistry::default())),
+                LaunchInstrumentation {
+                    performance: None,
+                    startup: None,
+                    started_at: SystemTime::now(),
+                    trace_started_at: Instant::now(),
+                    initial_preload: None,
+                    completion: None,
+                },
+                store.clone(),
+                window,
+                cx,
+            )
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            let ready = view.read_with(cx, |view, _| {
+                view.source_path.as_ref() == Some(&active)
+                    && view.navigation_nodes.iter().any(|node| node.path == active)
+            });
+            if ready || Instant::now() >= deadline {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        view.read_with(cx, |view, cx| {
+            assert_eq!(
+                view.source_path.as_ref(),
+                Some(&active),
+                "document restored"
+            );
+            assert_eq!(view.navigation_root.as_ref(), Some(&root));
+            assert!(view.editor.read(cx).body_justified());
+            assert!(!view.editor.read(cx).hyphenation_enabled());
+            assert!(
+                view.navigation_nodes.iter().any(|node| node.path == active),
+                "Browser must list README.md after restoring its document and folder"
+            );
+        });
+        view.update(cx, |view, cx| {
+            view.editor.update(cx, |editor, cx| {
+                editor.toggle_body_justification(cx);
+                editor.toggle_hyphenation(cx);
+            });
+            view.queue_workspace_state(cx);
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                !view.workspace_state_in_flight && !view.workspace_state_dirty
+            }) {
+                break;
+            }
+            assert!(Instant::now() < deadline, "workspace settings saved");
+            cx.executor().advance_clock(Duration::from_secs(1));
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let saved = store.load().unwrap();
+        assert!(
+            !saved.justify && saved.hyphenate,
+            "both settings persist independently when toggled"
+        );
+        view.update(cx, |view, _| {
+            if let Some(cancel) = view.external_watch_cancel.take() {
+                let _ = cancel.send(());
+            }
+        });
+        cx.run_until_parked();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

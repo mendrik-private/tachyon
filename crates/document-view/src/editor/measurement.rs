@@ -652,7 +652,10 @@ impl FontMeasurement {
             font_size: (font_size * self.zoom).to_bits(),
             runs: hasher.finish(),
             text: text.clone(),
-            refine_ending: paragraph_endings::eligible(projection, segment, &range),
+            // Justified paragraphs allow a naturally short final line. Moving
+            // words down would force oversized gaps into the preceding line.
+            refine_ending: !self.typography.justify
+                && paragraph_endings::eligible(projection, segment, &range),
             hyphenate: self.typography.hyphenate && typography::eligible(projection, segment),
         };
         if let Some(cached) = self.cache.lock().ok().and_then(|mut cache| cache.get(&key)) {

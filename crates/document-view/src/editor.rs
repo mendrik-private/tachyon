@@ -766,6 +766,8 @@ impl LineSourceRange {
 
 #[derive(Clone, Default)]
 struct VisualLinePayload {
+    /// Discretionary suffix chosen with this line's committed wrap geometry.
+    hyphenated: bool,
     html_preview: Option<Arc<crate::html::HtmlPreview>>,
     display_math: Option<Arc<crate::math::BlockFormula>>,
     diagram: Option<Arc<crate::diagram::BlockDiagram>>,
@@ -782,7 +784,8 @@ struct VisualLinePayload {
 
 impl VisualLinePayload {
     fn is_empty(&self) -> bool {
-        self.html_preview.is_none()
+        !self.hyphenated
+            && self.html_preview.is_none()
             && self.display_math.is_none()
             && self.diagram.is_none()
             && self.inline_math.is_none()
@@ -8668,15 +8671,7 @@ impl Element for DocumentTextElement {
                 .is_some_and(|segment| typography::eligible(&editor.projection, segment))
                 && spec.inline_math.is_none()
                 && spec.html_preview.is_none();
-            let hyphen = prose
-                && editor.typography.hyphenate
-                && segment.is_some_and(|segment| {
-                    editor
-                        .measurement
-                        .hyphen_breaks(&editor.projection, segment)
-                        .binary_search(&range.end)
-                        .is_ok()
-                });
+            let hyphen = prose && spec.hyphenated;
             let justify = prose
                 && editor.typography.justify
                 && segment.is_some_and(|segment| {

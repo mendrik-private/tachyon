@@ -1,0 +1,971 @@
+{
+  "date": "2026-09-14",
+  "fixture": "IMPLEMENTATION_SPEC.md",
+  "source_bytes": 181916,
+  "sha256": "3a73d2f703fae40676919f7cf297af978d43fe99fc70a2b91eff3f9af2f8a1ec",
+  "cpu": "AMD RYZEN AI MAX+ PRO 395",
+  "build": "cargo build --release --locked -p markdown-app --bin tachyon; Rust 1.98.0",
+  "method": "Three separate native Wayland launches per variant, fresh isolated XDG_STATE_HOME per launch, warm OS page cache; trace summary enabled, 4000ms warmup then 1s automatic performance scenario. Capture all layout workers through first committed result. Before uses 16-window lookahead; after uses 2-window lookahead and geometry-owned hyphens. Worker durations are not end-to-end first-paint latency.",
+  "results": {
+    "before": {
+      "runs": [
+        {
+          "initial_passes": [
+            {
+              "sequence": 1,
+              "worker_ms": 506.386378,
+              "committed": false,
+              "width": 792.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ],
+                [
+                  11,
+                  17
+                ],
+                [
+                  17,
+                  24
+                ],
+                [
+                  24,
+                  26
+                ],
+                [
+                  26,
+                  30
+                ],
+                [
+                  30,
+                  58
+                ],
+                [
+                  58,
+                  78
+                ],
+                [
+                  78,
+                  97
+                ],
+                [
+                  97,
+                  120
+                ],
+                [
+                  120,
+                  126
+                ],
+                [
+                  126,
+                  145
+                ],
+                [
+                  145,
+                  203
+                ],
+                [
+                  203,
+                  226
+                ],
+                [
+                  226,
+                  237
+                ],
+                [
+                  237,
+                  259
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.598646,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 116.807558,
+                  "shaping_calls": 7200
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.001052,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 158.62533200000001,
+                  "shaping_calls": 3867
+                },
+                {
+                  "name": "planning",
+                  "ms": 223.160753,
+                  "shaping_calls": 11621
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 6.191923999999999,
+                  "shaping_calls": 27
+                }
+              ]
+            },
+            {
+              "sequence": 2,
+              "worker_ms": 780.991341,
+              "committed": true,
+              "width": 1440.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ],
+                [
+                  11,
+                  17
+                ],
+                [
+                  17,
+                  24
+                ],
+                [
+                  24,
+                  26
+                ],
+                [
+                  26,
+                  30
+                ],
+                [
+                  30,
+                  58
+                ],
+                [
+                  58,
+                  78
+                ],
+                [
+                  78,
+                  97
+                ],
+                [
+                  97,
+                  120
+                ],
+                [
+                  120,
+                  126
+                ],
+                [
+                  126,
+                  145
+                ],
+                [
+                  145,
+                  203
+                ],
+                [
+                  203,
+                  226
+                ],
+                [
+                  226,
+                  237
+                ],
+                [
+                  237,
+                  259
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.64372,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 0.156333,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.0006320000000000001,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 76.25252,
+                  "shaping_calls": 1888
+                },
+                {
+                  "name": "planning",
+                  "ms": 686.045376,
+                  "shaping_calls": 25739
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 16.891578,
+                  "shaping_calls": 283
+                }
+              ]
+            }
+          ],
+          "worker_sum_through_first_commit_ms": 1287.377719,
+          "first_committed_worker_ms": 780.991341
+        },
+        {
+          "initial_passes": [
+            {
+              "sequence": 1,
+              "worker_ms": 597.0220750000001,
+              "committed": false,
+              "width": 792.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ],
+                [
+                  11,
+                  17
+                ],
+                [
+                  17,
+                  24
+                ],
+                [
+                  24,
+                  26
+                ],
+                [
+                  26,
+                  30
+                ],
+                [
+                  30,
+                  58
+                ],
+                [
+                  58,
+                  78
+                ],
+                [
+                  78,
+                  97
+                ],
+                [
+                  97,
+                  120
+                ],
+                [
+                  120,
+                  126
+                ],
+                [
+                  126,
+                  145
+                ],
+                [
+                  145,
+                  203
+                ],
+                [
+                  203,
+                  226
+                ],
+                [
+                  226,
+                  237
+                ],
+                [
+                  237,
+                  259
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.7371450000000002,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 109.73851599999999,
+                  "shaping_calls": 7109
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.001042,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 169.196389,
+                  "shaping_calls": 3865
+                },
+                {
+                  "name": "planning",
+                  "ms": 307.940555,
+                  "shaping_calls": 11621
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 8.406855,
+                  "shaping_calls": 27
+                }
+              ]
+            },
+            {
+              "sequence": 2,
+              "worker_ms": 660.391155,
+              "committed": true,
+              "width": 1440.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ],
+                [
+                  11,
+                  17
+                ],
+                [
+                  17,
+                  24
+                ],
+                [
+                  24,
+                  26
+                ],
+                [
+                  26,
+                  30
+                ],
+                [
+                  30,
+                  58
+                ],
+                [
+                  58,
+                  78
+                ],
+                [
+                  78,
+                  97
+                ],
+                [
+                  97,
+                  120
+                ],
+                [
+                  120,
+                  126
+                ],
+                [
+                  126,
+                  145
+                ],
+                [
+                  145,
+                  203
+                ],
+                [
+                  203,
+                  226
+                ],
+                [
+                  226,
+                  237
+                ],
+                [
+                  237,
+                  259
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.543773,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 0.153808,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.0007419999999999999,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 70.319679,
+                  "shaping_calls": 1888
+                },
+                {
+                  "name": "planning",
+                  "ms": 568.900569,
+                  "shaping_calls": 25739
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 19.470671,
+                  "shaping_calls": 283
+                }
+              ]
+            }
+          ],
+          "worker_sum_through_first_commit_ms": 1257.41323,
+          "first_committed_worker_ms": 660.391155
+        },
+        {
+          "initial_passes": [
+            {
+              "sequence": 1,
+              "worker_ms": 560.499989,
+              "committed": false,
+              "width": 792.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ],
+                [
+                  11,
+                  17
+                ],
+                [
+                  17,
+                  24
+                ],
+                [
+                  24,
+                  26
+                ],
+                [
+                  26,
+                  30
+                ],
+                [
+                  30,
+                  58
+                ],
+                [
+                  58,
+                  78
+                ],
+                [
+                  78,
+                  97
+                ],
+                [
+                  97,
+                  120
+                ],
+                [
+                  120,
+                  126
+                ],
+                [
+                  126,
+                  145
+                ],
+                [
+                  145,
+                  203
+                ],
+                [
+                  203,
+                  226
+                ],
+                [
+                  226,
+                  237
+                ],
+                [
+                  237,
+                  259
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.85689,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 79.74445,
+                  "shaping_calls": 7191
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.001382,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 157.59870800000002,
+                  "shaping_calls": 3869
+                },
+                {
+                  "name": "planning",
+                  "ms": 313.11146499999995,
+                  "shaping_calls": 11621
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 8.185540999999999,
+                  "shaping_calls": 27
+                }
+              ]
+            },
+            {
+              "sequence": 2,
+              "worker_ms": 693.7291220000001,
+              "committed": true,
+              "width": 1440.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ],
+                [
+                  11,
+                  17
+                ],
+                [
+                  17,
+                  24
+                ],
+                [
+                  24,
+                  26
+                ],
+                [
+                  26,
+                  30
+                ],
+                [
+                  30,
+                  58
+                ],
+                [
+                  58,
+                  78
+                ],
+                [
+                  78,
+                  97
+                ],
+                [
+                  97,
+                  120
+                ],
+                [
+                  120,
+                  126
+                ],
+                [
+                  126,
+                  145
+                ],
+                [
+                  145,
+                  203
+                ],
+                [
+                  203,
+                  226
+                ],
+                [
+                  226,
+                  237
+                ],
+                [
+                  237,
+                  259
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.826894,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 0.15310700000000002,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.0006810000000000001,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 71.819437,
+                  "shaping_calls": 1888
+                },
+                {
+                  "name": "planning",
+                  "ms": 595.461067,
+                  "shaping_calls": 25739
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 24.466742999999997,
+                  "shaping_calls": 283
+                }
+              ]
+            }
+          ],
+          "worker_sum_through_first_commit_ms": 1254.229111,
+          "first_committed_worker_ms": 693.7291220000001
+        }
+      ],
+      "median_worker_sum_ms": 1257.41323,
+      "median_first_committed_worker_ms": 693.7291220000001
+    },
+    "after": {
+      "runs": [
+        {
+          "initial_passes": [
+            {
+              "sequence": 1,
+              "worker_ms": 202.188795,
+              "committed": false,
+              "width": 792.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.797136,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 9.32419,
+                  "shaping_calls": 197
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.000802,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 178.618987,
+                  "shaping_calls": 4021
+                },
+                {
+                  "name": "planning",
+                  "ms": 7.04871,
+                  "shaping_calls": 115
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 5.397698,
+                  "shaping_calls": 1
+                }
+              ]
+            },
+            {
+              "sequence": 2,
+              "worker_ms": 89.032034,
+              "committed": true,
+              "width": 1440.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.758834,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 0.09696099999999999,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.000812,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 73.486272,
+                  "shaping_calls": 1938
+                },
+                {
+                  "name": "planning",
+                  "ms": 8.857567,
+                  "shaping_calls": 167
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 4.830456000000001,
+                  "shaping_calls": 5
+                }
+              ]
+            }
+          ],
+          "worker_sum_through_first_commit_ms": 291.220829,
+          "first_committed_worker_ms": 89.032034
+        },
+        {
+          "initial_passes": [
+            {
+              "sequence": 1,
+              "worker_ms": 202.798513,
+              "committed": false,
+              "width": 792.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.670458,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 9.383392,
+                  "shaping_calls": 197
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.000991,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 179.77911699999999,
+                  "shaping_calls": 4021
+                },
+                {
+                  "name": "planning",
+                  "ms": 6.09328,
+                  "shaping_calls": 115
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 5.869792,
+                  "shaping_calls": 1
+                }
+              ]
+            },
+            {
+              "sequence": 2,
+              "worker_ms": 95.18782,
+              "committed": true,
+              "width": 1440.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.5278909999999999,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 0.096601,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.000622,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 77.500237,
+                  "shaping_calls": 1938
+                },
+                {
+                  "name": "planning",
+                  "ms": 10.641217,
+                  "shaping_calls": 167
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 5.419909,
+                  "shaping_calls": 5
+                }
+              ]
+            }
+          ],
+          "worker_sum_through_first_commit_ms": 297.986333,
+          "first_committed_worker_ms": 95.18782
+        },
+        {
+          "initial_passes": [
+            {
+              "sequence": 1,
+              "worker_ms": 201.771075,
+              "committed": false,
+              "width": 792.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.703019,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 9.218202,
+                  "shaping_calls": 197
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.0012619999999999999,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 179.035671,
+                  "shaping_calls": 4021
+                },
+                {
+                  "name": "planning",
+                  "ms": 6.02352,
+                  "shaping_calls": 115
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 5.787958000000001,
+                  "shaping_calls": 1
+                }
+              ]
+            },
+            {
+              "sequence": 2,
+              "worker_ms": 95.605591,
+              "committed": true,
+              "width": 1440.0,
+              "root_windows": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  3,
+                  11
+                ]
+              ],
+              "stages": [
+                {
+                  "name": "projection",
+                  "ms": 1.560112,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "table_measurement",
+                  "ms": 0.09103,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "loaded_image_dimensions",
+                  "ms": 0.0006619999999999999,
+                  "shaping_calls": 0
+                },
+                {
+                  "name": "recovery_stack",
+                  "ms": 77.958534,
+                  "shaping_calls": 1938
+                },
+                {
+                  "name": "planning",
+                  "ms": 10.662417,
+                  "shaping_calls": 167
+                },
+                {
+                  "name": "geometry_and_rendered_extensions",
+                  "ms": 5.331864,
+                  "shaping_calls": 5
+                }
+              ]
+            }
+          ],
+          "worker_sum_through_first_commit_ms": 297.376666,
+          "first_committed_worker_ms": 95.605591
+        }
+      ],
+      "median_worker_sum_ms": 297.376666,
+      "median_first_committed_worker_ms": 95.18782
+    }
+  }
+}

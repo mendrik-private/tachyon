@@ -1645,6 +1645,17 @@ pub(super) fn build_visual_lines_with_extensions(
                 font,
             )
         };
+        // Keep discretionary suffixes with the geometry that chose the breaks.
+        // Painting may retain these lines while a typography reflow is pending.
+        let hyphens = segment_measurement
+            .map(|fonts| fonts.hyphen_breaks(projection, segment))
+            .unwrap_or_default();
+        for line in &mut node_lines {
+            let hyphenated = hyphens.binary_search(&line.projected_range().end).is_ok();
+            if line.hyphenated != hyphenated {
+                line.hyphenated = hyphenated;
+            }
+        }
         // Compact equations belong to the surrounding reading column. A long
         // formula may negotiate the whole canvas before needing its own pan.
         // Use the already prepared glyph width, not TeX character count.

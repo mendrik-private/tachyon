@@ -218,15 +218,9 @@ pub(super) fn justify(mut line: ShapedLine, width: Pixels) -> ShapedLine {
         return line;
     }
     let step = extra / spaces.len() as f32;
-    // Each gap may grow to at most twice its natural advance. If filling the
-    // measure would exceed that limit, preserve the entire left-aligned line.
-    let maximum_added_space = spaces
-        .iter()
-        .map(|space| f32::from(line.x_for_index(space + 1) - line.x_for_index(*space)))
-        .fold(f32::INFINITY, f32::min);
-    if step > maximum_added_space || maximum_added_space <= 0. {
-        return line;
-    }
+    // The caller excludes paragraph endings and authored hard breaks. Every
+    // remaining line with word spaces fills the requested measure, including
+    // lines shortened by a long next word or final-line balancing.
     let mut runs = line.runs.clone();
     for glyph in runs.iter_mut().flat_map(|run| &mut run.glyphs) {
         glyph.position.x += px(step * spaces.partition_point(|space| *space < glyph.index) as f32);
@@ -343,6 +337,24 @@ mod tests {
     use super::*;
 
     const ENGLISH: &str = "The international organization provides comprehensive documentation and extraordinary opportunities for understanding typography and communication.";
+
+    #[gpui::test]
+    fn disabled_hyphenation_keeps_ordinary_words_whole(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "Status: **Implementation contract for review.** The user-requested amendments below are mandatory; the remote-consent amendment and new statistical launch thresholds remain proposals in §19. Existing approved requirements retain their authority. This document is not evidence that a feature is implemented, visually approved, or release-qualified.";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            for width in [400., 600., 700., 900.] {
+                let lines = fonts.wrap(&projection, segment, segment.projection_range(), width, 18.).unwrap();
+                for line in lines.iter().take(lines.len() - 1) {
+                    let text = projection.text();
+                    assert!(!(text[..line.end].ends_with(char::is_alphabetic) && text[line.end..].starts_with(char::is_alphabetic)), "mid-word break at width={width}: {:?} | {:?}", &text[line.clone()], &text[line.end..]);
+                }
+            }
+        });
+    }
 
     #[test]
     fn typography_detects_prose_and_preserves_protected_content() {
@@ -557,7 +569,9 @@ mod tests {
     }
 
     #[gpui::test]
-    fn typography_excessive_word_spacing_stays_left_aligned(cx: &mut gpui::TestAppContext) {
+    fn typography_continuing_lines_fill_the_measure_even_with_few_spaces(
+        cx: &mut gpui::TestAppContext,
+    ) {
         cx.update(|cx| {
             let text = "Two words";
             let runs = [TextRun {
@@ -574,13 +588,67 @@ mod tests {
                 &runs,
                 None,
             );
-            let result = justify(natural.clone(), natural.width() + px(300.));
+            let width = natural.width() + px(300.);
+            let result = justify(natural.clone(), width);
             assert_eq!(
                 result.width(),
-                natural.width(),
-                "excessive gaps must retain left alignment"
+                width,
+                "a continuing line must reach the justified edge even when its gaps grow beyond twice their natural width"
             );
+            assert_eq!(result.text, natural.text);
+            let word = text.find("words").unwrap();
+            assert_eq!(shaped_index_for_x(&result, shaped_x_for_index(&result, word)), word);
         });
+    }
+
+    #[gpui::test]
+    fn hyphenation_toggle_reflows_existing_lines(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_editor);
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(ENGLISH).unwrap(), window, cx)
+        });
+        cx.simulate_resize(size(px(500.), px(500.)));
+        let settle = |cx: &mut gpui::VisualTestContext| {
+            for _ in 0..5 {
+                cx.update(|window, cx| {
+                    _ = window.draw(cx);
+                });
+                cx.run_until_parked();
+            }
+        };
+        settle(cx);
+        let ranges = |cx: &gpui::VisualTestContext| {
+            editor.read_with(cx, |editor, _| {
+                assert!(editor.measured_layout && !editor.text_environment_pending);
+                editor
+                    .visual_lines
+                    .iter()
+                    .map(VisualLineSpec::projected_range)
+                    .collect::<Vec<_>>()
+            })
+        };
+        let normal = ranges(cx);
+        editor.update(cx, |editor, cx| editor.toggle_hyphenation(cx));
+        settle(cx);
+        let hyphenated = ranges(cx);
+        assert_ne!(normal, hyphenated);
+        let (release, hold) = futures::channel::oneshot::channel();
+        editor.update(cx, |editor, cx| {
+            editor.reflow.hold_next = Some(hold);
+            editor.toggle_hyphenation(cx);
+        });
+        settle(cx);
+        editor.read_with(cx, |editor, _| {
+            assert!(editor.shaped_line_cache.borrow().entries.keys().any(|key| key.typography.1),
+                "retained hyphenated lines must keep their hyphens until replacement geometry arrives");
+        });
+        release.send(()).unwrap();
+        settle(cx);
+        assert_eq!(
+            normal,
+            ranges(cx),
+            "disabling hyphenation restores ordinary wraps"
+        );
     }
 
     #[gpui::test]

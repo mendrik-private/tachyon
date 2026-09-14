@@ -673,11 +673,12 @@ impl AdaptivePlan {
         })
     }
 
-    /// Coalesce neighboring viewport requests without changing the semantic
-    /// planning windows themselves. At most one window is added at either
-    /// edge; even a very long document never becomes a whole-document request.
+    /// Coalesce neighboring viewport requests into a bounded four-window
+    /// batch. This gives the background planner enough lead time to replace
+    /// estimated offscreen geometry before a scroll reaches it, without ever
+    /// turning a long document into a whole-document request.
     pub(crate) fn planning_batch(&self, requested: Range<usize>) -> Range<usize> {
-        const WINDOWS_PER_BATCH: usize = 2;
+        const WINDOWS_PER_BATCH: usize = 4;
         let start = self
             .windows
             .partition_point(|range| range.end <= requested.start);
@@ -1712,14 +1713,14 @@ mod tests {
         let projection = TextProjection::from_snapshot(&document.snapshot());
         let mut plan = AdaptivePlan::build(&projection, 800., None, false);
         plan.windows = (0..101).map(|n| n * 3..n * 3 + 3).collect();
-        assert_eq!(plan.planning_batch(4..5), 0..6);
-        assert_eq!(plan.planning_batch(46..50), 42..54);
-        assert_eq!(plan.planning_batch(299..303), 294..303);
+        assert_eq!(plan.planning_batch(4..5), 0..12);
+        assert_eq!(plan.planning_batch(46..50), 36..60);
+        assert_eq!(plan.planning_batch(299..303), 288..303);
         for start in 0..303 {
             for end in start + 1..=303 {
                 let batch = plan.planning_batch(start..end);
                 assert!(batch.start <= start && batch.end >= end);
-                assert!(start - batch.start < 6 && batch.end - end < 6);
+                assert!(start - batch.start < 12 && batch.end - end < 12);
                 assert_eq!(plan.planning_batch(batch.clone()), batch);
             }
         }
@@ -1735,7 +1736,7 @@ mod tests {
             assert!(plan.covers(&(root..root + 1)));
         }
         assert_eq!(
-            publications, 51,
+            publications, 26,
             "one publication per batch, none on return"
         );
         assert_eq!(plan.planning_batch(400..401), 400..401);

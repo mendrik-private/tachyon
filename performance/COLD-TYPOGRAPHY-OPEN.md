@@ -47,8 +47,7 @@ hyphen placement against full native measurement, exact fallback reuse, and
 unchanged serialized source. Existing recovery tests cover timeout, cancellation,
 retained HTML/math, and environment invalidation.
 
-Formatting, all-target checking, and warning-free Clippy passed. The document-view
-suite completed with 616 passing tests, 12 failures, and 2 ignored tests. An
-unchanged-baseline run confirmed exactly the same 12 failures (615 passing before
-the new regression). They concern existing spacing/type-size expectations and
-floating-point equality; this optimization does not change those layout rules.
+The original measurement run found twelve stale layout expectations. They were
+subsequently updated to use the shared gutter and typography tokens, with a
+tolerance for sub-pixel timeline geometry. The complete repository check now
+passes, including 628 document-view tests and two ignored tests.

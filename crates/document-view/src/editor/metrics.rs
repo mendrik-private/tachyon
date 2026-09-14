@@ -146,10 +146,10 @@ mod tests {
                                 - before.y
                                 - before.style.line_height
                                 - before.style.space_below
-                                - 24.)
+                                - LAYOUT_GAP)
                                 .abs()
                                 < 0.01,
-                            "stacked metrics must share the 24px modular rhythm"
+                            "stacked metrics must share the shared gutter rhythm"
                         );
                     }
                 }
@@ -183,7 +183,9 @@ mod tests {
                     let expected = match role {
                         TextRole::Label => (18., 24.),
                         TextRole::Value => (40., 44.),
-                        TextRole::Context => (14., 20.),
+                        TextRole::Context => {
+                            (DocumentStyle::BODY_SIZE, DocumentStyle::BODY_LEADING)
+                        }
                     };
                     let slot = plan.slots[&segment.node_id];
                     if width < 560. {

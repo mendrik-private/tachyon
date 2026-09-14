@@ -320,13 +320,17 @@ mod tests {
                         &projection.text()[segment.projection_range()]
                     );
                     assert!(
-                        own.iter().all(
-                            |line| line.style.font_size == 14. && line.style.line_height == 20.
-                        )
+                        own.iter()
+                            .all(|line| line.style.font_size == DocumentStyle::METADATA_SIZE
+                                && line.style.line_height == DocumentStyle::METADATA_LEADING)
                     );
                     assert!(own.iter().all(|line| {
                         fonts
-                            .line_width(&projection, line.projected_range(), 14.)
+                            .line_width(
+                                &projection,
+                                line.projected_range(),
+                                DocumentStyle::METADATA_SIZE,
+                            )
                             .unwrap()
                             <= line.label_row.unwrap().1 + 0.5
                     }));
@@ -438,7 +442,10 @@ mod tests {
             let segment = projection.segment_for_node(node).unwrap();
             let values = lines.iter().filter(|l| segment.projection_range().contains(&l.projected_start()) && l.label_row.is_some_and(|(part, _)| part == label_rows::Part::Body)).collect::<Vec<_>>();
             assert_eq!(values.len(), 2);
-            assert_eq!(values[1].y - values[0].y, 20.);
+            assert_eq!(
+                values[1].y - values[0].y,
+                DocumentStyle::METADATA_LEADING
+            );
             assert_eq!(&projection.text()[values[0].projected_range()], "North wing  ");
             assert_eq!(&projection.text()[values[1].projected_range()], "Second floor");
             assert_eq!(document.snapshot().serialize().unwrap(), source);

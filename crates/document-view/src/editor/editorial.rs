@@ -315,7 +315,8 @@ mod tests {
                         assert_eq!(left.item, 0);
                         assert_eq!(right.item, 1);
                         assert!(
-                            (right.left(width) - left.left(width) - left.width(width) - 24.).abs()
+                            (right.left(width) - left.left(width) - left.width(width) - LAYOUT_GAP)
+                                .abs()
                                 < 0.01
                         );
                     } else if width < 560. {

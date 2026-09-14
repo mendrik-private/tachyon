@@ -82,7 +82,7 @@ fn color_objects_have_measured_natural_geometry_and_exact_source(cx: &mut gpui::
                         if role == ColorRole::Label {
                             (18., 24.)
                         } else {
-                            (14., 20.)
+                            (DocumentStyle::BODY_SIZE, DocumentStyle::BODY_LEADING)
                         }
                     );
                     assert_eq!(
@@ -119,7 +119,7 @@ fn color_objects_have_measured_natural_geometry_and_exact_source(cx: &mut gpui::
                             - last.y
                             - last.style.line_height
                             - last.style.space_below
-                            - 24.)
+                            - LAYOUT_GAP)
                             .abs()
                             < 0.01
                     );

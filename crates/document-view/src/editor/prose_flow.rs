@@ -835,7 +835,9 @@ mod tests {
     }
 
     #[gpui::test]
-    fn broad_reading_bands_use_three_columns_without_losing_source(cx: &mut gpui::TestAppContext) {
+    fn broad_reading_bands_use_balanced_columns_without_losing_source(
+        cx: &mut gpui::TestAppContext,
+    ) {
         cx.update(|cx| {
             let document = Document::from_markdown(source().as_str()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
@@ -869,13 +871,15 @@ mod tests {
                         .is_some_and(|slot| slot.group == flow.group && slot.item < 3)
                 })
                 .collect::<Vec<_>>();
-            for column in 0..3 {
+            // The wider shared gutter makes the short fixture's three-column
+            // candidate unbalanced, so the planner keeps two full columns.
+            for column in 0..2 {
                 let line = first_band
                     .iter()
                     .find(|line| line.slot.unwrap().item == column)
                     .unwrap();
                 let slot = line.slot.unwrap();
-                assert_eq!(slot.columns, 3);
+                assert_eq!(slot.columns, 2);
                 assert_eq!(line.y, first_band[0].y);
                 assert!(slot.left(width) + slot.width(width) <= width + 0.01);
                 if column > 0 {

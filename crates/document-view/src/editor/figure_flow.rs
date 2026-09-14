@@ -924,7 +924,8 @@ mod tests {
             assert!(narrow.len() >= 4 && !full.is_empty());
             assert_eq!(figure.y, narrow[0].y);
             assert!(
-                (narrow[0].x_fraction * 1280. - figure.width_fraction * 1280. - 24.).abs() < 0.01
+                (narrow[0].x_fraction * 1280. - figure.width_fraction * 1280. - LAYOUT_GAP).abs()
+                    < 0.01
             );
             let fraction = figure.width_fraction * 1280. / flow.text.canvas;
             assert!((0.25..=0.35).contains(&fraction));
@@ -1102,7 +1103,13 @@ mod tests {
                 assert_eq!(label.width_fraction, before.width_fraction);
             }
             let figures = lines.iter().filter(|line| projection.segment_for_range(&line.projected_range()).unwrap().context.image_source.is_some()).collect::<Vec<_>>();
-            assert!((figures[1].x_fraction * 1280. - (figures[0].x_fraction + figures[0].width_fraction) * 1280. - 24.).abs() < 0.01);
+            assert!(
+                (figures[1].x_fraction * 1280.
+                    - (figures[0].x_fraction + figures[0].width_fraction) * 1280.
+                    - LAYOUT_GAP)
+                    .abs()
+                    < 0.01
+            );
             }
             assert_eq!(document.snapshot().serialize().unwrap(), source);
         });

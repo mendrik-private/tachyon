@@ -112,7 +112,10 @@ mod tests {
                         == id
                 })
                 .unwrap();
-            assert_eq!((line.style.font_size, line.style.line_height), (14., 20.));
+            assert_eq!(
+                (line.style.font_size, line.style.line_height),
+                (DocumentStyle::BODY_SIZE, DocumentStyle::BODY_LEADING)
+            );
             let text_style = gpui::TextStyle {
                 font_family: "Public Sans Tachyon".into(),
                 ..Default::default()
@@ -254,8 +257,10 @@ mod tests {
                     );
                     if segment.context.quote_attribution {
                         attributions += 1;
-                        assert!(own.iter().all(|l| l.style.font_size == 14. * zoom
-                            && l.style.line_height == 20. * zoom));
+                        assert!(own.iter().all(|l| {
+                            l.style.font_size == DocumentStyle::BODY_SIZE * zoom
+                                && l.style.line_height == DocumentStyle::BODY_LEADING * zoom
+                        }));
                         let i = lines
                             .iter()
                             .position(|l| l.projected_start() == segment.projection_start())
@@ -271,7 +276,7 @@ mod tests {
                         assert!(
                             (f32::from(surface.bottom())
                                 - own.last().unwrap().y
-                                - 20. * zoom
+                                - DocumentStyle::BODY_LEADING * zoom
                                 - 16. * zoom)
                                 .abs()
                                 < 0.01

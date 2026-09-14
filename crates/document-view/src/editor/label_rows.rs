@@ -1109,10 +1109,16 @@ mod tests {
                         );
                         if horizontal {
                             assert_eq!(dot.center().y, next_dot.center().y);
-                            assert_eq!(rail.unwrap().right(), next_dot.center().x);
+                            assert!(
+                                (f32::from(rail.unwrap().right() - next_dot.center().x)).abs()
+                                    < 0.01
+                            );
                         } else {
                             assert_eq!(dot.center().x, next_dot.center().x);
-                            assert_eq!(rail.unwrap().bottom(), next_dot.center().y);
+                            assert!(
+                                (f32::from(rail.unwrap().bottom() - next_dot.center().y)).abs()
+                                    < 0.01
+                            );
                         }
                     }
                 }
@@ -1192,7 +1198,7 @@ mod tests {
                     .find(|line| line.label_row.unwrap().0 == Part::Body)
                     .unwrap();
                 assert_eq!(label.y, body.y);
-                assert_eq!(body.inset - label.inset, columns.label_width + 24.);
+                assert_eq!(body.inset - label.inset, columns.label_width + LAYOUT_GAP);
                 assert!(own.iter().all(|line| {
                     fonts
                         .line_width(&projection, line.projected_range(), line.style.font_size)

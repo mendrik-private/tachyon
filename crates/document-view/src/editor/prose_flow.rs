@@ -531,6 +531,15 @@ pub(super) fn build(
         }
         output.extend(lines);
     }
+    // A column boundary is also a fragment boundary, so its discretionary
+    // break is intentionally outside the fragment-local wrapping candidates.
+    // Restore suffix metadata from the complete source flow before painting.
+    let hyphens = fonts
+        .map(|fonts| fonts.hyphen_breaks(projection, segment))
+        .unwrap_or_default();
+    for line in &mut output {
+        line.hyphenated = hyphens.binary_search(&line.projected_end()).is_ok();
+    }
     output
 }
 
@@ -538,6 +547,68 @@ pub(super) fn build(
 mod tests {
     use super::*;
     const SENTENCE: &str = "A reading surface should give an argument room to develop, while keeping each sentence connected to the one before it. ";
+
+    #[gpui::test]
+    fn hyphenated_word_keeps_suffix_at_reading_column_boundary(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "The international organization provides comprehensive documentation and extraordinary opportunities for understanding typography and communication.";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let fonts = FontMeasurement::new(
+                cx.text_system().clone(),
+                "Public Sans Tachyon".into(),
+                1.,
+            )
+            .with_typography(typography::Options {
+                justify: true,
+                hyphenate: true,
+            });
+            let boundary = fonts
+                .hyphen_breaks(&projection, segment)
+                .into_iter()
+                .find(|&offset| {
+                    projection.text()[..offset].ends_with(char::is_alphabetic)
+                        && projection.text()[offset..].starts_with(char::is_alphabetic)
+                })
+                .expect("English prose should provide a discretionary word break");
+            let mut plan = AdaptivePlan::build(&projection, 1280., None, false);
+            plan.prose_flows.insert(
+                segment.node_id,
+                Arc::new(Flow {
+                    group: segment.node_id,
+                    canvas: 1280.,
+                    columns: 2,
+                    needs_balance: false,
+                    revisions: vec![projection.node_revision(segment.node_id)],
+                    sources: vec![(segment.node_id, Arc::from(source))],
+                    starts: vec![(segment.node_id, 0), (segment.node_id, boundary)],
+                }),
+            );
+
+            let lines = arrangement::build_measured_visual_lines(
+                &projection,
+                &HashMap::new(),
+                1280.,
+                &plan,
+                Some(&fonts),
+            );
+            let before_boundary = lines
+                .windows(2)
+                .find_map(|pair| {
+                    (pair[0].projected_end() == boundary
+                        && pair[1].projected_start() == boundary
+                        && pair[0].slot.zip(pair[1].slot).is_some_and(|(a, b)| a.item != b.item))
+                    .then_some(&pair[0])
+                })
+                .expect("the chosen word break should hand text to the next reading column");
+
+            assert!(
+                before_boundary.hyphenated,
+                "the preceding column must paint a discretionary hyphen before the word continues"
+            );
+        });
+    }
 
     #[gpui::test]
     fn reference_paragraphs_after_math_use_a_source_order_reading_band(

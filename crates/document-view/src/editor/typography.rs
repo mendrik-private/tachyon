@@ -28,7 +28,10 @@ pub(super) fn eligible(projection: &TextProjection, segment: &crate::ProjectionS
 
 fn language(text: &str) -> Option<Language> {
     let info = whatlang::detect(text)?;
-    if !info.is_reliable() {
+    // Short technical prose rarely reaches the detector's strict reliability
+    // threshold. Still require at least 0.5 confidence in a supported language rather
+    // than silently defaulting uncertain text to an English dictionary.
+    if info.confidence() < 0.5 {
         return None;
     }
     Some(match info.lang().code() {
@@ -135,7 +138,12 @@ pub(super) fn breaks(
         .map(|(_, word)| *word)
         .collect::<Vec<_>>()
         .join(" ");
-    let Some(dictionary) = language(&sample).and_then(dictionary) else {
+    // Protected tokens cannot be split, but their surrounding vocabulary can
+    // still help identify the paragraph's language.
+    let Some(dictionary) = language(&sample)
+        .or_else(|| language(text))
+        .and_then(dictionary)
+    else {
         return Vec::new();
     };
     let mut breaks = Vec::new();
@@ -228,6 +236,12 @@ pub(super) fn justify(mut line: ShapedLine, width: Pixels) -> ShapedLine {
     // The caller excludes paragraph endings and authored hard breaks. Preserve
     // natural spacing when filling the measure would make the word gaps read
     // as a grid rather than prose.
+    if spaces.iter().any(|&space| {
+        let natural = f32::from(line.x_for_index(space + 1) - line.x_for_index(space));
+        !natural.is_finite() || step > natural * 0.5
+    }) {
+        return line;
+    }
     let mut runs = line.runs.clone();
     for glyph in runs.iter_mut().flat_map(|run| &mut run.glyphs) {
         glyph.position.x += px(step * spaces.partition_point(|space| *space < glyph.index) as f32);
@@ -344,6 +358,28 @@ mod tests {
     use super::*;
 
     const ENGLISH: &str = "The international organization provides comprehensive documentation and extraordinary opportunities for understanding typography and communication.";
+
+    #[gpui::test]
+    fn technical_list_hyphenates_references_before_stretching(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "- API/schema: series/instance protocol keys, revision ordering, owned-date references.\n";
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let segment = &projection.segments()[0];
+            let start = segment.projection_start();
+            let boundary = projection.text().find("references").unwrap() + 3;
+            for zoom in [0.75, 1., 1.5, 2.] {
+                let fonts = FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), zoom)
+                    .with_typography(Options { justify: true, hyphenate: true });
+                let width = fonts.hyphenated_width(&projection, start..boundary, 18., true).unwrap() + 0.1;
+                let lines = fonts.wrap(&projection, segment, segment.projection_range(), width, 18.).unwrap();
+                assert_eq!(lines[0].end, boundary, "must fit ref- before wrapping: {:?}", lines.iter().map(|r| &projection.text()[r.clone()]).collect::<Vec<_>>());
+                assert!(fonts.hyphen_breaks(&projection, segment).contains(&boundary));
+                assert_eq!(lines.iter().map(|r| &projection.text()[r.clone()]).collect::<String>(), &projection.text()[segment.projection_range()]);
+            }
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
 
     #[gpui::test]
     fn disabled_hyphenation_keeps_ordinary_words_whole(cx: &mut gpui::TestAppContext) {
@@ -652,6 +688,37 @@ mod tests {
             assert_eq!(
                 shaped_index_for_x(&result, shaped_x_for_index(&result, word)),
                 word
+            );
+        });
+    }
+
+    #[gpui::test]
+    fn justification_does_not_double_sparse_word_spaces(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let text = "internationalization characterization";
+            let runs = [TextRun {
+                len: text.len(),
+                font: gpui::font("Public Sans Tachyon"),
+                color: rgb(0).into(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            }];
+            let natural = gpui::WindowTextSystem::new(cx.text_system().clone()).shape_line(
+                text.into(),
+                px(18.),
+                &runs,
+                None,
+            );
+            let space = text.find(' ').unwrap();
+            let advance = natural.x_for_index(space + 1) - natural.x_for_index(space);
+            let width = natural.width() + advance;
+            assert!(f32::from(advance) < f32::from(natural.width()) * 0.15);
+            let result = justify(natural.clone(), width);
+            assert_eq!(result.width(), natural.width());
+            assert_eq!(
+                result.x_for_index(space + 1),
+                natural.x_for_index(space + 1)
             );
         });
     }

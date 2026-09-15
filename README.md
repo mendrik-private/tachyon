@@ -72,6 +72,17 @@ cargo build --release --locked --bin tachyon
 target/release/tachyon path/to/document.md
 ```
 
+Build the current checkout and replace your local installation:
+
+```sh
+./install.sh
+```
+
+This installs the release binary and desktop integration under `~/.local`.
+Pass a different prefix with `./install.sh /path/to/prefix`. Local code edits
+are included; the script does not pull from Git. Restart Tachyon after
+installing and ensure `~/.local/bin` is in your desktop session's `PATH`.
+
 With no path, Tachyon restores the last workspace or opens a recoverable
 untitled draft. Open File remembers the folder of the last successfully opened
 file across restarts; cancelling the chooser leaves that folder unchanged.

@@ -65,7 +65,7 @@ pub(super) struct FindState {
 
 impl FindState {
     pub fn new(window: &mut Window, cx: &mut Context<RichDocumentEditor>) -> Self {
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Find in document…"));
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Find…"));
         cx.subscribe_in(&input, window, |editor, input, event, _, cx| match event {
             InputEvent::Change => {
                 editor.find.query = input.read(cx).value().to_string();
@@ -605,23 +605,28 @@ impl RichDocumentEditor {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         self.find.visible.then(|| {
-            div()
+            let bar = div()
                 .id("document-find")
                 .flex()
                 .items_center()
-                .gap(px(4.))
-                .h(px(44.))
+                .gap(px(8.))
+                .w_full()
+                .max_w(px(470.))
+                .h(px(48.))
                 .flex_shrink_0()
                 .px(px(8.))
                 .bg(rgb(palette.surface))
-                .border_b_1()
+                .rounded(px(10.))
+                .border_1()
                 .border_color(rgb(palette.border))
                 .on_action(cx.listener(|this, _: &Escape, window, cx| this.close_find(window, cx)))
                 .child(
                     div().id("find-input-container").flex_1().min_w_0().child(
                         Input::new(&self.find.input)
                             .aria_label("Find in document")
-                            .small(),
+                            .prefix(Icon::new(IconName::Search).size(px(18.)))
+                            .h(px(32.))
+                            .rounded(px(8.)),
                     ),
                 )
                 .child(
@@ -629,38 +634,65 @@ impl RichDocumentEditor {
                         .id("find-result-count")
                         .role(Role::Status)
                         .aria_label(self.find.status.clone())
+                        .flex_shrink_0()
+                        .text_color(rgb(palette.secondary))
                         .text_sm()
-                        .child(self.find.status.clone()),
+                        .child(
+                            if self.find.status.is_empty() || self.find.status == "No results" {
+                                "0/0".to_owned()
+                            } else {
+                                self.find.status.clone()
+                            },
+                        ),
                 )
-                .child(named_button(
-                    Button::new("find-previous")
-                        .ghost()
-                        .small()
-                        .icon(IconName::ChevronUp)
-                        .tooltip("Previous result — Shift+Enter")
-                        .disabled(self.find.count == 0)
-                        .on_click(cx.listener(|this, _, _, cx| this.find_next(true, cx))),
-                    "Previous result",
-                ))
-                .child(named_button(
-                    Button::new("find-next")
-                        .ghost()
-                        .small()
-                        .icon(IconName::ChevronDown)
-                        .tooltip("Next result — Enter")
-                        .disabled(self.find.count == 0)
-                        .on_click(cx.listener(|this, _, _, cx| this.find_next(false, cx))),
-                    "Next result",
-                ))
+                .child(
+                    div()
+                        .flex()
+                        .flex_shrink_0()
+                        .rounded(px(8.))
+                        .bg(rgb(palette.hover))
+                        .child(named_button(
+                            Button::new("find-previous")
+                                .ghost()
+                                .small()
+                                .size(px(32.))
+                                .icon(IconName::ChevronUp)
+                                .tooltip("Previous result — Shift+Enter")
+                                .disabled(self.find.count == 0)
+                                .on_click(cx.listener(|this, _, _, cx| this.find_next(true, cx))),
+                            "Previous result",
+                        ))
+                        .child(named_button(
+                            Button::new("find-next")
+                                .ghost()
+                                .small()
+                                .size(px(32.))
+                                .icon(IconName::ChevronDown)
+                                .tooltip("Next result — Enter")
+                                .disabled(self.find.count == 0)
+                                .on_click(cx.listener(|this, _, _, cx| this.find_next(false, cx))),
+                            "Next result",
+                        )),
+                )
                 .child(named_button(
                     Button::new("find-close")
                         .ghost()
                         .small()
+                        .size(px(32.))
+                        .rounded(px(8.))
+                        .bg(rgb(palette.hover))
                         .icon(IconName::Close)
                         .tooltip("Close find — Escape")
                         .on_click(cx.listener(|this, _, window, cx| this.close_find(window, cx))),
                     "Close find",
-                ))
+                ));
+            div()
+                .flex()
+                .justify_end()
+                .w_full()
+                .flex_shrink_0()
+                .p(px(8.))
+                .child(bar)
                 .into_any_element()
         })
     }

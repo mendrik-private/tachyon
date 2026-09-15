@@ -18,10 +18,10 @@ use gpui::{
     CursorStyle, DismissEvent, Element, ElementId, ElementInputHandler, Entity, EntityInputHandler,
     FocusHandle, Focusable, FontStyle, FontWeight, GlobalElementId, Hitbox, ImageSource,
     KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ObjectFit,
-    PaintQuad, Pixels, Point, Resource, Role, ScrollHandle, ScrollWheelEvent, ShapedLine,
+    PaintQuad, Pixels, Point, Position, Resource, Role, ScrollHandle, ScrollWheelEvent, ShapedLine,
     StrikethroughStyle, Style, StyledImage as _, Subscription, Task, TextRun, Toggled,
     UTF16Selection, UnderlineStyle, Window, actions, anchored, deferred, div, fill, hash, img,
-    outline, point, prelude::*, px, relative, rgb, rgba, size,
+    linear_color_stop, linear_gradient, outline, point, prelude::*, px, relative, rgb, rgba, size,
 };
 use gpui_component::{
     ActiveTheme as _, Icon, IconName, IconNamed as _, Sizable as _, Theme,
@@ -247,6 +247,7 @@ fn table_edge_menu(
     .max_w(px(208.))
 }
 const LINE_HEIGHT: f32 = 28.8;
+const VIEWPORT_FADE_LINES: f32 = 3.;
 const OUTLINE_JUMP_STEPS: u32 = 15;
 const OUTLINE_JUMP_FRAME: Duration = Duration::from_millis(8);
 const SHAPED_LINE_CACHE_CAPACITY: usize = 2_048;
@@ -7052,6 +7053,9 @@ impl gpui::Render for RichDocumentEditor {
             .children(self.render_tree_context(&visible_order, palette))
             .children(image_elements)
             .children(inline_math_elements)
+            .child(ViewportFadeElement {
+                editor: cx.entity(),
+            })
             .when(self.toolbar_visible, |editor| {
                 editor.child(
                     div()
@@ -7533,6 +7537,162 @@ struct DocumentTextElement {
     editor: Entity<RichDocumentEditor>,
     semantics: Option<std::rc::Rc<accessibility::SemanticTree>>,
     math_scroll_handles: HashMap<NodeId, ScrollHandle>,
+}
+
+/// A viewport-fixed paper wash that softens the document's clipped edges.
+///
+/// It intentionally has no hitbox or accessibility role: the editor remains
+/// responsible for pointer selection and keyboard input beneath this paint-only
+/// sibling.
+struct ViewportFadeElement {
+    editor: Entity<RichDocumentEditor>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ViewportFadeBands {
+    height: f32,
+    top_opacity: f32,
+    bottom_opacity: f32,
+}
+
+fn viewport_fade_bands(
+    scroll_y: f32,
+    max_scroll_y: f32,
+    viewport_height: f32,
+    zoom: f32,
+) -> Option<ViewportFadeBands> {
+    if !max_scroll_y.is_finite() || max_scroll_y <= 0. || viewport_height <= 0. {
+        return None;
+    }
+
+    let height = (VIEWPORT_FADE_LINES * DocumentStyle::BODY_LEADING * zoom)
+        .min(viewport_height / 2.)
+        .max(0.);
+    if height <= 0. {
+        return None;
+    }
+
+    let scroll_y = scroll_y.clamp(0., max_scroll_y);
+    Some(ViewportFadeBands {
+        height,
+        top_opacity: smoothstep((scroll_y / height).min(1.)),
+        bottom_opacity: smoothstep(((max_scroll_y - scroll_y) / height).min(1.)),
+    })
+}
+
+fn smoothstep(value: f32) -> f32 {
+    let value = value.clamp(0., 1.);
+    value * value * (3. - 2. * value)
+}
+
+impl IntoElement for ViewportFadeElement {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+impl Element for ViewportFadeElement {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        Some("document-viewport-fade".into())
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&gpui::InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, Self::RequestLayoutState) {
+        // Absolute positioning keeps this visual sibling out of the document
+        // height that establishes the scroll range. Paint uses ScrollHandle's
+        // current viewport bounds because this element itself scrolls with the
+        // document content.
+        let mut style = Style {
+            position: Position::Absolute,
+            ..Default::default()
+        };
+        style.inset.top = px(0.).into();
+        style.inset.left = px(0.).into();
+        style.size.width = relative(1.).into();
+        style.size.height = relative(1.).into();
+        (window.request_layout(style, [], cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&gpui::InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut Self::RequestLayoutState,
+        _: &mut Window,
+        _: &mut App,
+    ) -> Self::PrepaintState {
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&gpui::InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut Self::RequestLayoutState,
+        _: &mut Self::PrepaintState,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        // Parent div prepaint updates these fields immediately before children
+        // paint, avoiding stale bounds after a resize or document reflow.
+        let (viewport, scroll_y, max_scroll_y, zoom) = {
+            let editor = self.editor.read(cx);
+            (
+                editor.scroll_handle.bounds(),
+                (-editor.scroll_handle.offset().y).into(),
+                editor.scroll_handle.max_offset().y.into(),
+                editor.zoom_factor,
+            )
+        };
+        let fades = viewport_fade_bands(scroll_y, max_scroll_y, viewport.size.height.into(), zoom);
+
+        let Some(fades) = fades else {
+            return;
+        };
+        let palette = TachyonPalette::for_dark(cx.theme().is_dark());
+        let transparent = rgb(palette.page).alpha(0.);
+        let top = Bounds::new(viewport.origin, size(viewport.size.width, px(fades.height)));
+        let bottom = Bounds::new(
+            point(viewport.left(), viewport.bottom() - px(fades.height)),
+            size(viewport.size.width, px(fades.height)),
+        );
+
+        if fades.top_opacity > 0. {
+            window.paint_quad(fill(
+                top,
+                linear_gradient(
+                    0.,
+                    linear_color_stop(transparent, 0.),
+                    linear_color_stop(rgb(palette.page).alpha(fades.top_opacity), 1.),
+                ),
+            ));
+        }
+        if fades.bottom_opacity > 0. {
+            window.paint_quad(fill(
+                bottom,
+                linear_gradient(
+                    180.,
+                    linear_color_stop(transparent, 0.),
+                    linear_color_stop(rgb(palette.page).alpha(fades.bottom_opacity), 1.),
+                ),
+            ));
+        }
+    }
 }
 
 struct TextPrepaintState {
@@ -13132,6 +13292,74 @@ mod tests {
     use crate::adaptive::PROSE_WIDTH;
 
     #[test]
+    fn viewport_fades_clear_at_the_respective_scroll_endpoints() {
+        let top = viewport_fade_bands(0., 900., 600., 1.).expect("scrollable viewport");
+        let bottom = viewport_fade_bands(900., 900., 600., 1.).expect("scrollable viewport");
+
+        assert_eq!(top.top_opacity, 0.);
+        assert_eq!(top.bottom_opacity, 1.);
+        assert_eq!(bottom.top_opacity, 1.);
+        assert_eq!(bottom.bottom_opacity, 0.);
+        assert_eq!(
+            viewport_fade_bands(0., 0., 600., 1.),
+            None,
+            "a non-scrollable document must not paint either fade"
+        );
+    }
+
+    #[test]
+    fn viewport_fades_are_symmetric_and_monotonic_near_scroll_ends() {
+        let height = VIEWPORT_FADE_LINES * DocumentStyle::BODY_LEADING;
+        let top = [0., height / 4., height / 2., height * 3. / 4., height]
+            .into_iter()
+            .map(|scroll| {
+                viewport_fade_bands(scroll, height * 4., 800., 1.)
+                    .unwrap()
+                    .top_opacity
+            })
+            .collect::<Vec<_>>();
+        let bottom = [0., height / 4., height / 2., height * 3. / 4., height]
+            .into_iter()
+            .map(|distance| {
+                viewport_fade_bands(height * 4. - distance, height * 4., 800., 1.)
+                    .unwrap()
+                    .bottom_opacity
+            })
+            .collect::<Vec<_>>();
+
+        assert!(top.windows(2).all(|pair| pair[0] < pair[1]));
+        assert_eq!(top, bottom, "both ends use the same smooth curve");
+        let increments = top
+            .windows(2)
+            .map(|pair| pair[1] - pair[0])
+            .collect::<Vec<_>>();
+        assert!(
+            increments[0] < increments[1] && increments[3] < increments[2],
+            "the fade must ease into and out of its full strength rather than ramp linearly"
+        );
+        assert!(
+            (increments[0] - increments[3]).abs() < f32::EPSILON
+                && (increments[1] - increments[2]).abs() < f32::EPSILON,
+            "the easing must remain symmetric at both ends of the band"
+        );
+    }
+
+    #[test]
+    fn viewport_fade_height_tracks_zoom_without_overlapping_in_short_viewports() {
+        let zoomed = viewport_fade_bands(500., 1_000., 800., 1.5).unwrap();
+        assert_eq!(
+            zoomed.height,
+            VIEWPORT_FADE_LINES * DocumentStyle::BODY_LEADING * 1.5
+        );
+
+        let short = viewport_fade_bands(500., 1_000., 80., 2.).unwrap();
+        assert_eq!(
+            short.height, 40.,
+            "top and bottom bands meet but never overlap"
+        );
+    }
+
+    #[test]
     fn default_table_rules_follow_the_one_logical_pixel_token() {
         let mut output = Vec::new();
         push_table_border(
@@ -15705,9 +15933,18 @@ mod tests {
             _ = window.draw(cx);
         });
         let before = editor.read_with(cx, |editor, _| editor.scroll_metrics().0);
-        let (document_height, viewport_height) = editor.read_with(cx, |editor, _| {
-            (editor.document_height, editor.scroll_metrics().1)
+        let (document_height, viewport_height, max_scroll_y) = editor.read_with(cx, |editor, _| {
+            (
+                editor.document_height,
+                editor.scroll_metrics().1,
+                f32::from(editor.scroll_handle.max_offset().y),
+            )
         });
+        assert!(max_scroll_y > 0.);
+        assert!(
+            (max_scroll_y - (document_height - viewport_height).max(0.)).abs() < 0.1,
+            "the viewport fade must not add scrollable content"
+        );
 
         cx.simulate_event(ScrollWheelEvent {
             position: point(px(200.), px(200.)),

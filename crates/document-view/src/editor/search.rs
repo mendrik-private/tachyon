@@ -420,7 +420,7 @@ impl RichDocumentEditor {
                 .iter()
                 .find(|line| line.projected_range().contains(&range.start))
             {
-                self.set_scroll_y((line.y - 24.).max(0.), cx);
+                self.center_find_vertical(line.y, line.y + line.style.line_height, cx);
             }
         }
         self.hide_find_toolbar();
@@ -445,7 +445,8 @@ impl RichDocumentEditor {
         let Some(line) = target else {
             return;
         };
-        let mut y = line.y;
+        let mut target_top = line.y;
+        let mut target_bottom = line.y + line.style.line_height;
         if let Some(preview) = &line.html_preview {
             if Some(&preview.source) != found.html.as_ref() {
                 return;
@@ -465,7 +466,8 @@ impl RichDocumentEditor {
                         .get(byte..byte + found.range.len())
                         .is_some()
                 {
-                    y += bounds[1] * self.zoom_factor;
+                    target_top += bounds[1] * self.zoom_factor;
+                    target_bottom = line.y + bounds[3] * self.zoom_factor;
                     self.html_selection = Some(HtmlSelection {
                         cross: None,
                         node: found.node,
@@ -478,7 +480,7 @@ impl RichDocumentEditor {
             }
         }
         _ = self.reveal_find_horizontal();
-        self.set_scroll_y((y - 24.).max(0.), cx);
+        self.center_find_vertical(target_top, target_bottom, cx);
         self.find.status = format!(
             "{} / {}{}",
             self.find.requested + 1,
@@ -489,6 +491,26 @@ impl RichDocumentEditor {
                 ""
             }
         );
+    }
+
+    /// Center a find result within the actual scroll viewport. The result can
+    /// be a normal visual line or a zoomed HTML caret, so callers supply its
+    /// document-space vertical bounds rather than a fixed top margin. Leave
+    /// the upper bound to the scroll handle: HTML disclosure can expand the
+    /// document after this reveal has been scheduled.
+    fn center_find_vertical(
+        &mut self,
+        target_top: f32,
+        target_bottom: f32,
+        cx: &mut Context<Self>,
+    ) {
+        let (_, viewport_height) = self.scroll_metrics();
+        if viewport_height <= 0. {
+            return;
+        }
+        let target_center = (target_top + target_bottom) * 0.5;
+        let scroll_y = (target_center - viewport_height * 0.5).max(0.);
+        self.set_scroll_y(scroll_y, cx);
     }
 
     /// Resolve only the selected line, including lines not painted because
@@ -732,6 +754,48 @@ mod tests {
     const SOURCE: &str =
         include_str!("../../../../performance/layout-fixtures/41-find-document.md");
 
+    fn assert_find_line_is_centered(editor: &RichDocumentEditor) {
+        let range = editor.selected_byte_range().0;
+        let line = editor
+            .painted_lines
+            .iter()
+            .find(|line| line.range.contains(&range.start))
+            .expect("find result must be painted");
+        let viewport = editor.scroll_handle.bounds();
+        assert!(
+            (f32::from(line.bounds.center().y - viewport.center().y)).abs() < 2.,
+            "find result must be vertically centered: line={:?}, viewport={viewport:?}",
+            line.bounds
+        );
+    }
+
+    fn assert_find_line_is_visible(editor: &RichDocumentEditor, expected: &str) {
+        let range = editor.selected_byte_range().0;
+        assert_eq!(&editor.projection.text()[range.clone()], expected);
+        let line = editor
+            .painted_lines
+            .iter()
+            .find(|line| line.range.contains(&range.start))
+            .expect("find result must be painted");
+        let viewport = editor.scroll_handle.bounds();
+        assert!(
+            line.bounds.top() >= viewport.top() && line.bounds.bottom() <= viewport.bottom(),
+            "find result must remain inside the viewport: line={:?}, viewport={viewport:?}",
+            line.bounds
+        );
+    }
+
+    fn settle_find(editor: &Entity<RichDocumentEditor>, cx: &mut gpui::VisualTestContext) {
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(100));
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+        cx.run_until_parked();
+        editor.read_with(cx, |editor, _| assert!(editor.find.pending.is_none()));
+    }
+
     #[test]
     fn canonical_find_preserves_source_order_formatting_and_unicode_offsets() {
         let document = Document::from_markdown(SOURCE).unwrap();
@@ -760,6 +824,116 @@ mod tests {
         ranges.clear();
         for_matches(text, "i", |range| ranges.push(range));
         assert_eq!(&text[ranges[0].clone()], "İ");
+    }
+
+    #[gpui::test]
+    fn find_centers_first_next_and_previous_results_even_when_already_visible(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(init);
+        let source = (0..72)
+            .map(|index| {
+                if [18, 36, 54].contains(&index) {
+                    format!("Paragraph {index} contains needle for search navigation.")
+                } else {
+                    format!("Paragraph {index} leaves space around every search result.")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        cx.simulate_resize(size(px(700.), px(250.)));
+        for _ in 0..3 {
+            cx.update(|window, cx| {
+                _ = window.draw(cx);
+            });
+            cx.run_until_parked();
+        }
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                let first = editor.projection.text().find("needle").unwrap();
+                let line = editor
+                    .visual_lines
+                    .iter()
+                    .find(|line| line.projected_range().contains(&first))
+                    .unwrap();
+                // The first result begins under the top fade before navigation.
+                editor.set_scroll_y(line.y, cx);
+                editor.find.query = "needle".into();
+                editor.open_find(window, cx);
+            });
+        });
+        settle_find(&editor, cx);
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.find.requested, 0);
+            assert_find_line_is_centered(editor);
+        });
+
+        cx.update(|_, cx| editor.update(cx, |editor, cx| editor.find_next(false, cx)));
+        settle_find(&editor, cx);
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.find.requested, 1);
+            assert_find_line_is_centered(editor);
+        });
+
+        cx.update(|_, cx| editor.update(cx, |editor, cx| editor.find_next(true, cx)));
+        settle_find(&editor, cx);
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.find.requested, 0);
+            assert_find_line_is_centered(editor);
+        });
+    }
+
+    #[gpui::test]
+    fn find_clamps_results_at_the_document_start_and_end(cx: &mut gpui::TestAppContext) {
+        cx.update(init);
+        let source = (0..64)
+            .map(|index| match index {
+                0 | 63 => format!("Paragraph {index} contains edge needle."),
+                _ => format!("Paragraph {index} fills the document between matches."),
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        cx.simulate_resize(size(px(700.), px(250.)));
+        for _ in 0..3 {
+            cx.update(|window, cx| {
+                _ = window.draw(cx);
+            });
+            cx.run_until_parked();
+        }
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.find.query = "needle".into();
+                editor.open_find(window, cx);
+            });
+        });
+        settle_find(&editor, cx);
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.find.requested, 0);
+            assert_find_line_is_visible(editor, "needle");
+            assert!(
+                editor.scroll_metrics().0 < 0.1,
+                "first match must clamp at top"
+            );
+        });
+
+        cx.update(|_, cx| editor.update(cx, |editor, cx| editor.find_next(false, cx)));
+        settle_find(&editor, cx);
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.find.requested, 1);
+            let max_scroll_y: f32 = editor.scroll_handle.max_offset().y.into();
+            assert!(max_scroll_y > 0., "fixture must scroll");
+            assert_find_line_is_visible(editor, "needle");
+            assert!(
+                (editor.scroll_metrics().0 - max_scroll_y).abs() < 0.1,
+                "last match must clamp at bottom"
+            );
+        });
     }
 
     #[test]
@@ -801,6 +975,7 @@ mod tests {
         let (editor, cx) = cx.add_window_view(|window, cx| {
             RichDocumentEditor::new(Document::from_markdown(SOURCE).unwrap(), window, cx)
         });
+        cx.simulate_resize(size(px(700.), px(250.)));
         for _ in 0..3 {
             cx.update(|window, cx| {
                 _ = window.draw(cx);
@@ -836,11 +1011,83 @@ mod tests {
                 &selection.preview.editable_text[selection.range()],
                 "Deep needle"
             );
+            let caret = editor
+                .html_caret_bounds(selection.anchor)
+                .expect("HTML find target caret must be painted");
+            let viewport = editor.scroll_handle.bounds();
+            assert!(
+                (f32::from(caret.center().y - viewport.center().y)).abs() < 2.,
+                "HTML find target must be vertically centered: caret={caret:?}, viewport={viewport:?}"
+            );
             assert_eq!(editor.document.snapshot().serialize().unwrap(), SOURCE);
             assert!(matches!(
                 editor.document.undo(),
                 Err(DocumentError::NothingToUndo)
             ));
+        });
+    }
+
+    #[gpui::test]
+    fn find_centers_a_zoomed_html_caret_after_disclosure_expands_the_document(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(init);
+        let body = (0..48)
+            .map(|index| {
+                if index == 43 {
+                    "<p>Deep html target waits near the bottom.</p>".to_owned()
+                } else {
+                    format!("<p>Expanded HTML paragraph {index} adds vertical space.</p>")
+                }
+            })
+            .collect::<String>();
+        let source = format!(
+            "{}<details><summary>Collapsed summary</summary>{body}</details>\n\n{}",
+            "Preamble stays above the disclosure.\n\n".repeat(3),
+            "Trailing prose keeps the expanded target away from the document end.\n\n".repeat(6),
+        );
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(
+                Document::from_markdown(source.as_str()).unwrap(),
+                window,
+                cx,
+            )
+        });
+        cx.simulate_resize(size(px(700.), px(250.)));
+        editor.update(cx, |editor, cx| editor.set_zoom_factor(1.5, cx));
+        for _ in 0..4 {
+            cx.update(|window, cx| {
+                _ = window.draw(cx);
+            });
+            cx.run_until_parked();
+        }
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.find.query = "deep html target".into();
+                editor.open_find(window, cx);
+            });
+        });
+        settle_find(&editor, cx);
+        for _ in 0..3 {
+            cx.update(|window, cx| {
+                _ = window.draw(cx);
+            });
+            cx.run_until_parked();
+        }
+        editor.read_with(cx, |editor, _| {
+            let selection = editor.html_selection.as_ref().expect("HTML match selected");
+            assert_eq!(
+                &selection.preview.editable_text[selection.range()],
+                "Deep html target"
+            );
+            let caret = editor
+                .html_caret_bounds(selection.anchor)
+                .expect("zoomed HTML caret painted");
+            let viewport = editor.scroll_handle.bounds();
+            assert!(
+                (f32::from(caret.center().y - viewport.center().y)).abs() < 2.,
+                "expanded HTML target must be centered: caret={caret:?}, viewport={viewport:?}"
+            );
         });
     }
 

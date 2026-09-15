@@ -85,7 +85,10 @@ use crate::linux::{
     is_within_click_distance, keystroke_from_xkb, keystroke_underlying_dead_key,
     modifiers_from_xkb, open_uri_internal, read_fd_with_timeout, reveal_path_internal,
     wayland::{
-        clipboard::{Clipboard, DataOffer, FILE_LIST_MIME_TYPE, HTML_MIME_TYPE, TEXT_MIME_TYPES},
+        clipboard::{
+            Clipboard, DataOffer, FILE_LIST_MIME_TYPE, HTML_MIME_TYPE, MARKDOWN_MIME_TYPE,
+            TEXT_MIME_TYPES,
+        },
         cursor::Cursor,
         serial::{Serial, SerialKind, SerialTracker},
         to_shape,
@@ -1196,6 +1199,9 @@ impl LinuxClient for WaylandClient {
             }
             if state.clipboard.has_html() {
                 data_source.offer(HTML_MIME_TYPE.to_string());
+            }
+            if state.clipboard.has_markdown() {
+                data_source.offer(MARKDOWN_MIME_TYPE.to_string());
             }
             data_source.offer(state.clipboard.self_mime());
             data_device.set_selection(Some(&data_source), serial.as_raw());

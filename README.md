@@ -244,12 +244,16 @@ Application state follows the XDG base-directory convention. Override
 
 ## Clipboard interoperability
 
-Copy produces plain text plus Tachyon's versioned rich Markdown metadata. A
-second Tachyon window prefers that rich representation, preserving structure
-and formatting; malformed or foreign metadata falls back safely to plain text.
-The pinned GPUI Wayland backend currently advertises only text, image, and file
-clipboard entries, so HTML and Tachyon-specific MIME data are not exported to
-other applications as native Wayland MIME types.
+Copy (Ctrl+C) offers text, Markdown (`text/markdown`), and rich text (`text/html`)
+on Wayland, allowing the receiving application to choose a supported format.
+The selection context menu also offers **Copy as plain text**, **Copy as Markdown**,
+and **Copy as rich text**. Plain text omits formatting; Markdown supplies Markdown
+source even to text-only applications; rich text includes HTML with a text fallback.
+HTML preview copy retains its canonical HTML root and selected Markdown fallback;
+explicit plain text copy strips the selected Markdown formatting.
+Tachyon's private metadata preserves structure for same-process rich paste;
+malformed or foreign metadata falls back safely to text. Native HTML and Markdown
+publication is implemented in the Wayland backend, not X11.
 
 ## Architecture
 

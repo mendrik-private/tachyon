@@ -282,6 +282,45 @@ enum ClipboardPaste {
     PlainText(String),
 }
 
+#[derive(Clone, Copy)]
+enum CopyFormat {
+    RichText,
+    PlainText,
+    Markdown,
+}
+
+fn clipboard_item(
+    payload: document_core::ClipboardPayload,
+    format: CopyFormat,
+) -> Result<Option<ClipboardItem>, DocumentError> {
+    let markdown = payload.preferred_markdown()?;
+    let text = match format {
+        CopyFormat::Markdown => markdown.clone(),
+        CopyFormat::PlainText | CopyFormat::RichText => payload.plain_text,
+    };
+    let Some(text) = text else { return Ok(None) };
+    let mut item = if matches!(format, CopyFormat::RichText)
+        && let Some(metadata) = payload.rich_json
+    {
+        ClipboardItem::new_string_with_metadata(text, metadata)
+    } else {
+        ClipboardItem::new_string(text)
+    };
+    if matches!(format, CopyFormat::RichText) {
+        #[cfg(target_os = "linux")]
+        if let Some(html) = payload.html {
+            item = item.with_html(html);
+        }
+    }
+    #[cfg(target_os = "linux")]
+    if !matches!(format, CopyFormat::PlainText)
+        && let Some(markdown) = markdown
+    {
+        item = item.with_markdown(markdown);
+    }
+    Ok(Some(item))
+}
+
 fn clipboard_paste(item: &ClipboardItem) -> Option<ClipboardPaste> {
     if let Some(rich) = item
         .metadata()
@@ -981,6 +1020,9 @@ actions!(
         SelectDocumentStart,
         SelectDocumentEnd,
         Copy,
+        CopyAsPlainText,
+        CopyAsMarkdown,
+        CopyAsRichText,
         Cut,
         Paste,
         PasteAsMarkdown,
@@ -3869,6 +3911,10 @@ impl RichDocumentEditor {
     }
 
     fn copy(&mut self, _: &Copy, window: &mut Window, cx: &mut Context<Self>) {
+        self.copy_as(CopyFormat::RichText, window, cx);
+    }
+
+    fn copy_as(&mut self, format: CopyFormat, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = &self.find.read_only_match {
             cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
             return;
@@ -3892,24 +3938,36 @@ impl RichDocumentEditor {
             };
             let payload = range
                 .ok_or_else(|| DocumentError::Html("Choose the preview text again".into()))
-                .and_then(|range| snapshot.preview_clipboard_payload(&range));
-            match payload {
-                Ok(Some(payload)) => {
-                    if let Some(text) = payload.plain_text {
-                        let item = if let Some(metadata) = payload.rich_json {
-                            ClipboardItem::new_string_with_metadata(text, metadata)
-                        } else {
-                            ClipboardItem::new_string(text)
-                        };
-                        #[cfg(target_os = "linux")]
-                        let item = if let Some(html) = payload.html {
-                            item.with_html(html)
-                        } else {
-                            item
-                        };
-                        cx.write_to_clipboard(item);
+                .and_then(|range| snapshot.preview_clipboard_payload(&range))
+                .and_then(|payload| {
+                    let Some(mut payload) = payload else {
+                        return Ok(None);
+                    };
+                    // Preview payloads use selected Markdown as their text fallback.
+                    // Explicit plain copy must remove that Markdown formatting.
+                    if matches!(format, CopyFormat::PlainText)
+                        && let Some(markdown) = payload.preferred_markdown()?
+                    {
+                        let document = Document::from_markdown(markdown)?;
+                        payload.plain_text = Some(
+                            document
+                                .snapshot()
+                                .blocks()
+                                .iter()
+                                .map(|block| block.plain_text())
+                                .collect::<Vec<_>>()
+                                .join("\n\n"),
+                        );
                     }
-                }
+                    Ok(Some(payload))
+                });
+            match payload.and_then(|payload| {
+                payload
+                    .map(|payload| clipboard_item(payload, format))
+                    .transpose()
+                    .map(Option::flatten)
+            }) {
+                Ok(Some(item)) => cx.write_to_clipboard(item),
                 Ok(None) => {}
                 Err(error) => self.record_error(error, window),
             }
@@ -3920,17 +3978,13 @@ impl RichDocumentEditor {
             return;
         }
         let snapshot = self.document.snapshot();
-        match snapshot.clipboard_payload() {
-            Ok(Some(payload)) => {
-                let Some(plain) = payload.plain_text else {
-                    return;
-                };
-                if let Some(metadata) = payload.rich_json {
-                    cx.write_to_clipboard(ClipboardItem::new_string_with_metadata(plain, metadata));
-                } else {
-                    cx.write_to_clipboard(ClipboardItem::new_string(plain));
-                }
-            }
+        match snapshot.clipboard_payload().and_then(|payload| {
+            payload
+                .map(|payload| clipboard_item(payload, format))
+                .transpose()
+                .map(Option::flatten)
+        }) {
+            Ok(Some(item)) => cx.write_to_clipboard(item),
             Ok(None) => {}
             Err(_) => {
                 let (range, _) = self.selected_byte_range();
@@ -6931,6 +6985,15 @@ impl gpui::Render for RichDocumentEditor {
             .on_action(cx.listener(Self::select_document_start))
             .on_action(cx.listener(Self::select_document_end))
             .on_action(cx.listener(Self::copy))
+            .on_action(cx.listener(|this, _: &CopyAsPlainText, window, cx| {
+                this.copy_as(CopyFormat::PlainText, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &CopyAsMarkdown, window, cx| {
+                this.copy_as(CopyFormat::Markdown, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &CopyAsRichText, window, cx| {
+                this.copy_as(CopyFormat::RichText, window, cx)
+            }))
             .on_action(cx.listener(Self::cut))
             .on_action(cx.listener(Self::paste))
             .on_action(cx.listener(Self::paste_as_markdown))
@@ -7334,6 +7397,23 @@ impl gpui::Render for RichDocumentEditor {
                     return menu
                         .min_w(px(264.))
                         .action_context(context_focus.clone())
+                        .menu_with_disabled("Copy", Box::new(Copy), !has_copy_selection)
+                        .menu_with_disabled(
+                            "Copy as plain text",
+                            Box::new(CopyAsPlainText),
+                            !has_copy_selection,
+                        )
+                        .menu_with_disabled(
+                            "Copy as Markdown",
+                            Box::new(CopyAsMarkdown),
+                            !has_copy_selection,
+                        )
+                        .menu_with_disabled(
+                            "Copy as rich text",
+                            Box::new(CopyAsRichText),
+                            !has_copy_selection,
+                        )
+                        .separator()
                         .item(
                             PopupMenuItem::new("Edit text here")
                                 .icon(IconName::CaseSensitive)
@@ -7362,6 +7442,21 @@ impl gpui::Render for RichDocumentEditor {
                         "Copy",
                         IconName::Copy,
                         Box::new(Copy),
+                        !has_copy_selection,
+                    )
+                    .menu_with_disabled(
+                        "Copy as plain text",
+                        Box::new(CopyAsPlainText),
+                        !has_copy_selection,
+                    )
+                    .menu_with_disabled(
+                        "Copy as Markdown",
+                        Box::new(CopyAsMarkdown),
+                        !has_copy_selection,
+                    )
+                    .menu_with_disabled(
+                        "Copy as rich text",
+                        Box::new(CopyAsRichText),
                         !has_copy_selection,
                     )
                     .menu("Paste", Box::new(Paste))
@@ -15466,6 +15561,114 @@ mod tests {
             clipboard_paste(&item),
             Some(ClipboardPaste::RichMarkdown("**left** | right".into()))
         );
+    }
+
+    #[test]
+    fn copy_formats_preserve_formatting_and_plain_text_choice() {
+        let payload = document_core::ClipboardPayload {
+            plain_text: Some("café & bold".into()),
+            html: Some("<p>café &amp; <strong>bold</strong></p>".into()),
+            rich_json: Some(
+                RichClipboard::new("café & **bold**", "café & bold")
+                    .to_json()
+                    .unwrap(),
+            ),
+        };
+        let plain = clipboard_item(payload.clone(), CopyFormat::PlainText)
+            .unwrap()
+            .unwrap();
+        assert_eq!(plain.text().as_deref(), Some("café & bold"));
+        assert!(plain.metadata().is_none());
+        let markdown = clipboard_item(payload.clone(), CopyFormat::Markdown)
+            .unwrap()
+            .unwrap();
+        assert_eq!(markdown.text().as_deref(), Some("café & **bold**"));
+        assert!(markdown.metadata().is_none());
+        let rich = clipboard_item(payload.clone(), CopyFormat::RichText)
+            .unwrap()
+            .unwrap();
+        assert_eq!(rich.text(), payload.plain_text);
+        assert_eq!(
+            clipboard_paste(&rich),
+            Some(ClipboardPaste::RichMarkdown("café & **bold**".into()))
+        );
+        #[cfg(target_os = "linux")]
+        {
+            assert!(plain.html().is_none());
+            assert!(plain.markdown().is_none());
+            assert!(markdown.html().is_none());
+            assert_eq!(markdown.markdown(), Some("café & **bold**"));
+            assert_eq!(rich.markdown(), markdown.markdown());
+            assert_eq!(rich.html(), payload.html.as_deref());
+        }
+    }
+
+    #[gpui::test]
+    fn copy_actions_publish_selected_markdown_and_plain_text(cx: &mut gpui::TestAppContext) {
+        cx.update(init_editor);
+        let source = "Hello **café** & [link](https://example.test)\n";
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.select_all(&SelectAll, window, cx);
+                editor.copy(&Copy, window, cx);
+                let item = cx.read_from_clipboard().unwrap();
+                assert_eq!(item.text().as_deref(), Some("Hello café & link"));
+                #[cfg(target_os = "linux")]
+                {
+                    assert!(item.html().unwrap().contains("<strong>café</strong>"));
+                    assert!(item.markdown().unwrap().contains("**café**"));
+                }
+                editor.copy_as(CopyFormat::Markdown, window, cx);
+                assert!(
+                    cx.read_from_clipboard()
+                        .unwrap()
+                        .text()
+                        .unwrap()
+                        .contains("**café**")
+                );
+                editor.copy_as(CopyFormat::PlainText, window, cx);
+                let item = cx.read_from_clipboard().unwrap();
+                assert_eq!(item.text().as_deref(), Some("Hello café & link"));
+                assert!(item.metadata().is_none());
+                assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
+            });
+        });
+    }
+
+    #[gpui::test]
+    fn html_preview_plain_copy_strips_selected_markdown(cx: &mut gpui::TestAppContext) {
+        cx.update(init_editor);
+        let source = "<div><p>Hello <strong>café</strong></p></div>\n";
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                click_html_text(editor, 0, 0, window, cx);
+                editor.select_all(&SelectAll, window, cx);
+                editor.copy_as(CopyFormat::Markdown, window, cx);
+                assert!(
+                    cx.read_from_clipboard()
+                        .unwrap()
+                        .text()
+                        .unwrap()
+                        .contains("**café**")
+                );
+                editor.copy_as(CopyFormat::PlainText, window, cx);
+                let item = cx.read_from_clipboard().unwrap();
+                assert_eq!(item.text().as_deref(), Some("Hello café"));
+                assert!(item.metadata().is_none());
+                #[cfg(target_os = "linux")]
+                {
+                    assert!(item.html().is_none());
+                    assert!(item.markdown().is_none());
+                }
+                assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
+            });
+        });
     }
 
     #[test]

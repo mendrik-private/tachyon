@@ -75,6 +75,10 @@ membership events and passes the matrix.
 
 ## Wayland HTML clipboard publication
 
+Clipboard items can also carry a `text/markdown` alternative. The Wayland
+backend advertises it only when supplied and dispatches requests independently
+from plain text and HTML. Explicit plain-copy items carry neither alternative.
+
 A normal clipboard item with an explicit GPUI HTML alternative advertises
 `text/html` alongside the existing plain-text aliases. Send dispatch selects
 that requested representation; unknown MIME requests do not receive plain text.

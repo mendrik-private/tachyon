@@ -71,6 +71,7 @@ def check(env, input_event, source, pid, probe):
             plain, html = case[-2:]
             key(46, control=True)
             wait_for(lambda: read('text/plain') == plain, f'Cross-owner Markdown mismatch: expected {plain!r}')
+            wait_for(lambda: read('text/markdown') == plain, 'Cross-owner Markdown MIME mismatch')
             wait_for(lambda: read('text/html') == html, 'Cross-owner roots or surrounding Markdown mismatch')
             if source.read_bytes() != original: raise RuntimeError('Cross-owner copy changed source')
             key(44, control=True)
@@ -96,6 +97,7 @@ def check(env, input_event, source, pid, probe):
                 for _ in query: key(105, shift=True)
             key(46, control=True)
             wait_for(lambda: read('text/plain') == plain, f'Selected Markdown mismatch for {query}: {read("text/plain")!r}')
+            wait_for(lambda: read('text/markdown') == plain, f'Markdown MIME mismatch for {query}')
             wait_for(lambda: read('text/html') == expected_html,
                      f'Canonical root MIME did not arrive for {query} (reverse={reverse})')
             if source.read_bytes() != original: raise RuntimeError('Copy changed source')

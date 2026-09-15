@@ -2301,6 +2301,8 @@ impl ClipboardItem {
                 metadata: Some(metadata),
                 #[cfg(target_os = "linux")]
                 html: None,
+                #[cfg(target_os = "linux")]
+                markdown: None,
             })],
         }
     }
@@ -2376,6 +2378,24 @@ impl ClipboardItem {
     pub fn html(&self) -> Option<&str> {
         match self.entries.as_slice() {
             [ClipboardEntry::String(text)] => text.html.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Attach an alternative `text/markdown` representation to a single text item.
+    #[cfg(target_os = "linux")]
+    pub fn with_markdown(mut self, markdown: String) -> Self {
+        if let [ClipboardEntry::String(text)] = self.entries.as_mut_slice() {
+            text.markdown = Some(markdown);
+        }
+        self
+    }
+
+    /// Markdown alternative, without replacing plain text or HTML.
+    #[cfg(target_os = "linux")]
+    pub fn markdown(&self) -> Option<&str> {
+        match self.entries.as_slice() {
+            [ClipboardEntry::String(text)] => text.markdown.as_deref(),
             _ => None,
         }
     }
@@ -2670,6 +2690,9 @@ pub struct ClipboardString {
     /// Optional native HTML alternative (Linux clipboard support).
     #[cfg(target_os = "linux")]
     pub html: Option<String>,
+    /// Alternative Markdown representation for native clipboard publication.
+    #[cfg(target_os = "linux")]
+    pub markdown: Option<String>,
 }
 
 impl ClipboardString {
@@ -2680,6 +2703,8 @@ impl ClipboardString {
             metadata: None,
             #[cfg(target_os = "linux")]
             html: None,
+            #[cfg(target_os = "linux")]
+            markdown: None,
         }
     }
 

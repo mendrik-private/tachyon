@@ -926,14 +926,19 @@ impl RichDocumentEditor {
 
     fn reveal_semantic_bounds(&mut self, bounds: SemanticBounds, cx: &mut Context<Self>) {
         let (current, viewport) = self.scroll_metrics();
-        let margin = 12.;
-        if bounds.y >= current && bounds.y + bounds.height <= current + viewport {
+        let Some(y) = super::reading_reveal_scroll(
+            bounds.y,
+            bounds.y + bounds.height,
+            current,
+            viewport,
+            self.zoom_factor,
+        ) else {
             return;
-        }
+        };
         self.stop_momentum();
         self.jump_generation = self.jump_generation.saturating_add(1);
         let maximum = f32::from(self.scroll_handle.max_offset().y).max(0.);
-        let y = (bounds.y - margin).clamp(0., maximum);
+        let y = y.min(maximum);
         let x = self.scroll_handle.offset().x;
         self.scroll_handle.set_offset(point(x, px(-y)));
         cx.emit(EditorEvent::ViewChanged);

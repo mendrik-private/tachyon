@@ -32,7 +32,7 @@ pub(super) fn records<'a>(source: &str, root: &'a AstNode<'a>) -> Vec<(Range<usi
                     | NodeValue::Math(_)
                     | NodeValue::FrontMatter(_)
             ) {
-                super::source_range(data.sourcepos, &starts, source.len()).and_then(|(a, b)| {
+                super::source_range(data.sourcepos, &starts, source).and_then(|(a, b)| {
                     // Comrak leaves inline positions at the old paragraph origin
                     // after removing leading definitions. Do not trust mismatched
                     // text spans; paragraph-prefix parsing below checks context.
@@ -60,7 +60,15 @@ pub(super) fn records<'a>(source: &str, root: &'a AstNode<'a>) -> Vec<(Range<usi
         }
     }
     let visible = merged;
-    let lines = source.split_inclusive('\n').collect::<Vec<_>>();
+    // Lines share `starts`' terminator rules so `starts[index]` addresses them.
+    let lines = starts
+        .iter()
+        .enumerate()
+        .map(|(index, start)| {
+            &source[*start..starts.get(index + 1).map_or(source.len(), |end| *end)]
+        })
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
     let mut paragraph_at_line = vec![None; lines.len()];
     for position in paragraphs {
         let start = position.start.line.saturating_sub(1).min(lines.len());

@@ -20,6 +20,10 @@ use serde::{Deserialize, Serialize};
 
 const MODE_ENV: &str = "TACHYON_INSTANCE_MODE";
 const SOCKET_ENV: &str = "TACHYON_INSTANCE_SOCKET";
+/// Bounds how long one connection may hold the single listener thread, so a
+/// client that never finishes its request cannot block later clients or the
+/// server shutdown join.
+const CLIENT_IO_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum LaunchMode {
@@ -67,6 +71,17 @@ pub(super) enum Request {
 #[derive(Debug, Deserialize, Serialize)]
 struct Response {
     error: Option<String>,
+}
+
+/// Builds an open request whose path no longer depends on the client's
+/// working directory, which the server does not share.
+pub(super) fn open_request(
+    path: &Path,
+    startup: Option<StartupRequest>,
+) -> Result<Request, String> {
+    let path = std::path::absolute(path)
+        .map_err(|error| format!("could not resolve {}: {error}", path.display()))?;
+    Ok(Request::Open { path, startup })
 }
 
 pub(super) fn forward(socket: &Path, request: &Request) -> Result<(), String> {
@@ -237,6 +252,14 @@ fn listen(
                 break;
             }
         };
+        if let Err(error) = stream
+            .set_nonblocking(false)
+            .and_then(|()| stream.set_read_timeout(Some(CLIENT_IO_TIMEOUT)))
+            .and_then(|()| stream.set_write_timeout(Some(CLIENT_IO_TIMEOUT)))
+        {
+            eprintln!("instance connection could not be configured: {error}");
+            continue;
+        }
         let request = match serde_json::from_reader(&mut stream) {
             Ok(request) => request,
             Err(error) => {
@@ -326,6 +349,60 @@ mod tests {
         assert!(client.join().expect("client thread").is_ok());
         drop(receiver);
         drop(guard);
+        assert!(!socket.exists());
+    }
+
+    #[test]
+    fn open_requests_resolve_relative_paths_in_the_client() {
+        let request = open_request(Path::new("notes/example.md"), None).expect("request");
+        let expected = std::env::current_dir()
+            .expect("current directory")
+            .join("notes/example.md");
+        assert!(matches!(request, Request::Open { path, .. } if path == expected));
+        let request = open_request(Path::new("/tmp/example.md"), None).expect("request");
+        assert!(
+            matches!(request, Request::Open { path, .. } if path == Path::new("/tmp/example.md"))
+        );
+    }
+
+    #[test]
+    fn stalled_client_does_not_block_later_clients_or_shutdown() {
+        let socket = isolated_path("stalled");
+        let server = Server::bind(socket.clone()).expect("bind server");
+        let (mut receiver, guard) = server.into_parts();
+        // Never writes or shuts down its side, so reading to EOF would wait.
+        let stalled = UnixStream::connect(&socket).expect("stalled client");
+        thread::sleep(Duration::from_millis(50));
+
+        let client_socket = socket.clone();
+        let client = thread::spawn(move || forward(&client_socket, &Request::Shutdown));
+        let (inbound_sender, inbound_receiver) = mpsc::channel();
+        let receiving = thread::spawn(move || {
+            let inbound = futures::executor::block_on(receiver.next());
+            let _ = inbound_sender.send(inbound);
+            receiver
+        });
+        let inbound = inbound_receiver
+            .recv_timeout(CLIENT_IO_TIMEOUT * 5)
+            .expect("second client is served after the stalled one times out")
+            .expect("request");
+        let (request, completion) = inbound.into_parts();
+        assert!(matches!(request, Request::Shutdown));
+        completion.finish(Ok(()));
+        assert!(client.join().expect("client thread").is_ok());
+
+        let _stalled_again = UnixStream::connect(&socket).expect("stalled client");
+        let (dropped_sender, dropped_receiver) = mpsc::channel();
+        let receiver = receiving.join().expect("receiver thread");
+        thread::spawn(move || {
+            drop(receiver);
+            drop(guard);
+            let _ = dropped_sender.send(());
+        });
+        dropped_receiver
+            .recv_timeout(CLIENT_IO_TIMEOUT * 5)
+            .expect("server shutdown is not held by a stalled client");
+        drop(stalled);
         assert!(!socket.exists());
     }
 

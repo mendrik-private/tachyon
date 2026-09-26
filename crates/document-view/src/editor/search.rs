@@ -150,7 +150,7 @@ impl Index {
         if query.trim().is_empty() {
             return (0, None);
         }
-        let query = query.to_lowercase();
+        let query = fold(query);
         let mut count = 0;
         let mut selected = None;
         let mut first = None;
@@ -199,20 +199,32 @@ impl Index {
     }
 }
 
+/// Context-free lowercase for one source char. Text and query fold alike:
+/// `str::to_lowercase` maps a word-final Σ to ς, so final sigma folds to σ.
+fn fold_char(ch: char) -> impl Iterator<Item = char> {
+    ch.to_lowercase()
+        .map(|lower| if lower == 'ς' { 'σ' } else { lower })
+}
+
+fn fold(text: &str) -> String {
+    text.chars().flat_map(fold_char).collect()
+}
+
 /// Unicode lowercase matching with original UTF-8 addresses. ASCII avoids a
 /// per-character address map; expansions (İ → i + dot) keep whole source chars.
+/// The query must already be folded with `fold`.
 fn for_matches(text: &str, query: &str, mut visit: impl FnMut(Range<usize>)) {
-    let folded = text.to_lowercase();
     if text.is_ascii() {
-        for (start, _) in folded.match_indices(query) {
+        for (start, _) in text.to_ascii_lowercase().match_indices(query) {
             visit(start..start + query.len());
         }
         return;
     }
+    let folded = fold(text);
     let mut offsets = Vec::new();
     let mut folded_byte = 0;
     for (byte, ch) in text.char_indices() {
-        for lower in ch.to_lowercase() {
+        for lower in fold_char(ch) {
             offsets.push((folded_byte, byte, byte + ch.len_utf8()));
             folded_byte += lower.len_utf8();
         }
@@ -826,6 +838,30 @@ mod tests {
         assert_eq!(&text[ranges[0].clone()], "İ");
     }
 
+    #[test]
+    fn case_insensitive_find_folds_every_sigma_form_alike() {
+        let document = Document::from_markdown("ΟΔΟΣ σοφός\n").unwrap();
+        let index = Index::build(&document.snapshot(), 1);
+        for (query, expected) in [
+            ("Σ", ["Σ", "σ"]),
+            ("σ", ["Σ", "σ"]),
+            ("ς", ["Σ", "σ"]),
+            ("οδος", ["ΟΔΟΣ", "ΟΔΟΣ"]),
+            ("ΟΔΟΣ", ["ΟΔΟΣ", "ΟΔΟΣ"]),
+        ] {
+            let (count, first) = index.find(query, 0);
+            let (_, second) = index.find(query, 1);
+            assert_eq!(
+                (count, [first.unwrap().text, second.unwrap().text]),
+                (
+                    if expected[0] == expected[1] { 1 } else { 3 },
+                    expected.map(str::to_owned)
+                ),
+                "{query}"
+            );
+        }
+    }
+
     #[gpui::test]
     fn find_centers_first_next_and_previous_results_even_when_already_visible(
         cx: &mut gpui::TestAppContext,
@@ -1168,6 +1204,48 @@ mod tests {
                 assert_eq!(editor.document.snapshot().serialize().unwrap(), source);
                 editor.move_to(0, window, cx);
                 assert!(editor.find.read_only_match.is_none());
+            })
+        });
+    }
+
+    #[gpui::test]
+    fn select_all_after_an_opaque_find_match_copies_and_edits_the_document(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(init);
+        let source = "# Keep this heading\n\n<table><tr><td colspan='2'>Opaque needle</td></tr></table>\n\nKeep this paragraph.\n";
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                let index = Arc::new(Index::build(
+                    &editor.document.snapshot(),
+                    editor.document.generation(),
+                ));
+                editor.find.query = "opaque needle".into();
+                editor.find.visible = true;
+                let (count, found) = index.find(&editor.find.query, 0);
+                editor.find.count = count;
+                editor.find.index = Some(index);
+                editor.find.pending = found;
+                editor.find.navigate = true;
+                editor.update_find(window, cx);
+                assert!(editor.find.read_only_match.is_some());
+                editor.close_find(window, cx);
+                editor.select_all(&SelectAll, window, cx);
+                editor.copy(&Copy, window, cx);
+                let copied = cx.read_from_clipboard().unwrap().text().unwrap();
+                assert!(
+                    copied.contains("Keep this heading") && copied.contains("Keep this paragraph"),
+                    "select all must copy the document, not the old match: {copied:?}"
+                );
+                editor.replace_text_in_range(None, "Replaced", window, cx);
+                assert_eq!(
+                    editor.document.snapshot().serialize().unwrap(),
+                    "# Replaced\n"
+                );
             })
         });
     }

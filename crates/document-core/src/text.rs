@@ -30,6 +30,20 @@ pub enum InlineStyle {
     PreservedHtml(String),
 }
 
+impl InlineStyle {
+    /// Styles whose run serializes as one atomic source object rather than as
+    /// formatting around the run's editable text.
+    pub(crate) const fn is_inline_object(&self) -> bool {
+        matches!(
+            self,
+            Self::FootnoteReference(_)
+                | Self::PreservedHtml(_)
+                | Self::Image { .. }
+                | Self::Math { .. }
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InlineRun {
     pub range: TextRange,
@@ -75,6 +89,13 @@ impl TextStorage {
         match self {
             Self::Contiguous(text) => Cow::Borrowed(text.as_str()),
             Self::Rope(text) => Cow::Owned(text.to_string()),
+        }
+    }
+
+    fn is_char_boundary(&self, offset: usize) -> bool {
+        match self {
+            Self::Contiguous(text) => text.is_char_boundary(offset),
+            Self::Rope(text) => offset <= text.len() && text.is_char_boundary(offset),
         }
     }
 
@@ -158,6 +179,12 @@ impl RichText {
         self.text.append_to(output);
     }
 
+    /// Whether `offset` is a UTF-8 character boundary, without copying text.
+    #[must_use]
+    pub(crate) fn is_char_boundary(&self, offset: usize) -> bool {
+        self.text.is_char_boundary(offset)
+    }
+
     #[must_use]
     pub fn runs(&self) -> &[InlineRun] {
         &self.runs
@@ -171,8 +198,7 @@ impl RichText {
                 len: self.len(),
             });
         }
-        let text = self.as_string();
-        if !text.is_char_boundary(range.start) || !text.is_char_boundary(range.end) {
+        if !self.is_char_boundary(range.start) || !self.is_char_boundary(range.end) {
             return Err(PositionError::InvalidTextRange {
                 node,
                 range: range.clone(),
@@ -250,8 +276,8 @@ impl RichText {
         self.validate_range(node, &(start..self.len()))?;
         suffix.validate_range(node, &(suffix_start..suffix.len()))?;
 
-        let own = self.as_string();
-        let suffix_text = suffix.as_string();
+        let own = self.as_cow();
+        let suffix_text = suffix.as_cow();
         let mut combined = String::with_capacity(
             start + replacement.len() + suffix_text.len().saturating_sub(suffix_start),
         );
@@ -308,6 +334,46 @@ impl RichText {
         Ok(())
     }
 
+    /// Replace each whitespace run containing a line break with `separator`,
+    /// removing such runs entirely at either edge of the text.
+    pub(crate) fn replace_line_breaks(
+        &mut self,
+        node: NodeId,
+        separator: &str,
+    ) -> Result<(), DocumentError> {
+        let text = self.as_cow();
+        let bytes = text.as_bytes();
+        let mut breaks = Vec::new();
+        let mut index = 0;
+        while index < bytes.len() {
+            if !matches!(bytes[index], b'\n' | b'\r') {
+                index += 1;
+                continue;
+            }
+            let mut start = index;
+            while start > 0 && matches!(bytes[start - 1], b' ' | b'\t') {
+                start -= 1;
+            }
+            let mut end = index;
+            while end < bytes.len() && matches!(bytes[end], b' ' | b'\t' | b'\n' | b'\r') {
+                end += 1;
+            }
+            breaks.push(start..end);
+            index = end;
+        }
+        let len = bytes.len();
+        drop(text);
+        for range in breaks.into_iter().rev() {
+            let separator = if range.start == 0 || range.end == len {
+                ""
+            } else {
+                separator
+            };
+            self.replace(node, range, separator)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn split_at(
         &self,
         node: NodeId,
@@ -337,7 +403,14 @@ impl RichText {
         {
             let existing = run.styles.iter().position(|candidate| candidate == &style);
             match (enabled, existing) {
-                (true, None) => run.styles.push(style.clone()),
+                (true, None) => {
+                    // A run has one destination: a new link replaces the old.
+                    if matches!(style, InlineStyle::Link(_)) {
+                        run.styles
+                            .retain(|candidate| !matches!(candidate, InlineStyle::Link(_)));
+                    }
+                    run.styles.push(style.clone());
+                }
                 (false, Some(index)) => {
                     run.styles.remove(index);
                 }
@@ -380,14 +453,14 @@ impl RichText {
 
     #[must_use]
     pub fn utf16_offset_for_byte(&self, byte_offset: usize) -> Option<usize> {
-        let text = self.as_string();
+        let text = self.as_cow();
         text.is_char_boundary(byte_offset)
             .then(|| text[..byte_offset].encode_utf16().count())
     }
 
     #[must_use]
     pub fn byte_offset_for_utf16(&self, utf16_offset: usize) -> usize {
-        let text = self.as_string();
+        let text = self.as_cow();
         let mut units = 0;
         for (byte, character) in text.char_indices() {
             if units >= utf16_offset {
@@ -404,7 +477,7 @@ impl RichText {
 
     #[must_use]
     pub fn previous_grapheme_boundary(&self, byte_offset: usize) -> usize {
-        let text = self.as_string();
+        let text = self.as_cow();
         text.grapheme_indices(true)
             .rev()
             .find_map(|(index, _)| (index < byte_offset).then_some(index))
@@ -413,7 +486,7 @@ impl RichText {
 
     #[must_use]
     pub fn next_grapheme_boundary(&self, byte_offset: usize) -> usize {
-        let text = self.as_string();
+        let text = self.as_cow();
         text.grapheme_indices(true)
             .find_map(|(index, _)| (index > byte_offset).then_some(index))
             .unwrap_or(text.len())
@@ -442,18 +515,19 @@ impl RichText {
             })
             .map_or_else(SmallVec::new, |run| {
                 let mut styles = run.styles.clone();
-                // A note reference is an inline object, not a text format.
-                // Typing beside it must not extend a run whose serializer emits
-                // only the reference label (which would discard the new text).
+                // Note references, inline HTML, images and math are inline
+                // objects, not text formats. Typing beside one must not extend
+                // a run whose serializer emits only the object's own source
+                // (which would discard or reinterpret the new text).
                 if offset == run.range.start || offset == run.range.end {
-                    styles.retain(|style| !matches!(style, InlineStyle::FootnoteReference(_)));
+                    styles.retain(|style| !style.is_inline_object());
                 }
                 styles
             })
     }
 
     pub(crate) fn slice(&self, range: Range<usize>) -> Self {
-        let source = self.as_string();
+        let source = self.as_cow();
         let runs = self
             .runs
             .iter()
@@ -671,5 +745,22 @@ mod tests {
                 .styles
                 .contains(&InlineStyle::Italic)
         );
+    }
+
+    #[test]
+    fn char_boundaries_match_str_for_contiguous_and_rope_storage() {
+        let source = format!("aé🎉{}z", "x".repeat(EAGER_ROPE_BYTES));
+        let rope = RichText::new(source.clone());
+        assert!(matches!(rope.text, TextStorage::Rope(_)));
+        let short = RichText::new("aé🎉z");
+        for (text, reference) in [(&rope, source.as_str()), (&short, "aé🎉z")] {
+            for offset in 0..=reference.len() + 2 {
+                assert_eq!(
+                    text.is_char_boundary(offset),
+                    reference.is_char_boundary(offset),
+                    "offset {offset}"
+                );
+            }
+        }
     }
 }

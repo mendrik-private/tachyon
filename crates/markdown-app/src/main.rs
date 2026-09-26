@@ -158,9 +158,12 @@ fn main() {
                 eprintln!("system clock is earlier than the Unix epoch");
                 return;
             }
-            instance::Request::Open {
-                path: path.clone(),
-                startup,
+            match instance::open_request(path, startup) {
+                Ok(request) => request,
+                Err(error) => {
+                    eprintln!("instance request failed: {error}");
+                    return;
+                }
             }
         };
         if let Err(error) = instance::forward(socket, &request) {
@@ -482,6 +485,7 @@ struct LoadedDocument {
     prepared: PreparedDocumentView,
     identity: SourceIdentity,
     recovery_entry: Option<RecoveryEntry>,
+    recovery_promoted: bool,
     recovery_warning: Option<String>,
     source_bytes: usize,
 }
@@ -604,15 +608,18 @@ fn load_document(
     let source_bytes = source.len();
     let document = Document::from_markdown(source)?;
     let prepared = PreparedDocumentView::prepare(&document);
-    let (recovery_entry, recovery_warning) = match recovery.load(&canonical) {
-        Ok(entry) => (entry, None),
-        Err(error) => (
-            None,
-            Some(format!(
-                "The document opened, but its recovery record could not be read: {error}"
-            )),
-        ),
-    };
+    let (recovery_entry, recovery_promoted, recovery_warning) =
+        match recovery.load_unresolved(&canonical) {
+            Ok(Some(unresolved)) => (Some(unresolved.entry), unresolved.promoted, None),
+            Ok(None) => (None, false, None),
+            Err(error) => (
+                None,
+                false,
+                Some(format!(
+                    "The document opened, but its recovery record could not be read: {error}"
+                )),
+            ),
+        };
     startup_trace(trace_started_at, "open-file-worker-ready");
     Ok(LoadedDocument {
         canonical,
@@ -620,6 +627,7 @@ fn load_document(
         prepared,
         identity,
         recovery_entry,
+        recovery_promoted,
         recovery_warning,
         source_bytes,
     })
@@ -663,6 +671,9 @@ struct FileSession {
     saved_revision: Revision,
     dirty: bool,
     save_in_flight: bool,
+    /// The last view discarded this session's changes while a save was in
+    /// flight; the session is dropped once that save completes.
+    discarded: bool,
     listeners: Vec<SessionListener>,
 }
 
@@ -688,11 +699,18 @@ impl SessionRegistry {
                 .retain(|listener| listener.window.upgrade().is_some());
         }
         self.sessions.retain(|_, session| {
-            session.dirty
+            (!session.discarded && (session.dirty || session.document.strong_count() > 1))
                 || session.save_in_flight
                 || !session.listeners.is_empty()
-                || session.document.strong_count() > 1
         });
+    }
+
+    fn drop_discarded(&mut self, path: &std::path::Path) {
+        if self.sessions.get(path).is_some_and(|session| {
+            session.discarded && !session.save_in_flight && session.listeners.is_empty()
+        }) {
+            self.sessions.remove(path);
+        }
     }
 
     fn attach(
@@ -702,6 +720,13 @@ impl SessionRegistry {
         source_identity: SourceIdentity,
     ) -> SessionAttachment {
         self.prune();
+        if self
+            .sessions
+            .get(&path)
+            .is_some_and(|session| session.discarded)
+        {
+            self.sessions.remove(&path);
+        }
         let reused = self.sessions.contains_key(&path);
         let entry = self.sessions.entry(path).or_insert_with(|| FileSession {
             document: SharedDocumentSession::new(loaded),
@@ -709,6 +734,7 @@ impl SessionRegistry {
             saved_revision: Revision::default(),
             dirty: false,
             save_in_flight: false,
+            discarded: false,
             listeners: Vec::new(),
         });
         SessionAttachment {
@@ -743,6 +769,27 @@ impl SessionRegistry {
         self.prune();
     }
 
+    /// Releases a view whose unsaved changes the user discarded. Unlike
+    /// `detach`, the last view drops even a dirty session so reopening the
+    /// path reads the file again; a session with a save in flight is marked
+    /// and dropped when that save completes. Returns whether no other view
+    /// still holds the session.
+    fn discard(&mut self, path: &std::path::Path, listener_id: EntityId) -> bool {
+        self.prune();
+        let Some(session) = self.sessions.get_mut(path) else {
+            return true;
+        };
+        session
+            .listeners
+            .retain(|listener| listener.id != listener_id);
+        if !session.listeners.is_empty() {
+            return false;
+        }
+        session.discarded = true;
+        self.drop_discarded(path);
+        true
+    }
+
     fn contains_other(&self, path: &std::path::Path, document: &SharedDocumentSession) -> bool {
         self.sessions
             .get(path)
@@ -774,6 +821,7 @@ impl SessionRegistry {
                     saved_revision,
                     dirty,
                     save_in_flight: false,
+                    discarded: false,
                     listeners: Vec::new(),
                 },
             );
@@ -830,6 +878,7 @@ impl SessionRegistry {
             session.source_identity = identity;
             session.dirty = session.document.snapshot().revision() != revision;
             session.save_in_flight = false;
+            self.drop_discarded(path);
             true
         } else {
             false
@@ -878,6 +927,7 @@ impl SessionRegistry {
             .filter(|session| session.document.ptr_eq(document))
         {
             session.save_in_flight = false;
+            self.drop_discarded(path);
             true
         } else {
             false
@@ -1462,7 +1512,7 @@ impl MarkdownWindow {
                                         }
                                         Some(false) => {
                                             this.force_close = true;
-                                            this.detach_active_session(cx);
+                                            this.discard_active_session(cx);
                                             window.remove_window();
                                         }
                                         None => {}
@@ -1509,6 +1559,28 @@ impl MarkdownWindow {
             self.session_registry
                 .borrow_mut()
                 .detach(path, cx.entity_id());
+        }
+    }
+
+    /// Releases the session after the user discarded its unsaved changes.
+    /// When no other window still shows the document, its recovery record
+    /// goes too, so the discarded text is neither reused nor offered again.
+    /// An unresolved record from a previous session stays in its sidecar.
+    /// The record is cleared synchronously because closing the last window
+    /// may end the process before a background job would run.
+    fn discard_active_session(&mut self, cx: &mut gpui::Context<Self>) {
+        self.recovery_generation = self.recovery_generation.wrapping_add(1);
+        self.recovery_dirty = false;
+        let last_view = self.source_path.as_deref().is_none_or(|path| {
+            self.session_registry
+                .borrow_mut()
+                .discard(path, cx.entity_id())
+        });
+        if last_view && let Err(error) = self.recovery.clear(&self.recovery_key) {
+            eprintln!(
+                "recovery cleanup failed for {}: {error}",
+                self.recovery_key.display()
+            );
         }
     }
 
@@ -2022,7 +2094,6 @@ impl MarkdownWindow {
                         this.unsaved = this.editor.read(cx).document().snapshot().revision()
                             != revision;
                         this.conflict = false;
-                        this.recovery_entry = None;
                         this.startup_error = recovery_warning.map(|error| {
                             format!("Saved, but durability or recovery cleanup needs attention: {error}")
                         });
@@ -2034,6 +2105,9 @@ impl MarkdownWindow {
                         this.reconcile_external_watch(cx);
                         this.queue_workspace_state(cx);
                         if this.unsaved {
+                            // Edits made during the save still need a journal
+                            // entry under the new recovery key.
+                            this.schedule_recovery(cx);
                             this.close_after_save = false;
                             this.schedule_autosave(cx);
                             this.startup_error = Some(
@@ -2791,6 +2865,23 @@ impl MarkdownWindow {
                         this.editor.update(cx, |editor, cx| {
                             editor.replace_document_prepared(document, prepared, cx);
                         });
+                        let restored = RecoveryEntry::new(
+                            this.recovery_key.clone(),
+                            this.editor.read(cx).document().snapshot().revision(),
+                            entry.markdown.clone(),
+                            this.source_identity.clone(),
+                        );
+                        let recovery = this.recovery.clone();
+                        cx.background_executor()
+                            .spawn_dedicated(move |_| async move {
+                                if let Err(error) = recovery.restore_pending(&entry, &restored) {
+                                    eprintln!(
+                                        "recovery cleanup failed for {}: {error}",
+                                        entry.source_path.display()
+                                    );
+                                }
+                            })
+                            .detach();
                         this.document_epoch = this.document_epoch.wrapping_add(1);
                         this.unsaved = true;
                         if let Some(path) = this.source_path.clone() {
@@ -2816,13 +2907,32 @@ impl MarkdownWindow {
         .detach();
     }
 
+    fn dismiss_recovery(&mut self, cx: &mut gpui::Context<Self>) {
+        let Some(entry) = self.recovery_entry.take() else {
+            return;
+        };
+        self.startup_error = None;
+        let recovery = self.recovery.clone();
+        cx.background_executor()
+            .spawn_dedicated(move |_| async move {
+                if let Err(error) = recovery.dismiss_pending(&entry) {
+                    eprintln!(
+                        "recovery cleanup failed for {}: {error}",
+                        entry.source_path.display()
+                    );
+                }
+            })
+            .detach();
+        cx.notify();
+    }
+
     fn load_untitled_recovery(&mut self, key: PathBuf, cx: &mut gpui::Context<Self>) {
         let recovery = self.recovery.clone();
         let expected_key = key.clone();
         let ticket = self.current_document_ticket(cx);
         let load = cx
             .background_executor()
-            .spawn_dedicated(move |_| async move { recovery.load(&key) });
+            .spawn_dedicated(move |_| async move { recovery.load_unresolved(&key) });
         cx.spawn(async move |this, cx| {
             let result = load.await;
             let _ = this.update(cx, |this, cx| {
@@ -2833,8 +2943,8 @@ impl MarkdownWindow {
                     return;
                 }
                 match result {
-                    Ok(Some(entry)) => {
-                        this.recovery_entry = Some(entry);
+                    Ok(Some(unresolved)) => {
+                        this.recovery_entry = Some(unresolved.entry);
                         this.startup_error = Some(
                             "An unsaved draft from the previous session is available.".into(),
                         );
@@ -3002,6 +3112,25 @@ impl MarkdownWindow {
                 self.source_identity = Some(attachment.source_identity);
                 self.saved_revision = attachment.saved_revision;
                 self.startup_source_bytes = loaded.source_bytes;
+                if reused_session
+                    && loaded.recovery_promoted
+                    && let Some(entry) = loaded.recovery_entry.clone()
+                {
+                    // Another window already owns this session, so its main
+                    // record may be that window's live draft rather than an
+                    // unresolved one from a previous session.
+                    let recovery = self.recovery.clone();
+                    cx.background_executor()
+                        .spawn_dedicated(move |_| async move {
+                            if let Err(error) = recovery.release_pending(&entry) {
+                                eprintln!(
+                                    "recovery cleanup failed for {}: {error}",
+                                    entry.source_path.display()
+                                );
+                            }
+                        })
+                        .detach();
+                }
                 self.recovery_entry = loaded.recovery_entry;
                 self.refresh_outline(cx);
                 self.unsaved = attachment.dirty;
@@ -3344,18 +3473,35 @@ impl MarkdownWindow {
                 let mut actions = gpui_component::h_flex().mt(px(10.)).flex_wrap().gap(px(8.));
 
                 if notice.recovery_action {
-                    let owner = owner.clone();
-                    let dismiss = dismiss.clone();
+                    let restore_owner = owner.clone();
+                    let restore_dismiss = dismiss.clone();
                     actions = actions.child(
                         Button::new("notice-restore-recovery")
                             .label("Restore")
                             .small()
                             .on_click(move |_, window, cx| {
-                                let _ = owner.update(cx, |this, cx| {
+                                let _ = restore_owner.update(cx, |this, cx| {
                                     this.editor.focus_handle(cx).focus(window, cx);
                                     this.restore_recovery(cx);
                                 });
-                                let _ = dismiss.update(cx, |notice, cx| {
+                                let _ = restore_dismiss.update(cx, |notice, cx| {
+                                    notice.dismiss(window, cx);
+                                });
+                            }),
+                    );
+
+                    let discard_owner = owner.clone();
+                    let discard_dismiss = dismiss.clone();
+                    actions = actions.child(
+                        Button::new("notice-dismiss-recovery")
+                            .label("Dismiss")
+                            .small()
+                            .on_click(move |_, window, cx| {
+                                let _ = discard_owner.update(cx, |this, cx| {
+                                    this.editor.focus_handle(cx).focus(window, cx);
+                                    this.dismiss_recovery(cx);
+                                });
+                                let _ = discard_dismiss.update(cx, |notice, cx| {
                                     notice.dismiss(window, cx);
                                 });
                             }),
@@ -3521,12 +3667,17 @@ impl MarkdownWindow {
                     Ok((revision, identity, cleanup_warning)) => {
                         this.source_identity = Some(identity);
                         this.saved_revision = revision;
-                        this.recovery_generation = this.recovery_generation.wrapping_add(1);
-                        this.recovery_dirty = false;
                         let current = this.editor.read(cx).document().snapshot().revision();
+                        if current == revision {
+                            this.recovery_generation = this.recovery_generation.wrapping_add(1);
+                            this.recovery_dirty = false;
+                        } else {
+                            // The save journaled its own revision under the
+                            // shared key, possibly over a newer draft.
+                            this.schedule_recovery(cx);
+                        }
                         this.unsaved = current != revision;
                         this.conflict = false;
-                        this.recovery_entry = None;
                         this.startup_error = cleanup_warning.map(|warning| {
                             format!(
                                 "Saved, but durability or recovery cleanup needs attention: {warning}"
@@ -4800,6 +4951,87 @@ mod tests {
 
         assert!(!registry.sessions.contains_key(&path));
         assert_eq!(attachment.document.strong_count(), 1);
+    }
+
+    #[test]
+    fn discarding_the_last_view_drops_a_dirty_session() {
+        let path = PathBuf::from("/tmp/tachyon-discarded.md");
+        let mut registry = SessionRegistry::default();
+        let attachment = registry.attach(
+            path.clone(),
+            Document::from_markdown("disk").expect("document"),
+            test_identity(path.clone()),
+        );
+        attachment
+            .document
+            .apply(document_core::EditCommand::ReplaceSelection {
+                text: "discarded ".into(),
+                typing: false,
+            })
+            .expect("edit");
+        registry.mark_dirty(&path);
+
+        assert!(registry.discard(&path, EntityId::from(1)));
+
+        let reopened = registry.attach(
+            path.clone(),
+            Document::from_markdown("disk").expect("document"),
+            test_identity(path.clone()),
+        );
+        assert!(!reopened.reused);
+        assert!(!reopened.dirty);
+        assert!(!reopened.document.ptr_eq(&attachment.document));
+        assert_eq!(
+            reopened.document.snapshot().serialize().expect("serialize"),
+            "disk"
+        );
+    }
+
+    #[test]
+    fn discarding_during_a_save_drops_the_session_when_the_save_finishes() {
+        let path = PathBuf::from("/tmp/tachyon-discarded-saving.md");
+        let mut registry = SessionRegistry::default();
+        let attachment = registry.attach(
+            path.clone(),
+            Document::from_markdown("disk").expect("document"),
+            test_identity(path.clone()),
+        );
+        registry.mark_dirty(&path);
+        assert!(registry.claim_save(&path, &attachment.document));
+
+        assert!(registry.discard(&path, EntityId::from(1)));
+        assert!(
+            registry.status(&path).is_some(),
+            "the in-flight save still owns the session"
+        );
+        registry.prune();
+        assert!(registry.status(&path).is_some());
+
+        assert!(registry.mark_saved(
+            &path,
+            &attachment.document,
+            Revision::default(),
+            test_identity(path.clone()),
+        ));
+        assert!(registry.status(&path).is_none());
+
+        // A reopen during the save replaces the discarded session.
+        let saving = registry.attach(
+            path.clone(),
+            Document::from_markdown("disk").expect("document"),
+            test_identity(path.clone()),
+        );
+        registry.mark_dirty(&path);
+        assert!(registry.claim_save(&path, &saving.document));
+        assert!(registry.discard(&path, EntityId::from(1)));
+        let reopened = registry.attach(
+            path.clone(),
+            Document::from_markdown("disk").expect("document"),
+            test_identity(path.clone()),
+        );
+        assert!(!reopened.reused);
+        assert!(!registry.release_save(&path, &saving.document));
+        assert!(registry.status(&path).is_some());
     }
 
     #[test]

@@ -456,6 +456,7 @@ struct Entry {
     width: u32,
     overrides: DisclosureOverrides,
     images: images::ImageKey,
+    dark: bool,
     result: Result<Arc<HtmlPreview>, HtmlError>,
 }
 
@@ -467,8 +468,9 @@ pub(crate) fn block_preview(
     block: &BlockNode,
     width: f32,
     overrides: &DisclosureOverrides,
+    dark: bool,
 ) -> Option<Arc<HtmlPreview>> {
-    block_preview_with_images(block, width, overrides, &Default::default())
+    block_preview_with_images(block, width, overrides, &Default::default(), dark)
 }
 
 pub(crate) fn block_preview_with_images(
@@ -476,6 +478,7 @@ pub(crate) fn block_preview_with_images(
     width: f32,
     overrides: &DisclosureOverrides,
     resources: &images::ImageResources,
+    dark: bool,
 ) -> Option<Arc<HtmlPreview>> {
     let BlockNode::PreservedSource { source, .. } = block else {
         return None;
@@ -502,6 +505,7 @@ pub(crate) fn block_preview_with_images(
                 && entry.source == *source
                 && entry.overrides == *overrides
                 && entry.images == image_key
+                && entry.dark == dark
         }) {
             let entry = entries.remove(index)?;
             let result = entry.result.clone().ok();
@@ -509,16 +513,18 @@ pub(crate) fn block_preview_with_images(
             return result;
         }
     }
-    let result = render_with_images(source, width, overrides, resources).map(Arc::new);
+    let result = render_with_images(source, width, overrides, resources, dark).map(Arc::new);
     let mut entries = cache.lock().unwrap_or_else(|p| p.into_inner());
     entries.push_front(Entry {
         source: source.clone(),
         width,
         overrides: overrides.clone(),
         images: image_key,
+        dark,
         result: result.clone(),
     });
-    entries.truncate(8);
+    // Each block retains a light and a dark raster.
+    entries.truncate(16);
     while entries
         .iter()
         .map(|entry| {
@@ -556,7 +562,7 @@ fn render_with_disclosures(
     width: u32,
     overrides: &DisclosureOverrides,
 ) -> Result<HtmlPreview, HtmlError> {
-    render_with_images(source, width, overrides, &Default::default())
+    render_with_images(source, width, overrides, &Default::default(), false)
 }
 
 fn render_with_images(
@@ -564,13 +570,14 @@ fn render_with_images(
     width: u32,
     overrides: &DisclosureOverrides,
     resources: &images::ImageResources,
+    dark: bool,
 ) -> Result<HtmlPreview, HtmlError> {
     let mut candidate_width = width;
     // Negotiate a bounded technical-block width before publishing any pixels.
     // The native editor owns overflow; no nested DOM scroll state or font
     // shrinking is introduced, and measurement is never done while scrolling.
     for _ in 0..3 {
-        match render_at_width(source, candidate_width, overrides, resources) {
+        match render_at_width(source, candidate_width, overrides, resources, dark) {
             Err(HtmlError::TableNeedsWidth(required)) if required <= 1920 => {
                 candidate_width = required;
             }
@@ -585,10 +592,13 @@ fn render_at_width(
     width: u32,
     overrides: &DisclosureOverrides,
     resources: &images::ImageResources,
+    dark: bool,
 ) -> Result<HtmlPreview, HtmlError> {
     let fragment = inert_html_fragment(source).ok_or(HtmlError::Unsupported)?;
     images::key(&fragment, resources)?;
-    let palette = TachyonPalette::LIGHT;
+    // Theme changes only user-agent colors. The media color scheme stays light
+    // so authored `prefers-color-scheme` rules cannot make geometry theme-bound.
+    let palette = TachyonPalette::for_dark(dark);
     let fonts = fonts::context();
     let css = format!(
         "html {{ background: #{:06x} !important; color: #{:06x}; font: 200 16px/1.5 'Public Sans Tachyon', sans-serif; }}\n\
@@ -608,6 +618,8 @@ fn render_at_width(
          details[open] > summary {{ margin-bottom: 8px; }}\n\
          details > p:last-child {{ margin-bottom: 0; }}\n\
          a {{ color: #{:06x}; }}\n\
+         [style*='background' i], [bgcolor] {{ color: #{:06x}; }}\n\
+         [style*='background' i] a, [bgcolor] a {{ color: #{:06x}; }}\n\
          code, kbd {{ font-family: 'Spline Sans Mono Tachyon', monospace; }}\n\
          pre, pre code {{ font-family: 'Fira Code Tachyon', monospace; font-variant-ligatures: common-ligatures contextual; }}\n\
          * {{ animation: none !important; transition: none !important; }}",
@@ -617,7 +629,11 @@ fn render_at_width(
         palette.border,
         palette.panel,
         palette.border,
-        palette.accent
+        palette.accent,
+        // Authored surfaces were designed against light ink. Keep that ink
+        // on them in dark mode unless the author also chose a text color.
+        TachyonPalette::LIGHT.text,
+        TachyonPalette::LIGHT.accent
     );
     let mut doc = HtmlDocument::from_html(
         fragment.html(),
@@ -1251,7 +1267,7 @@ mod tests {
             .iter()
             .find(|block| matches!(block.as_ref(), BlockNode::PreservedSource { .. }))
             .unwrap();
-        let preview = block_preview(block, 296., &DisclosureOverrides::new())
+        let preview = block_preview(block, 296., &DisclosureOverrides::new(), false)
             .expect("wide table preview instead of plain-text fallback");
         assert!(preview.width > 296. && preview.width <= 1920.);
         for marker in [
@@ -1573,7 +1589,7 @@ mod tests {
         let doc = document_core::Document::from_markdown(source).unwrap();
         let snapshot = doc.snapshot();
         let block = snapshot.blocks().iter().find(|block| matches!(block.as_ref(), BlockNode::PreservedSource { source, .. } if source.contains("Six independent"))).unwrap();
-        let preview = block_preview(block, 950., &DisclosureOverrides::new()).unwrap();
+        let preview = block_preview(block, 950., &DisclosureOverrides::new(), false).unwrap();
         assert!(!preview.text_hits.is_empty());
         assert!(
             preview
@@ -1651,7 +1667,8 @@ mod tests {
             RasterImageData::new(1, 1, Arc::new(vec![255, 0, 0, 255])),
         )]
         .into();
-        let preview = render_with_images(source, 400, &Default::default(), &resources).unwrap();
+        let preview =
+            render_with_images(source, 400, &Default::default(), &resources, false).unwrap();
         assert!(preview.text_hits.iter().any(|hit| hit.left.text_node == 0));
         assert!(preview.text_hits.iter().any(|hit| hit.left.text_node == 3));
         assert!(
@@ -1681,7 +1698,8 @@ mod tests {
             ),
         ]);
         assert_eq!(render(source, 240).unwrap_err(), HtmlError::Unsupported);
-        let preview = render_with_images(source, 240, &Default::default(), &resources).unwrap();
+        let preview =
+            render_with_images(source, 240, &Default::default(), &resources, false).unwrap();
         assert!(preview.can_convert);
         assert!(preview.accessible_text.contains("Red diagram"));
         assert!(preview.accessible_text.contains("Blue diagram"));
@@ -1701,7 +1719,7 @@ mod tests {
         let mut incomplete = resources.clone();
         incomplete.remove("blue.png");
         assert_eq!(
-            render_with_images(source, 240, &Default::default(), &incomplete).unwrap_err(),
+            render_with_images(source, 240, &Default::default(), &incomplete, false).unwrap_err(),
             HtmlError::Unsupported
         );
     }
@@ -1716,23 +1734,24 @@ mod tests {
         let snapshot = document.snapshot();
         let block = snapshot.blocks().iter().next().unwrap();
         let overrides = DisclosureOverrides::new();
-        assert!(block_preview(block, 240., &overrides).is_none());
+        assert!(block_preview(block, 240., &overrides, false).is_none());
         let mut resources = images::ImageResources::from([(
             "local.png".into(),
             RasterImageData::new(1, 1, Arc::new(vec![255, 0, 0, 255])),
         )]);
-        let first = block_preview_with_images(block, 240., &overrides, &resources).unwrap();
-        let same = block_preview_with_images(block, 240., &overrides, &resources).unwrap();
+        let first = block_preview_with_images(block, 240., &overrides, &resources, false).unwrap();
+        let same = block_preview_with_images(block, 240., &overrides, &resources, false).unwrap();
         assert!(Arc::ptr_eq(&first, &same));
         resources.insert(
             "local.png".into(),
             RasterImageData::new(1, 1, Arc::new(vec![0, 0, 255, 255])),
         );
-        let changed = block_preview_with_images(block, 240., &overrides, &resources).unwrap();
+        let changed =
+            block_preview_with_images(block, 240., &overrides, &resources, false).unwrap();
         assert!(!Arc::ptr_eq(&first, &changed));
         assert_ne!(first.image.bytes, changed.image.bytes);
         assert!(
-            block_preview(block, 240., &overrides).is_none(),
+            block_preview(block, 240., &overrides, false).is_none(),
             "a different document with no loaded resource must not borrow cached pixels"
         );
         assert_eq!(
@@ -2043,6 +2062,93 @@ mod tests {
             &pixels[offset..offset + 3],
             &[0x25, 0x6f, 0x50],
             "bottom border must not be clipped by body margins"
+        );
+    }
+
+    #[test]
+    fn dark_theme_previews_use_the_dark_palette_with_identical_geometry() {
+        let pixel = |preview: &HtmlPreview, x: u32, y: u32| {
+            let decoder = png::Decoder::new(std::io::Cursor::new(&preview.image.bytes));
+            let mut reader = decoder.read_info().unwrap();
+            let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+            let info = reader.next_frame(&mut pixels).unwrap();
+            let offset = ((y * RASTER_SCALE) * info.width + x * RASTER_SCALE) as usize * 4;
+            u32::from_be_bytes([0, pixels[offset], pixels[offset + 1], pixels[offset + 2]])
+        };
+        let document = document_core::Document::from_markdown(
+            "<details><summary>Summary</summary><p>Body</p></details>\n\n<div style='background:#ff0000;color:#00ff00;height:40px'>Authored</div>\n",
+        )
+        .unwrap();
+        let snapshot = document.snapshot();
+        let mut blocks = snapshot.blocks().iter();
+        let (details, authored) = (blocks.next().unwrap(), blocks.next().unwrap());
+        let overrides = DisclosureOverrides::new();
+        let light = block_preview(details, 320., &overrides, false).unwrap();
+        let dark = block_preview(details, 320., &overrides, true).unwrap();
+        assert!(Arc::ptr_eq(
+            &dark,
+            &block_preview(details, 320., &overrides, true).unwrap()
+        ));
+        assert!(
+            !Arc::ptr_eq(&light, &dark),
+            "each theme owns a separate cache entry"
+        );
+        // An unstyled disclosure paints the page, not a light slab, in dark mode.
+        assert_eq!(pixel(&light, 8, 8), TachyonPalette::LIGHT.page);
+        assert_eq!(pixel(&dark, 8, 8), TachyonPalette::DARK.page);
+        assert_eq!((light.width, light.height), (dark.width, dark.height));
+        assert_eq!(
+            format!(
+                "{:?}",
+                (&light.text_hits, &light.caret_stops, &light.disclosures)
+            ),
+            format!(
+                "{:?}",
+                (&dark.text_hits, &dark.caret_stops, &dark.disclosures)
+            ),
+            "theme must never change hit-test geometry"
+        );
+        let light = block_preview(authored, 320., &overrides, false).unwrap();
+        let dark = block_preview(authored, 320., &overrides, true).unwrap();
+        assert_eq!(pixel(&light, 4, 4), 0xff0000);
+        assert_eq!(pixel(&dark, 4, 4), 0xff0000, "authored styles still win");
+        assert_eq!((light.width, light.height), (dark.width, dark.height));
+    }
+
+    #[test]
+    fn authored_light_surfaces_keep_legible_ink_in_dark_mode() {
+        let darkest = |preview: &HtmlPreview| {
+            let decoder = png::Decoder::new(std::io::Cursor::new(&preview.image.bytes));
+            let mut reader = decoder.read_info().unwrap();
+            let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+            reader.next_frame(&mut pixels).unwrap();
+            pixels
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|px| (u32::from(px[0]) + u32::from(px[1]) + u32::from(px[2])) / 3)
+                .min()
+                .unwrap()
+        };
+        let document = document_core::Document::from_markdown(
+            "<div style='padding:16px;background:#dcebe1'><p>Readable text on an authored surface</p></div>\n\n<div style='background:#dcebe1;color:#ffffff'><p>Authored ink</p></div>\n",
+        )
+        .unwrap();
+        let snapshot = document.snapshot();
+        let mut blocks = snapshot.blocks().iter();
+        let (surface, inked) = (blocks.next().unwrap(), blocks.next().unwrap());
+        let overrides = DisclosureOverrides::new();
+        // The page wash never reaches inside the authored surface, so dark
+        // pixels there can only be glyphs.
+        let dark = block_preview(surface, 480., &overrides, true).unwrap();
+        assert!(
+            darkest(&dark) < 0x80,
+            "text on a light authored background must use dark ink in dark mode"
+        );
+        let inked = block_preview(inked, 480., &overrides, true).unwrap();
+        assert!(
+            darkest(&inked) > 0xc0,
+            "an authored text color still wins over the fallback ink"
         );
     }
 }

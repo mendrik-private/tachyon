@@ -5,6 +5,39 @@ use crate::{
     ImageNode, ListBlock, ListItem, NodeId, Paragraph, RichText, Table, TableCell, TableRow,
 };
 
+/// Lines of pasted TSV: `\r\n`, `\r` and `\n` each end one line. Interior
+/// empty lines are rows (clearing their cells); one trailing terminator is
+/// not a row of its own.
+fn tsv_lines(text: &str) -> Vec<&str> {
+    let text = text
+        .strip_suffix("\r\n")
+        .or_else(|| text.strip_suffix(['\n', '\r']))
+        .unwrap_or(text);
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let bytes = text.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\r' | b'\n' => {
+                lines.push(&text[start..index]);
+                index += if bytes[index] == b'\r' && bytes.get(index + 1) == Some(&b'\n') {
+                    2
+                } else {
+                    1
+                };
+                start = index;
+            }
+            _ => index += 1,
+        }
+    }
+    lines.push(&text[start..]);
+    lines
+}
+
 impl Table {
     #[must_use]
     pub fn new_default(mut allocate: impl FnMut() -> NodeId) -> Self {
@@ -254,9 +287,8 @@ impl Table {
                 column: start_column,
             });
         }
-        let matrix: Vec<Vec<&str>> = text
-            .split_terminator(['\n', '\r'])
-            .filter(|line| !line.is_empty())
+        let matrix: Vec<Vec<&str>> = tsv_lines(text)
+            .into_iter()
             .map(|line| line.split('\t').collect())
             .collect();
         if matrix.is_empty() {

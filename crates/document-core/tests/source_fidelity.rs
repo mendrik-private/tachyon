@@ -2469,3 +2469,40 @@ fn singleton_nonparagraph_lists_reopen_after_their_notes_move_apart() {
         assert_eq!(document.snapshot().serialize().unwrap(), saved);
     }
 }
+
+#[test]
+fn bare_carriage_return_line_endings_map_source_units_exactly() {
+    let source = "p\rq\n\nab\n\néé\n";
+    let mut document = Document::from_markdown(source).unwrap();
+    assert_eq!(document.snapshot().serialize().unwrap(), source);
+    let first = document.snapshot().blocks().get(0).unwrap().id();
+    document
+        .apply(EditCommand::ReplaceText {
+            node_id: first,
+            range: 0..0,
+            text: "x".into(),
+            selection_after: None,
+            typing: false,
+        })
+        .unwrap();
+    let saved = document.snapshot().serialize().unwrap();
+    assert!(saved.ends_with("\n\nab\n\néé\n"), "{saved:?}");
+    assert_reopens(&document, &saved);
+
+    for source in [
+        "p\rq\n\nab\n\néé\n",
+        "p\rq\n\nab\n\ncd\n",
+        "p\rq\r\rab\r\rcd\r",
+        "a\r\n\r\nb\rc\r\rd\n",
+    ] {
+        let mut document = Document::from_markdown(source).unwrap();
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+        document
+            .apply(EditCommand::MoveBlock { from: 0, to: 2 })
+            .unwrap();
+        let saved = document.snapshot().serialize().unwrap();
+        assert_reopens(&document, &saved);
+        document.undo().unwrap();
+        assert_eq!(document.snapshot().serialize().unwrap(), source);
+    }
+}

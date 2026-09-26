@@ -471,6 +471,12 @@ impl BlockSequence {
         self.len == 0
     }
 
+    /// Whether both sequences share the same storage (and so the same blocks).
+    #[must_use]
+    pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+        self.len == other.len && Arc::ptr_eq(&self.chunks, &other.chunks)
+    }
+
     #[must_use]
     pub fn to_vec(&self) -> Vec<Arc<BlockNode>> {
         self.iter().cloned().collect()

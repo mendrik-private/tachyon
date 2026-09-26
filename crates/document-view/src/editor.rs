@@ -820,6 +820,8 @@ struct VisualLinePayload {
     /// Discretionary suffix chosen with this line's committed wrap geometry.
     hyphenated: bool,
     html_preview: Option<Arc<crate::html::HtmlPreview>>,
+    /// Dark-theme raster for `html_preview`, with identical geometry.
+    html_dark_image: Option<Arc<gpui::Image>>,
     display_math: Option<Arc<crate::math::BlockFormula>>,
     diagram: Option<Arc<crate::diagram::BlockDiagram>>,
     inline_math: Option<Arc<inline_math::InlineLine>>,
@@ -837,6 +839,7 @@ impl VisualLinePayload {
     fn is_empty(&self) -> bool {
         !self.hyphenated
             && self.html_preview.is_none()
+            && self.html_dark_image.is_none()
             && self.display_math.is_none()
             && self.diagram.is_none()
             && self.inline_math.is_none()
@@ -861,6 +864,18 @@ fn visual_line_payload(payload: VisualLinePayload) -> Arc<VisualLinePayload> {
         EMPTY_VISUAL_LINE_PAYLOAD.with(Arc::clone)
     } else {
         Arc::new(payload)
+    }
+}
+
+impl VisualLinePayload {
+    fn html_image(&self, dark: bool) -> Option<&Arc<gpui::Image>> {
+        let preview = self.html_preview.as_ref()?;
+        Some(
+            self.html_dark_image
+                .as_ref()
+                .filter(|_| dark)
+                .unwrap_or(&preview.image),
+        )
     }
 }
 
@@ -1011,6 +1026,10 @@ actions!(
         SelectWordRight,
         SelectUp,
         SelectDown,
+        PageUp,
+        PageDown,
+        SelectPageUp,
+        SelectPageDown,
         SelectAll,
         Home,
         End,
@@ -1090,6 +1109,10 @@ pub fn init(cx: &mut App) {
         KeyBinding::new("ctrl-shift-right", SelectWordRight, Some(KEY_CONTEXT)),
         KeyBinding::new("shift-up", SelectUp, Some(KEY_CONTEXT)),
         KeyBinding::new("shift-down", SelectDown, Some(KEY_CONTEXT)),
+        KeyBinding::new("pageup", PageUp, Some(KEY_CONTEXT)),
+        KeyBinding::new("pagedown", PageDown, Some(KEY_CONTEXT)),
+        KeyBinding::new("shift-pageup", SelectPageUp, Some(KEY_CONTEXT)),
+        KeyBinding::new("shift-pagedown", SelectPageDown, Some(KEY_CONTEXT)),
         KeyBinding::new("home", Home, Some(KEY_CONTEXT)),
         KeyBinding::new("end", End, Some(KEY_CONTEXT)),
         KeyBinding::new("shift-home", SelectHome, Some(KEY_CONTEXT)),
@@ -2393,12 +2416,15 @@ impl RichDocumentEditor {
             return;
         };
         let offset = segment.projection_start();
+        let (start_y, viewport_height) = self.scroll_metrics();
+        // Land the target below the top fade band rather than under its wash.
         let y = self
             .visual_lines
             .iter()
             .find(|line| line.projected_range().contains(&offset) || line.projected_end() == offset)
-            .map_or(0., |line| line.y);
-        let start_y = self.scroll_metrics().0;
+            .map_or(0., |line| {
+                (line.y - viewport_fade_height(viewport_height, self.zoom_factor)).max(0.)
+            });
         // Outline/find navigation supplies a document-projection offset, not
         // a byte offset inside the temporary HTML text selection.
         self.html_selection = None;
@@ -2453,7 +2479,11 @@ impl RichDocumentEditor {
     #[must_use]
     pub fn active_heading_node(&self) -> Option<NodeId> {
         let (scroll_y, viewport_height) = self.scroll_metrics();
-        self.components.active_heading(scroll_y, viewport_height)
+        // Content under the top fade is already being left behind; outline
+        // jumps land just below it, so reading starts at the band's edge.
+        let inset = viewport_fade_height(viewport_height, self.zoom_factor);
+        self.components
+            .active_heading(scroll_y + inset, viewport_height - inset)
     }
 
     /// Rebuilds the navigation miniature from the exact line records used by
@@ -3143,6 +3173,9 @@ impl RichDocumentEditor {
             self.record_error(error, window);
             return;
         }
+        // A new document selection supersedes an opaque find result, whose
+        // copy-only text otherwise shadows copy and blocks edits.
+        self.find.read_only_match = None;
         self.last_error = None;
         self.sync_layout_focus(window, cx);
         self.refresh_source_focus();
@@ -3668,15 +3701,7 @@ impl RichDocumentEditor {
         offset: usize,
         layout_width: f32,
     ) -> Option<(NodeId, f32)> {
-        let line = self
-            .visual_lines
-            .iter()
-            .find(|line| line.projected_range().contains(&offset))
-            .or_else(|| {
-                self.visual_lines
-                    .iter()
-                    .find(|line| line.projected_end() == offset)
-            })?;
+        let line = visual_line_containing_or_ending_at(&self.visual_lines, offset)?;
         let (owner, _, _, _) = line.table_cell?;
         let component = self.components.get(&owner)?;
         let shaped = self.measurement.shape_unwrapped(
@@ -3739,14 +3764,7 @@ impl RichDocumentEditor {
                     )
                 })
         } else {
-            self.visual_lines
-                .iter()
-                .find(|line| line.projected_range().contains(&offset))
-                .or_else(|| {
-                    self.visual_lines
-                        .iter()
-                        .find(|line| line.projected_end() == offset)
-                })
+            visual_line_containing_or_ending_at(&self.visual_lines, offset)
                 .map(|line| (line.y, line.y + line.style.line_height))
         };
         let Some((line_top, line_bottom)) = extent else {
@@ -3756,16 +3774,17 @@ impl RichDocumentEditor {
         if viewport_height <= 0. {
             return;
         }
-        let next_scroll = if line_top < scroll_y {
-            line_top
-        } else if line_bottom > scroll_y + viewport_height {
-            line_bottom - viewport_height
-        } else {
+        let Some(next_scroll) = reading_reveal_scroll(
+            line_top,
+            line_bottom,
+            scroll_y,
+            viewport_height,
+            self.zoom_factor,
+        ) else {
             return;
         };
         let x = self.scroll_handle.offset().x;
-        self.scroll_handle
-            .set_offset(point(x, px(-next_scroll.max(0.))));
+        self.scroll_handle.set_offset(point(x, px(-next_scroll)));
     }
 
     fn up(&mut self, _: &Up, window: &mut Window, cx: &mut Context<Self>) {
@@ -3806,6 +3825,80 @@ impl RichDocumentEditor {
             self.select_to(offset, window, cx);
             self.keep_offset_visible(offset);
         }
+    }
+
+    /// Scrolls by one reading page, the clear region between the fade bands,
+    /// so text last seen washed out in one band is next read fully in the
+    /// other. The caret keeps its viewport row; once the scroll range is
+    /// exhausted it moves to that end of the document instead.
+    fn navigate_page(
+        &mut self,
+        direction: isize,
+        extend: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (scroll_y, viewport_height) = self.scroll_metrics();
+        if viewport_height <= 0. {
+            return;
+        }
+        let inset = viewport_fade_height(viewport_height, self.zoom_factor);
+        let maximum = f32::from(self.scroll_handle.max_offset().y).max(0.);
+        // A reveal may overshoot the range until the next prepaint clamps it.
+        let scroll_y = scroll_y.min(maximum);
+        let step =
+            (viewport_height - 2. * inset).max(DocumentStyle::BODY_LEADING * self.zoom_factor);
+        let next_scroll = (scroll_y + step * direction as f32).clamp(0., maximum);
+        let offset = self.cursor_offset();
+        let current = visual_line_index_at_offset(&self.visual_lines, offset).filter(|index| {
+            let y = self.visual_lines[*index].y;
+            y >= scroll_y && y < scroll_y + viewport_height
+        });
+        let (row_y, x_fraction, ratio) = current.map_or((scroll_y + inset, 0., 0.), |index| {
+            let line = &self.visual_lines[index];
+            let range = line.projected_range();
+            let ratio = if range.is_empty() {
+                0.
+            } else {
+                offset.saturating_sub(range.start) as f32 / range.len() as f32
+            };
+            (line.y, line.x_fraction, ratio)
+        });
+        // The caret travels a full page even where the scroll range runs out,
+        // and settles on the document boundary once no further row exists.
+        let target = page_target_line(
+            &self.visual_lines,
+            row_y + step * direction as f32,
+            x_fraction,
+        )
+        .filter(|index| Some(*index) != current)
+        .and_then(|index| {
+            let range = self.visual_lines.get(index)?.projected_range();
+            let candidate = range.start
+                + (range.len() as f32 * ratio)
+                    .round()
+                    .clamp(0., range.len() as f32) as usize;
+            Some(snap_offset_to_grapheme(
+                self.projection.text(),
+                range,
+                candidate,
+            ))
+        })
+        .unwrap_or(if direction > 0 {
+            self.editing_text().len()
+        } else {
+            0
+        });
+        self.stop_momentum();
+        self.preferred_x = None;
+        self.html_selection = None;
+        if extend {
+            self.select_to(target, window, cx);
+        } else {
+            self.move_to(target, window, cx);
+        }
+        self.set_scroll_y(next_scroll, cx);
+        self.keep_offset_visible(target);
     }
 
     fn select_all(&mut self, _: &SelectAll, window: &mut Window, cx: &mut Context<Self>) {
@@ -4676,25 +4769,21 @@ impl RichDocumentEditor {
             .iter()
             .enumerate()
             .filter_map(|(index, line)| {
-                let segment = segment_for_line(&self.projection, &line.range)?;
-                segment.context.table_cell?;
-                let spec = self
-                    .visual_lines
-                    .iter()
-                    .find(|candidate| candidate.projected_range() == line.range)?;
-
-                let row_top = line.bounds.top() - px((spec.y - spec.table_row_y).max(0.));
-                let row_bottom = row_top + px(spec.table_row_height.max(spec.style.line_height));
-                if position.y < row_top || position.y > row_bottom {
-                    return None;
-                }
-
                 // visual_line_bounds starts at the cell's content inset and
                 // reserves the trailing cell padding. Recover those edges so
                 // clicks in padding still resolve to the intended column.
                 let cell_left = line.bounds.left() - table_inset;
                 let cell_right = line.bounds.right() + px(8.);
                 if position.x < cell_left || position.x > cell_right {
+                    return None;
+                }
+                let segment = segment_for_line(&self.projection, &line.range)?;
+                segment.context.table_cell?;
+                let spec = visual_line_with_range(&self.visual_lines, &line.range)?;
+
+                let row_top = line.bounds.top() - px((spec.y - spec.table_row_y).max(0.));
+                let row_bottom = row_top + px(spec.table_row_height.max(spec.style.line_height));
+                if position.y < row_top || position.y > row_bottom {
                     return None;
                 }
 
@@ -4940,11 +5029,7 @@ impl RichDocumentEditor {
                 return None;
             };
             let initial_width = table.columns.get(column)?.width.unwrap_or_else(|| {
-                if let Some(spec) = self
-                    .visual_lines
-                    .iter()
-                    .find(|spec| spec.projected_range() == line.range)
-                {
+                if let Some(spec) = visual_line_with_range(&self.visual_lines, &line.range) {
                     return spec.width_fraction * self.layout_width / self.zoom_factor;
                 }
                 self.projection
@@ -4981,10 +5066,7 @@ impl RichDocumentEditor {
         let element = self.element_bounds?;
         let segment = segment_for_line(&self.projection, &line.range)?;
         let (table_id, row, column) = segment.context.table_cell?;
-        let spec = self
-            .visual_lines
-            .iter()
-            .find(|candidate| candidate.projected_range() == line.range)?;
+        let spec = visual_line_with_range(&self.visual_lines, &line.range)?;
         if !spec.table_cell_first {
             return None;
         }
@@ -6466,10 +6548,14 @@ impl gpui::Render for RichDocumentEditor {
                     })
                     .when(!preview.text_hits.is_empty(), |body| body.cursor_text())
                     .child(
-                        img(ImageSource::Image(preview.image.clone()))
-                            .w(px(preview.width * self.zoom_factor))
-                            .h(px(preview.height * self.zoom_factor))
-                            .object_fit(ObjectFit::Contain),
+                        img(ImageSource::Image(
+                            line.html_image(cx.theme().is_dark())
+                                .unwrap_or(&preview.image)
+                                .clone(),
+                        ))
+                        .w(px(preview.width * self.zoom_factor))
+                        .h(px(preview.height * self.zoom_factor))
+                        .object_fit(ObjectFit::Contain),
                     )
                     .children(self.html_link_chrome(node_id, preview))
                     .children(self.html_disclosure_chrome(node_id, preview, window, cx))
@@ -6555,7 +6641,7 @@ impl gpui::Render for RichDocumentEditor {
                         .into_any_element(),
                 );
             }
-            if let Some(BlockNode::CodeBlock(code)) = self.projection.block(segment.node_id)
+            if let Some(block @ BlockNode::CodeBlock(code)) = self.projection.block(segment.node_id)
                 && rendered_code_headers.insert(segment.node_id)
                 && let Some(first) = self
                     .components
@@ -6579,7 +6665,7 @@ impl gpui::Render for RichDocumentEditor {
                             * self.zoom_factor
                 };
                 let header_left = first.inset - CODE_BLOCK_PADDING * self.zoom_factor;
-                let math = crate::math::is_math(&BlockNode::CodeBlock(code.clone()));
+                let math = crate::math::is_math(block);
                 let language = if math {
                     if preview.is_some() {
                         "Math · source"
@@ -6590,10 +6676,9 @@ impl gpui::Render for RichDocumentEditor {
                     code.language.as_deref().unwrap_or("Plain text")
                 }
                 .to_owned();
-                let code_text = code.content.as_string();
                 let copy_node = segment.node_id;
                 let copied = self.copied_code.is_some_and(|(id, _)| id == copy_node);
-                let code_colors = code_palette(palette, &BlockNode::CodeBlock(code.clone()));
+                let code_colors = code_palette(palette, block);
                 if let Some(preview) = preview {
                     let node_id = segment.node_id;
                     let scroll_handle =
@@ -6839,8 +6924,15 @@ impl gpui::Render for RichDocumentEditor {
                                         "Copy code block"
                                     })
                                     .on_click(cx.listener(move |this, _, _, cx| {
+                                        // Copy on demand: rendering never copies
+                                        // each visible block's source text.
+                                        let Some(BlockNode::CodeBlock(code)) =
+                                            this.projection.block(copy_node)
+                                        else {
+                                            return;
+                                        };
                                         cx.write_to_clipboard(ClipboardItem::new_string(
-                                            code_text.clone(),
+                                            code.content.as_string(),
                                         ));
                                         let copied = (copy_node, Instant::now());
                                         this.copied_code = Some(copied);
@@ -6976,6 +7068,20 @@ impl gpui::Render for RichDocumentEditor {
             .on_action(cx.listener(Self::select_word_right))
             .on_action(cx.listener(Self::select_up))
             .on_action(cx.listener(Self::select_down))
+            .on_action(
+                cx.listener(|this, _: &PageUp, window, cx| {
+                    this.navigate_page(-1, false, window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this, _: &PageDown, window, cx| {
+                this.navigate_page(1, false, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &SelectPageUp, window, cx| {
+                this.navigate_page(-1, true, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &SelectPageDown, window, cx| {
+                this.navigate_page(1, true, window, cx)
+            }))
             .on_action(cx.listener(Self::select_all))
             .on_action(cx.listener(Self::home))
             .on_action(cx.listener(Self::end))
@@ -7565,9 +7671,7 @@ fn viewport_fade_bands(
         return None;
     }
 
-    let height = (VIEWPORT_FADE_LINES * DocumentStyle::BODY_LEADING * zoom)
-        .min(viewport_height / 2.)
-        .max(0.);
+    let height = viewport_fade_height(viewport_height, zoom);
     if height <= 0. {
         return None;
     }
@@ -7578,6 +7682,51 @@ fn viewport_fade_bands(
         top_opacity: smoothstep((scroll_y / height).min(1.)),
         bottom_opacity: smoothstep(((max_scroll_y - scroll_y) / height).min(1.)),
     })
+}
+
+/// Height of each viewport fade band. Content inside a band is washed out, so
+/// navigation and caret reveal keep their targets at least this far inside.
+fn viewport_fade_height(viewport_height: f32, zoom: f32) -> f32 {
+    (VIEWPORT_FADE_LINES * DocumentStyle::BODY_LEADING * zoom)
+        .min(viewport_height / 2.)
+        .max(0.)
+}
+
+/// Scroll that keeps `top..bottom` clear of both fade bands, or `None` when it
+/// already is. A target taller than the clear region aligns its top edge.
+fn reading_reveal_scroll(
+    top: f32,
+    bottom: f32,
+    scroll_y: f32,
+    viewport_height: f32,
+    zoom: f32,
+) -> Option<f32> {
+    let inset = viewport_fade_height(viewport_height, zoom);
+    let height = bottom - top;
+    if height > viewport_height - 2. * inset {
+        // Too tall for the clear region: start it below the top band, keeping
+        // its end on screen when it fits at all.
+        let fits = height <= viewport_height;
+        let inset = if fits {
+            inset.min(viewport_height - height)
+        } else {
+            inset
+        };
+        let settled = top >= scroll_y + inset
+            && if fits {
+                bottom <= scroll_y + viewport_height
+            } else {
+                top <= scroll_y + viewport_height - inset
+            };
+        return (!settled).then(|| (top - inset).max(0.));
+    }
+    if top < scroll_y + inset {
+        Some((top - inset).max(0.))
+    } else if bottom > scroll_y + viewport_height - inset {
+        Some((bottom - viewport_height + inset).max(0.))
+    } else {
+        None
+    }
 }
 
 fn smoothstep(value: f32) -> f32 {
@@ -10325,15 +10474,25 @@ fn build_visual_lines_for_segment_uncached(
     let overrides = projection
         .html_disclosure_overrides(segment.node_id)
         .unwrap_or(&empty_overrides);
-    let preview = match projection.html_images(segment.node_id) {
-        Some(images) => {
-            crate::html::block_preview_with_images(block, html_width, overrides, &images.resources)
-        }
-        None => crate::html::block_preview(block, html_width, overrides),
+    let preview = |dark| match projection.html_images(segment.node_id) {
+        Some(images) => crate::html::block_preview_with_images(
+            block,
+            html_width,
+            overrides,
+            &images.resources,
+            dark,
+        ),
+        None => crate::html::block_preview(block, html_width, overrides, dark),
     };
-    if let Some(preview) =
-        preview.filter(|preview| table_cell.is_none() || preview.width <= html_width + 1.)
+    if let Some(light) =
+        preview(false).filter(|preview| table_cell.is_none() || preview.width <= html_width + 1.)
     {
+        // Like math and diagrams, both theme rasters are prepared here. Only
+        // colors differ; the light preview owns the shared hit-test geometry.
+        let dark_image = preview(true)
+            .filter(|dark| dark.width == light.width && dark.height == light.height)
+            .map(|dark| dark.image.clone());
+        let preview = light;
         let preview_height = preview.height;
         return vec![VisualLineSpec {
             compact_tree: segment.context.compact_outline,
@@ -10341,6 +10500,7 @@ fn build_visual_lines_for_segment_uncached(
                 .expect("visual line source belongs to its projection segment"),
             payload: visual_line_payload(VisualLinePayload {
                 html_preview: Some(preview),
+                html_dark_image: dark_image,
                 table_cell,
                 ..VisualLinePayload::default()
             }),
@@ -11731,10 +11891,10 @@ fn caret_stops_from_clusters(
         if start > text.len() || !text.is_char_boundary(start) {
             continue;
         }
+        // The next logical cluster start, from sorted unique starts.
         let end = logical_starts
-            .iter()
+            .get(logical_starts.partition_point(|candidate| *candidate <= start))
             .copied()
-            .find(|candidate| *candidate > start)
             .unwrap_or(text.len());
         let right = visual_clusters
             .get(index + 1)
@@ -11775,10 +11935,47 @@ fn caret_stops_from_clusters(
     stops
 }
 
+const CARET_STOP_CACHE_CAPACITY: usize = 128;
+
+type CaretStopEntry = (
+    Arc<gpui::LineLayout>,
+    gpui::SharedString,
+    Arc<[VisualCaretStop]>,
+);
+
+thread_local! {
+    /// Stops for recently queried shaped lines. Selection paint, carets and
+    /// hit testing ask for the same lines several times per frame. Entries
+    /// retain their layout, so its identity cannot be recycled.
+    static CARET_STOP_CACHE: RefCell<std::collections::VecDeque<CaretStopEntry>> =
+        const { RefCell::new(std::collections::VecDeque::new()) };
+}
+
+fn cached_caret_stops(layout: &ShapedLine) -> Arc<[VisualCaretStop]> {
+    let shape: &Arc<gpui::LineLayout> = layout;
+    CARET_STOP_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        // Short shared strings are stored inline, so compare text by value.
+        let hit = cache
+            .iter()
+            .position(|(cached, text, _)| Arc::ptr_eq(cached, shape) && *text == layout.text);
+        if let Some(index) = hit {
+            let entry = cache.remove(index).expect("cached caret stops");
+            let stops = entry.2.clone();
+            cache.push_front(entry);
+            return stops;
+        }
+        let stops: Arc<[VisualCaretStop]> = shaped_caret_stops(layout).into();
+        cache.push_front((shape.clone(), layout.text.clone(), stops.clone()));
+        cache.truncate(CARET_STOP_CACHE_CAPACITY);
+        stops
+    })
+}
+
 fn shaped_x_for_index(layout: &ShapedLine, index: usize) -> Pixels {
     let target = index.min(layout.text.len());
-    shaped_caret_stops(layout)
-        .into_iter()
+    cached_caret_stops(layout)
+        .iter()
         .filter(|stop| stop.offset == target)
         .min_by(|left, right| left.x.total_cmp(&right.x))
         .map_or_else(|| layout.x_for_index(target), |stop| px(stop.x))
@@ -11786,14 +11983,14 @@ fn shaped_x_for_index(layout: &ShapedLine, index: usize) -> Pixels {
 
 fn shaped_index_for_x(layout: &ShapedLine, x: Pixels) -> usize {
     let target = f32::from(x);
-    shaped_caret_stops(layout)
-        .into_iter()
+    cached_caret_stops(layout)
+        .iter()
         .min_by(|left, right| (left.x - target).abs().total_cmp(&(right.x - target).abs()))
         .map_or_else(|| layout.closest_index_for_x(x), |stop| stop.offset)
 }
 
 fn shaped_visual_neighbor(layout: &ShapedLine, index: usize, direction: isize) -> Option<usize> {
-    let stops = shaped_caret_stops(layout);
+    let stops = cached_caret_stops(layout);
     let current = stops
         .iter()
         .enumerate()
@@ -13177,6 +13374,38 @@ fn visual_line_index_at_offset(lines: &[VisualLineSpec], offset: usize) -> Optio
     (line.projected_range().contains(&offset) || line.projected_end() == offset).then_some(index)
 }
 
+/// The line containing `offset`, else the first line ending there. Visual
+/// lines are sorted by source and never overlap, so both lookups are binary
+/// and agree with the first match of a front-to-back scan.
+fn visual_line_containing_or_ending_at(
+    lines: &[VisualLineSpec],
+    offset: usize,
+) -> Option<&VisualLineSpec> {
+    lines
+        .partition_point(|line| line.projected_start() <= offset)
+        .checked_sub(1)
+        .map(|index| &lines[index])
+        .filter(|line| line.projected_range().contains(&offset))
+        .or_else(|| {
+            let index = lines.partition_point(|line| line.projected_end() < offset);
+            lines
+                .get(index)
+                .filter(|line| line.projected_end() == offset)
+        })
+}
+
+/// The first line spanning exactly `range`.
+fn visual_line_with_range<'a>(
+    lines: &'a [VisualLineSpec],
+    range: &Range<usize>,
+) -> Option<&'a VisualLineSpec> {
+    let start = lines.partition_point(|line| line.projected_start() < range.start);
+    lines[start..]
+        .iter()
+        .take_while(|line| line.projected_start() == range.start)
+        .find(|line| line.projected_range() == *range)
+}
+
 fn visual_vertical_neighbor(
     lines: &[VisualLineSpec],
     current_index: usize,
@@ -13191,6 +13420,22 @@ fn visual_vertical_neighbor(
             return Some(index);
         }
     }
+}
+
+/// The visual line nearest a document-space row, preferring the column that
+/// matches `x_fraction` among lines sharing that row.
+fn page_target_line(lines: &[VisualLineSpec], y: f32, x_fraction: f32) -> Option<usize> {
+    lines
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| {
+            (a.y - y).abs().total_cmp(&(b.y - y).abs()).then(
+                (a.x_fraction - x_fraction)
+                    .abs()
+                    .total_cmp(&(b.x_fraction - x_fraction).abs()),
+            )
+        })
+        .map(|(index, _)| index)
 }
 
 fn snap_offset_to_grapheme(text: &str, range: Range<usize>, candidate: usize) -> usize {
@@ -13360,6 +13605,43 @@ mod tests {
     }
 
     #[test]
+    fn reading_reveal_keeps_targets_clear_of_both_fade_bands() {
+        let band = VIEWPORT_FADE_LINES * DocumentStyle::BODY_LEADING;
+        // Already clear of both bands: leave the viewport alone.
+        assert_eq!(
+            reading_reveal_scroll(1_000. + band, 1_030. + band, 1_000., 600., 1.),
+            None
+        );
+        // Under the top band: scroll so the target starts at the band's edge.
+        assert_eq!(
+            reading_reveal_scroll(1_010., 1_040., 1_000., 600., 1.),
+            Some(1_010. - band)
+        );
+        // Under the bottom band: its end lands at the bottom band's edge.
+        assert_eq!(
+            reading_reveal_scroll(1_580., 1_610., 1_000., 600., 1.),
+            Some(1_610. - 600. + band)
+        );
+        // The document start has no fade to avoid.
+        assert_eq!(reading_reveal_scroll(10., 40., 300., 600., 1.), Some(0.));
+        // A tiny viewport narrows the inset so the whole line stays visible,
+        // and the result is stable once applied.
+        let tiny = reading_reveal_scroll(1_000., 1_040., 900., 60., 2.).unwrap();
+        assert!((tiny - 980.).abs() < 0.01, "{tiny}");
+        assert_eq!(reading_reveal_scroll(1_000., 1_040., tiny, 60., 2.), None);
+        // A target taller than the viewport reveals its start, not its end.
+        assert_eq!(
+            reading_reveal_scroll(1_100., 2_000., 1_000., 600., 1.),
+            None,
+            "a readable start needs no scroll"
+        );
+        assert_eq!(
+            reading_reveal_scroll(1_700., 2_600., 1_000., 600., 1.),
+            Some(1_700. - band)
+        );
+    }
+
+    #[test]
     fn default_table_rules_follow_the_one_logical_pixel_token() {
         let mut output = Vec::new();
         push_table_border(
@@ -13475,6 +13757,150 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![(6, 0.), (4, 10.), (2, 20.), (0, 30.)]
         );
+    }
+
+    #[test]
+    fn caret_stop_search_and_cache_match_the_quadratic_scan() {
+        // The previous O(n²) implementation, retained as the oracle.
+        fn quadratic(text: &str, width: f32, clusters: &[(usize, f32)]) -> Vec<VisualCaretStop> {
+            if clusters.is_empty() {
+                return vec![VisualCaretStop { offset: 0, x: 0. }];
+            }
+            let mut starts = clusters
+                .iter()
+                .map(|(offset, _)| *offset)
+                .filter(|offset| *offset <= text.len() && text.is_char_boundary(*offset))
+                .collect::<Vec<_>>();
+            starts.sort_unstable();
+            starts.dedup();
+            let mut stops = Vec::new();
+            for (index, &(start, left)) in clusters.iter().enumerate() {
+                if start > text.len() || !text.is_char_boundary(start) {
+                    continue;
+                }
+                let end = starts
+                    .iter()
+                    .copied()
+                    .find(|candidate| *candidate > start)
+                    .unwrap_or(text.len());
+                let right = clusters.get(index + 1).map_or(width, |(_, x)| *x).max(left);
+                let rtl = clusters
+                    .get(index + 1)
+                    .map(|(neighbor, _)| *neighbor < start)
+                    .or_else(|| {
+                        index
+                            .checked_sub(1)
+                            .and_then(|previous| clusters.get(previous))
+                            .map(|(neighbor, _)| start < *neighbor)
+                    })
+                    .unwrap_or(false);
+                let graphemes = text[start..end]
+                    .grapheme_indices(true)
+                    .map(|(relative, _)| start + relative)
+                    .chain(std::iter::once(end))
+                    .collect::<Vec<_>>();
+                let denominator = graphemes.len().saturating_sub(1).max(1) as f32;
+                for (position, offset) in graphemes.into_iter().enumerate() {
+                    let fraction = position as f32 / denominator;
+                    let x = if rtl {
+                        right - (right - left) * fraction
+                    } else {
+                        left + (right - left) * fraction
+                    };
+                    stops.push(VisualCaretStop { offset, x });
+                }
+            }
+            stops.sort_by(|l, r| l.x.total_cmp(&r.x).then_with(|| l.offset.cmp(&r.offset)));
+            stops.dedup_by(|l, r| l.offset == r.offset && (l.x - r.x).abs() < 0.01);
+            stops
+        }
+        let texts = [
+            "abc",
+            "אבג",
+            "office ffi",
+            "e\u{301}x\u{308}\u{323}y",
+            "abc אבג def",
+            "👩\u{200d}💻 a 🇩🇪",
+            "",
+        ];
+        let mut seed = 0x2545_f491_u32;
+        let mut next = |bound: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            seed as usize % bound.max(1)
+        };
+        for text in texts {
+            for _ in 0..200 {
+                // Random subsets of (possibly repeated, non-boundary, out of
+                // range) cluster indices in random visual order: ligatures,
+                // bidi reversal and combining marks all reduce to these.
+                let count = next(text.len() + 3);
+                let clusters = (0..count)
+                    .map(|_| (next(text.len() + 2), next(400) as f32 / 4.))
+                    .collect::<Vec<_>>();
+                let mut sorted = clusters.clone();
+                sorted.sort_by(|l, r| l.1.total_cmp(&r.1));
+                for clusters in [clusters, sorted] {
+                    assert_eq!(
+                        caret_stops_from_clusters(text, 120., &clusters),
+                        quadratic(text, 120., &clusters),
+                        "{text:?} {clusters:?}"
+                    );
+                }
+            }
+        }
+
+        let shaped = |text: &'static str, glyphs: &[(usize, f32)]| {
+            let mut line = ShapedLine::default();
+            *line = Arc::new(gpui::LineLayout {
+                font_size: px(16.),
+                width: px(60.),
+                ascent: px(12.),
+                descent: px(4.),
+                runs: vec![gpui::ShapedRun {
+                    font_id: gpui::FontId(0),
+                    glyphs: glyphs
+                        .iter()
+                        .map(|&(index, x)| gpui::ShapedGlyph {
+                            id: gpui::GlyphId(index as u32),
+                            position: point(px(x), px(0.)),
+                            index,
+                            is_emoji: false,
+                        })
+                        .collect(),
+                }],
+                len: text.len(),
+            });
+            line.text = text.into();
+            line
+        };
+        // Bidi: an RTL run inside LTR text has decreasing indices.
+        let line = shaped("ab אב", &[(0, 0.), (1, 10.), (2, 20.), (5, 30.), (3, 45.)]);
+        assert_eq!(
+            &*cached_caret_stops(&line),
+            shaped_caret_stops(&line).as_slice()
+        );
+        assert!(Arc::ptr_eq(
+            &cached_caret_stops(&line),
+            &cached_caret_stops(&line)
+        ));
+        for index in 0..=line.text.len() {
+            let stops = shaped_caret_stops(&line);
+            let expected = stops
+                .iter()
+                .filter(|stop| stop.offset == index)
+                .min_by(|l, r| l.x.total_cmp(&r.x))
+                .map_or_else(|| line.x_for_index(index), |stop| px(stop.x));
+            assert_eq!(shaped_x_for_index(&line, index), expected);
+        }
+        // One layout identity with different text must not share stops.
+        let mut other = line.clone();
+        other.text = "xy אב".into();
+        assert!(!Arc::ptr_eq(
+            &cached_caret_stops(&line),
+            &cached_caret_stops(&other)
+        ));
     }
 
     #[test]
@@ -15912,6 +16338,140 @@ mod tests {
         );
     }
     use crate::init_editor;
+
+    #[gpui::test]
+    fn outline_jumps_and_paging_keep_targets_out_of_the_fade(cx: &mut gpui::TestAppContext) {
+        cx.update(init_editor);
+        let markdown = (0..12)
+            .map(|section| {
+                let body = (0..6)
+                    .map(|index| format!("Section {section} paragraph {index} stays readable."))
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                format!("## Section {section}\n\n{body}")
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(
+                Document::from_markdown(markdown).expect("paging fixture"),
+                window,
+                cx,
+            )
+        });
+        let cx: &mut gpui::VisualTestContext = cx;
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+        let (heading, heading_y, band, viewport_height) = editor.read_with(cx, |editor, _| {
+            let (_, viewport_height) = editor.scroll_metrics();
+            let heading = editor
+                .document
+                .snapshot()
+                .blocks()
+                .iter()
+                .filter(|block| matches!(block.as_ref(), BlockNode::Heading(_)))
+                .nth(5)
+                .expect("sixth heading")
+                .id();
+            let start = editor
+                .projection
+                .segment_for_node(heading)
+                .unwrap()
+                .projection_start();
+            let line = &editor.visual_lines
+                [visual_line_index_at_offset(&editor.visual_lines, start).unwrap()];
+            (
+                heading,
+                line.y,
+                viewport_fade_height(viewport_height, editor.zoom_factor),
+                viewport_height,
+            )
+        });
+        assert!(band > 0. && viewport_height > 2. * band);
+
+        cx.update(|window, cx| {
+            cx.set_reduce_motion(true);
+            editor.update(cx, |editor, cx| editor.jump_to_node(heading, window, cx));
+            _ = window.draw(cx);
+        });
+        editor.read_with(cx, |editor, _| {
+            let (scroll_y, _) = editor.scroll_metrics();
+            assert!(
+                (heading_y - scroll_y - band).abs() < 0.5,
+                "the heading must land at the top band's edge: y={heading_y} scroll={scroll_y} band={band}"
+            );
+            assert_eq!(
+                editor.active_heading_node(),
+                Some(heading),
+                "the jumped-to heading must be the active outline entry"
+            );
+        });
+
+        let page = |cx: &mut gpui::VisualTestContext, direction: isize, extend: bool| {
+            cx.update(|window, cx| {
+                editor.update(cx, |editor, cx| {
+                    editor.navigate_page(direction, extend, window, cx)
+                })
+            });
+        };
+        let before = editor.read_with(cx, |editor, _| editor.scroll_metrics().0);
+        page(cx, 1, false);
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+        editor.read_with(cx, |editor, _| {
+            let (scroll_y, viewport_height) = editor.scroll_metrics();
+            // One clear region, less at most a line of caret-reveal nudge.
+            let step = viewport_height - 2. * band;
+            let moved = scroll_y - before;
+            assert!(
+                moved <= step + 0.5 && moved >= step - 2. * DocumentStyle::BODY_LEADING,
+                "a page is the clear region between the bands: {before} -> {scroll_y} (step {step})"
+            );
+            let caret = editor.cursor_offset();
+            let line = &editor.visual_lines
+                [visual_line_index_at_offset(&editor.visual_lines, caret).unwrap()];
+            assert!(
+                line.y >= scroll_y + band - 0.5
+                    && line.y + line.style.line_height <= scroll_y + viewport_height - band + 0.5,
+                "the caret must stay in the clear region: line={} scroll={scroll_y}",
+                line.y
+            );
+        });
+
+        let after_down = editor.read_with(cx, |editor, _| editor.scroll_metrics().0);
+        page(cx, -1, true);
+        editor.read_with(cx, |editor, _| {
+            let moved = after_down - editor.scroll_metrics().0;
+            let step = viewport_height - 2. * band;
+            assert!(
+                moved <= step + 0.5 && moved >= step - 2. * DocumentStyle::BODY_LEADING,
+                "Shift+PageUp moves back one page: {after_down} -> {}",
+                editor.scroll_metrics().0
+            );
+            assert!(!editor.selected_byte_range().0.is_empty());
+        });
+
+        for _ in 0..40 {
+            page(cx, 1, false);
+        }
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(
+                editor.cursor_offset(),
+                editor.editing_text().len(),
+                "paging past the end moves the caret to the document end"
+            );
+        });
+        for _ in 0..40 {
+            page(cx, -1, false);
+        }
+        editor.read_with(cx, |editor, _| {
+            assert_eq!(editor.cursor_offset(), 0);
+            assert_eq!(editor.scroll_metrics().0, 0.);
+        });
+    }
 
     #[gpui::test]
     fn vertical_wheel_moves_the_document_viewport(cx: &mut gpui::TestAppContext) {
@@ -19150,6 +19710,72 @@ mod tests {
                     (content - viewport - 50.).max(0.)
                 );
             });
+        });
+    }
+
+    #[gpui::test]
+    fn binary_visual_line_lookups_match_front_to_back_scans(cx: &mut gpui::TestAppContext) {
+        cx.update(init_editor);
+        let source = concat!(
+            "# Title\n\nA paragraph long enough to wrap across more than one visual line when the ",
+            "editor lays it out at its default width, with a note[^n].\n\n",
+            "| a | b |\n| --- | --- |\n| | wrapped cell text that keeps going for a while |\n\n",
+            "<details><summary>Summary</summary><p>Body</p></details>\n\n",
+            "```text\nfirst\n\n\nlast\n```\n\n- one\n- two\n\n---\n\n![alt](x.png)\n\n",
+            "[^n]: Note body.\n",
+        );
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(Document::from_markdown(source).unwrap(), window, cx)
+        });
+        let cx: &mut gpui::VisualTestContext = cx;
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            _ = window.draw(cx);
+        });
+        editor.read_with(cx, |editor, _| {
+            let lines = &editor.visual_lines[..];
+            let address = |line: Option<&VisualLineSpec>| line.map(|line| line as *const _);
+            assert!(lines.len() > 10);
+            for offset in 0..=editor.projection.text().len() + 1 {
+                let scan = lines
+                    .iter()
+                    .find(|line| line.projected_range().contains(&offset))
+                    .or_else(|| lines.iter().find(|line| line.projected_end() == offset));
+                assert_eq!(
+                    address(visual_line_containing_or_ending_at(lines, offset)),
+                    address(scan),
+                    "offset {offset}"
+                );
+            }
+            for range in lines
+                .iter()
+                .map(VisualLineSpec::projected_range)
+                .flat_map(|range| [range.clone(), range.start..range.end + 1])
+                .chain([0..0, usize::MAX - 1..usize::MAX])
+            {
+                let scan = lines.iter().find(|line| line.projected_range() == range);
+                assert_eq!(
+                    address(visual_line_with_range(lines, &range)),
+                    address(scan),
+                    "{range:?}"
+                );
+            }
+            for segment in editor.projection.segments() {
+                let node = segment.node_id;
+                let scan = lines
+                    .iter()
+                    .filter(|line| {
+                        segment_for_line(&editor.projection, &line.projected_range())
+                            .is_some_and(|segment| segment.node_id == node)
+                    })
+                    .map(|line| line as *const _)
+                    .collect::<Vec<_>>();
+                let found = editor
+                    .visual_lines_for_node(node)
+                    .map(|line| line as *const _)
+                    .collect::<Vec<_>>();
+                assert_eq!(found, scan, "{node:?}");
+            }
         });
     }
 

@@ -39,6 +39,9 @@ struct Key {
     command_strip_lock: Option<Option<u32>>,
     html_disclosures: crate::html::DisclosureOverrides,
     html_images: crate::html::images::ImageKey,
+    /// Inline footnote references paint cached source-order numbers. Each
+    /// reference run records its resolved number (outer `None`: unresolved).
+    footnotes: Vec<Option<Option<usize>>>,
     starts_document: bool,
     breaks: Vec<usize>,
 }
@@ -64,6 +67,7 @@ impl std::hash::Hash for Key {
         self.command_strip_lock.hash(state);
         self.html_disclosures.hash(state);
         self.html_images.hash(state);
+        self.footnotes.hash(state);
         self.starts_document.hash(state);
         self.breaks.hash(state);
         let c = &self.context;
@@ -179,6 +183,7 @@ impl Key {
                 .html_images(segment.node_id)
                 .map(|images| images.key.clone())
                 .unwrap_or_default(),
+            footnotes: footnote_numbers(projection, segment, block),
             starts_document: segment.projection_start() == 0,
             breaks: breaks
                 .iter()
@@ -194,6 +199,7 @@ impl Key {
                 (edges.starts.len() + edges.ends.len()) * std::mem::size_of::<NodeId>()
             })
             + self.html_disclosures.len() * 32
+            + std::mem::size_of_val(self.footnotes.as_slice())
             + self
                 .html_images
                 .iter()
@@ -245,6 +251,9 @@ impl Key {
                         html.text_hits.len() * std::mem::size_of::<crate::html::HtmlTextHit>(),
                     )
                     .saturating_add(pixels(html.width, html.height));
+                if line.html_dark_image.is_some() {
+                    bytes = bytes.saturating_add(pixels(html.width, html.height));
+                }
                 for link in &html.links {
                     bytes = bytes
                         .saturating_add(std::mem::size_of::<crate::html::HtmlLink>())
@@ -282,6 +291,38 @@ impl Key {
         }
         bytes
     }
+}
+
+/// Mirrors the reference lookup in `inline_math::layout`, which retains each
+/// number and its measured advance in the segment's cached geometry.
+fn footnote_numbers(
+    projection: &TextProjection,
+    segment: &crate::ProjectionSegment,
+    block: &BlockNode,
+) -> Vec<Option<Option<usize>>> {
+    let Some(text) = block.text() else {
+        return Vec::new();
+    };
+    text.runs()
+        .iter()
+        .filter(|run| {
+            run.range.start >= segment.node_range.start
+                && run.range.end <= segment.node_range.end
+                && run
+                    .styles
+                    .iter()
+                    .any(|style| matches!(style, InlineStyle::FootnoteReference(_)))
+        })
+        .map(|run| {
+            run.styles
+                .iter()
+                .find_map(|style| match style {
+                    InlineStyle::FootnoteReference(label) => projection.footnotes.label(label),
+                    _ => None,
+                })
+                .map(|note| note.number)
+        })
+        .collect()
 }
 
 /// Only source-local extension lines belonging to one published generation.
@@ -517,6 +558,37 @@ mod tests {
         assert!(with_preview >= key.accounted_bytes(&lines) + payload);
     }
 
+    #[test]
+    fn html_lines_retain_a_dark_raster_with_the_light_geometry() {
+        let document =
+            Document::from_markdown("<details><summary>Summary</summary><p>Body</p></details>\n")
+                .unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let segment = &projection.segments()[0];
+        let lines = build_visual_lines_for_segment_uncached(
+            &projection,
+            segment,
+            &HashMap::new(),
+            760.,
+            &[],
+            None,
+            None,
+        );
+        let preview = lines[0].html_preview.as_ref().unwrap();
+        let light = lines[0].html_image(false).unwrap();
+        let dark = lines[0].html_image(true).unwrap();
+        assert!(Arc::ptr_eq(light, &preview.image));
+        assert_ne!(
+            light.bytes, dark.bytes,
+            "dark mode must not paint the light raster"
+        );
+        let key = Key::new(&projection, segment, &HashMap::new(), 760., &[], None).unwrap();
+        let with_dark = key.accounted_bytes(&lines);
+        let mut light_only = lines.clone();
+        light_only[0].payload_mut().html_dark_image = None;
+        assert!(with_dark > key.accounted_bytes(&light_only));
+    }
+
     #[gpui::test]
     fn geometry_cache_bounds_entries_payload_and_does_not_retain_source(
         cx: &mut gpui::TestAppContext,
@@ -687,6 +759,55 @@ mod tests {
                         ..after.projected_end() - segment.projection_start()]
                 );
             }
+        });
+    }
+
+    #[gpui::test]
+    fn footnote_renumbering_refreshes_an_untouched_paragraph(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let mut document = Document::from_markdown(
+                "Intro[^a] text.\n\nTarget[^b] text.\n\n[^a]: First note.\n\n[^b]: Second note.\n",
+            )
+            .unwrap();
+            let snapshot = document.snapshot();
+            let intro = snapshot.blocks().get(0).unwrap().id();
+            let target = snapshot.blocks().get(1).unwrap().id();
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let numbers = |projection: &TextProjection| {
+                let segment = projection.segment_for_node(target).unwrap();
+                measurement
+                    .segment_geometry(projection, segment, &HashMap::new(), 760., &[], None)
+                    .iter()
+                    .filter_map(|line| line.inline_math.clone())
+                    .flat_map(|inline| inline.attachments.clone())
+                    .filter_map(|attachment| match attachment.content {
+                        inline_math::Content::Reference { number, .. } => Some(number),
+                        inline_math::Content::Formula { .. } => None,
+                    })
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(numbers(&TextProjection::from_snapshot(&snapshot)), [2]);
+            let transaction = document
+                .apply(EditCommand::ReplaceText {
+                    node_id: intro,
+                    range: 5..9,
+                    text: String::new(),
+                    selection_after: None,
+                    typing: true,
+                })
+                .unwrap();
+            let projection = TextProjection::from_snapshot(&transaction.snapshot);
+            assert!(Arc::ptr_eq(
+                snapshot.blocks().get(1).unwrap(),
+                transaction.snapshot.blocks().get(1).unwrap()
+            ));
+            assert_eq!(projection.footnotes.label("b").unwrap().number, Some(1));
+            assert_eq!(
+                numbers(&projection),
+                [1],
+                "an untouched paragraph must be renumbered"
+            );
         });
     }
 }

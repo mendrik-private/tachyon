@@ -177,14 +177,9 @@ impl RichDocumentEditor {
                 expected_source,
                 position,
             } => {
-                let preview = self.visual_lines.iter().find_map(|line| {
-                    (self
-                        .projection
-                        .segment_for_range(&line.projected_range())?
-                        .node_id
-                        == node_id)
-                        .then_some(line.html_preview.as_ref())
-                        .flatten()
+                let preview = self.visual_lines_for_node(node_id).find_map(|line| {
+                    line.html_preview
+                        .as_ref()
                         .filter(|preview| preview.source == expected_source)
                 })?;
                 let range = preview.line_range(preview.byte_for_position(position)?)?;
@@ -198,6 +193,28 @@ impl RichDocumentEditor {
                 Some(map(range.start)?..map(range.end)?)
             }
         }
+    }
+
+    /// Visual lines of `node`'s projection segment, in source order. A leaf
+    /// has one segment, and sorted visual lines map to it contiguously, so
+    /// this replaces a whole-document scan with a binary search.
+    pub(super) fn visual_lines_for_node(
+        &self,
+        node: NodeId,
+    ) -> impl Iterator<Item = &VisualLineSpec> {
+        let segment = self.projection.segment_for_node(node);
+        let first = segment.map_or(self.visual_lines.len(), |segment| {
+            self.visual_lines
+                .partition_point(|line| line.projected_start() < segment.projection_start())
+        });
+        let end = segment.map_or(0, crate::ProjectionSegment::projection_end);
+        self.visual_lines[first..]
+            .iter()
+            .take_while(move |line| line.projected_start() <= end)
+            .filter(move |line| {
+                segment_for_line(&self.projection, &line.projected_range())
+                    .is_some_and(|segment| segment.node_id == node)
+            })
     }
 
     pub(super) fn editing_text(&self) -> &str {
@@ -222,21 +239,21 @@ impl RichDocumentEditor {
             }
             return;
         }
+        let Some(node) = self.html_selection.as_ref().map(|selection| selection.node) else {
+            return;
+        };
+        let preview = self
+            .visual_lines_for_node(node)
+            .find_map(|line| line.html_preview.clone());
         let Some(selection) = &mut self.html_selection else {
             return;
         };
-        let preview = self.visual_lines.iter().find_map(|line| {
-            let segment = self.projection.segment_for_range(&line.projected_range())?;
-            (segment.node_id == selection.node)
-                .then_some(line.html_preview.as_ref())
-                .flatten()
-        });
         if let Some(preview) = preview.filter(|preview| {
             preview.source == selection.preview.source
                 && preview.editable_text == selection.preview.editable_text
                 && !preview.text_hits.is_empty()
         }) {
-            selection.preview = preview.clone();
+            selection.preview = preview;
         } else {
             self.html_selection = None;
         }
@@ -300,26 +317,16 @@ impl RichDocumentEditor {
                 document_core::PreviewPosition::Html {
                     node_id, position, ..
                 } => {
-                    let preview = self.visual_lines.iter().find_map(|line| {
-                        (self
-                            .projection
-                            .segment_for_range(&line.projected_range())?
-                            .node_id
-                            == node_id)
-                            .then_some(line.html_preview.as_ref())
-                            .flatten()
-                    })?;
+                    let preview = self
+                        .visual_lines_for_node(node_id)
+                        .find_map(|line| line.html_preview.as_ref())?;
                     (node_id, preview, preview.byte_for_position(position)?)
                 }
             }
         } else {
             (selection.node, &selection.preview, byte)
         };
-        let line = self.visual_lines.iter().find(|line| {
-            self.projection
-                .segment_for_range(&line.projected_range())
-                .is_some_and(|s| s.node_id == node)
-        })?;
+        let line = self.visual_lines_for_node(node).next()?;
         let [x, y, right, bottom] = preview.caret_bounds(byte)?;
         let bounds = self.element_bounds?;
         let scroll = segment_for_line(&self.projection, &line.projected_range())

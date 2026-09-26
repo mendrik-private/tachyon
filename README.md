@@ -117,6 +117,7 @@ and documentation tests.
 | Next / previous find result | `F3` / `Shift+F3` (or `Enter` / `Shift+Enter` in find) |
 | Close find and return to document | `Escape` in find |
 | Paste as Markdown | `Ctrl+Shift+V` |
+| Page up / down (extend selection with `Shift`) | `PageUp` / `PageDown` |
 
 The divider between Files and Outline is keyboard adjustable after focusing
 it. Both navigation sections and the document scroll independently.

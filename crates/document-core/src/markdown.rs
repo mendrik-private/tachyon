@@ -1109,7 +1109,7 @@ fn build_spine(
     let mut owned_roots = FxHashMap::<NodeId, Vec<NodeId>>::default();
     units.reserve(positions.len());
     for (id, position) in positions {
-        let Some((start, end)) = source_range(*position, &line_starts, source.len()) else {
+        let Some((start, end)) = source_range(*position, &line_starts, &source) else {
             continue;
         };
         if start < previous_end || start > end {
@@ -1142,7 +1142,7 @@ fn build_spine(
         positions
             .iter()
             .filter_map(|(id, position)| {
-                let (start, end) = source_range(*position, &line_starts, source.len())?;
+                let (start, end) = source_range(*position, &line_starts, &source)?;
                 source.get(start..end)?;
                 Some((*id, start..end))
             })
@@ -1175,17 +1175,33 @@ fn build_spine(
     SourceSpine::new(source, units, order, previous_end, blocks, nested)
 }
 
+/// Line origins exactly as comrak counts source lines: `\r\n`, a lone `\r`,
+/// and `\n` each terminate one line.
 fn line_starts(source: &str) -> Vec<usize> {
+    let bytes = source.as_bytes();
     let mut starts = Vec::with_capacity(source.len() / 64 + 1);
     starts.push(0);
-    starts.extend(source.match_indices('\n').map(|(index, _)| index + 1));
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\r' if bytes.get(index + 1) == Some(&b'\n') => {
+                index += 2;
+                starts.push(index);
+            }
+            b'\r' | b'\n' => {
+                index += 1;
+                starts.push(index);
+            }
+            _ => index += 1,
+        }
+    }
     starts
 }
 
 fn source_range(
     position: Sourcepos,
     line_starts: &[usize],
-    source_len: usize,
+    source: &str,
 ) -> Option<(usize, usize)> {
     let start = line_starts
         .get(position.start.line.checked_sub(1)?)?
@@ -1193,8 +1209,11 @@ fn source_range(
     let end = line_starts
         .get(position.end.line.checked_sub(1)?)?
         .saturating_add(position.end.column)
-        .min(source_len);
-    (start <= end).then_some((start, end))
+        .min(source.len());
+    // A range that does not fall on character boundaries cannot be an
+    // authored source unit; callers fall back to canonical serialization.
+    (start <= end && source.is_char_boundary(start) && source.is_char_boundary(end))
+        .then_some((start, end))
 }
 
 pub(crate) fn serialize(snapshot: &DocumentSnapshot) -> Result<String, DocumentError> {
@@ -1498,7 +1517,11 @@ fn serialize_block(
         BlockNode::Heading(heading) => format!(
             "{} {}",
             "#".repeat(usize::from(heading.level.clamp(1, 6))),
+            // An ATX heading ends at the first line ending; any line break
+            // left in its text is written as an equivalent character reference.
             serialize_inline(&heading.content)
+                .replace('\r', "&#13;")
+                .replace('\n', "&#10;")
         ),
         BlockNode::CodeBlock(code) => {
             let content = code.content.as_string();
@@ -1968,12 +1991,11 @@ pub(crate) fn serialize_inline(text: &RichText) -> String {
             .iter()
             .find(|style| matches!(style, InlineStyle::Math { .. }))
         {
-            let delimiter = if *display { "$$" } else { "$" };
-            output.push_str(&format!("{delimiter}{value}{delimiter}"));
+            output.push_str(&serialize_inline_math(value, *display));
         } else if run.styles.contains(&InlineStyle::Code) {
             output.push_str(&serialize_code_span(value));
         } else {
-            output.push_str(&escape_inline(value));
+            push_escaped_text(&mut output, value);
         }
         for style in formatting.iter().rev() {
             output.push_str(&close_style(style));
@@ -2002,6 +2024,75 @@ fn preserve_inline_edge_spaces(value: String) -> String {
     output
 }
 
+/// Escape plain text after `output`. A digit directly after a closing `$`
+/// prevents comrak from accepting that `$` as the end of inline math, so it is
+/// written as an equivalent character reference instead.
+fn push_escaped_text(output: &mut String, value: &str) {
+    let escaped = escape_inline(value);
+    match escaped.chars().next() {
+        Some(digit) if digit.is_ascii_digit() && output.ends_with('$') => {
+            output.push_str(&format!("&#{};", u32::from(digit)));
+            output.push_str(&escaped[digit.len_utf8()..]);
+        }
+        _ => output.push_str(&escaped),
+    }
+}
+
+/// Dollar math only parses when its content satisfies comrak's delimiter
+/// rules (no edge whitespace, no bare `$`, ...). Edge whitespace is
+/// insignificant to TeX, so it moves outside the delimiters; content that
+/// still cannot parse as math stays visible as escaped literal text.
+fn serialize_inline_math(value: &str, display: bool) -> String {
+    let delimiter = if display { "$$" } else { "$" };
+    let candidate = format!("{delimiter}{value}{delimiter}");
+    if inline_math_reparses(&candidate, value, display) {
+        return candidate;
+    }
+    let start = value.len()
+        - value
+            .trim_start_matches(|c: char| c.is_ascii_whitespace())
+            .len();
+    let end = value
+        .trim_end_matches(|c: char| c.is_ascii_whitespace())
+        .len()
+        .max(start);
+    let inner = &value[start..end];
+    if !inner.is_empty() {
+        let trimmed = format!("{delimiter}{inner}{delimiter}");
+        if inline_math_reparses(&trimmed, inner, display) {
+            return format!(
+                "{}{trimmed}{}",
+                escape_inline(&value[..start]),
+                escape_inline(&value[end..])
+            );
+        }
+    }
+    escape_inline(&candidate)
+}
+
+fn inline_math_reparses(candidate: &str, value: &str, display: bool) -> bool {
+    let arena = Arena::new();
+    let root = parse_document(&arena, candidate, &markdown_options());
+    let Some(paragraph) = root.first_child() else {
+        return false;
+    };
+    if paragraph.next_sibling().is_some()
+        || !matches!(paragraph.data.borrow().value, NodeValue::Paragraph)
+    {
+        return false;
+    }
+    let Some(math) = paragraph.first_child() else {
+        return false;
+    };
+    if math.next_sibling().is_some() {
+        return false;
+    }
+    matches!(
+        &math.data.borrow().value,
+        NodeValue::Math(math) if math.display_math == display && math.literal == value
+    )
+}
+
 fn serialize_inline_image(styles: &[InlineStyle]) -> Option<String> {
     let (source, alt, title) = styles.iter().find_map(|style| match style {
         InlineStyle::Image { source, alt, title } => Some((source, alt, title)),
@@ -2022,7 +2113,11 @@ fn inline_styles_need_html_boundaries(text: &RichText) -> bool {
         return true;
     }
 
-    let source = text.as_string();
+    // Delimiter runs only open/close when flanking: never beside inner
+    // whitespace, and punctuation just inside one needs whitespace or
+    // punctuation just outside it (CommonMark's intraword rule).
+    let punctuation = |c: char| !c.is_alphanumeric() && !c.is_whitespace();
+    let source = text.as_cow();
     text.runs().iter().any(|run| {
         let uses_markdown_delimiter = run.styles.iter().any(|style| {
             matches!(
@@ -2030,11 +2125,18 @@ fn inline_styles_need_html_boundaries(text: &RichText) -> bool {
                 InlineStyle::Bold | InlineStyle::Italic | InlineStyle::Strikethrough
             )
         });
+        let Some(value) = source.get(run.range.clone()) else {
+            return false;
+        };
+        let first = value.chars().next();
+        let last = value.chars().next_back();
+        let before = source[..run.range.start].chars().next_back();
+        let after = source[run.range.end..].chars().next();
         uses_markdown_delimiter
-            && source.get(run.range.clone()).is_some_and(|value| {
-                value.chars().next().is_some_and(char::is_whitespace)
-                    || value.chars().next_back().is_some_and(char::is_whitespace)
-            })
+            && (first.is_some_and(char::is_whitespace)
+                || last.is_some_and(char::is_whitespace)
+                || (first.is_some_and(punctuation) && before.is_some_and(char::is_alphanumeric))
+                || (last.is_some_and(punctuation) && after.is_some_and(char::is_alphanumeric)))
     })
 }
 
@@ -2108,12 +2210,11 @@ fn serialize_inline_with_html_boundaries(text: &RichText) -> String {
             .iter()
             .find(|style| matches!(style, InlineStyle::Math { .. }))
         {
-            let delimiter = if *display { "$$" } else { "$" };
-            output.push_str(&format!("{delimiter}{value}{delimiter}"));
+            output.push_str(&serialize_inline_math(value, *display));
         } else if run.styles.contains(&InlineStyle::Code) {
             output.push_str(&serialize_code_span(value));
         } else {
-            output.push_str(&escape_inline(value));
+            push_escaped_text(&mut output, value);
         }
         for style in run.styles.iter().rev() {
             match style {
@@ -4160,6 +4261,130 @@ mod tests {
             ));
                 }
             }
+        }
+    }
+
+    fn edit_first_block(source: &str, range: std::ops::Range<usize>, text: &str) -> Document {
+        let mut document = Document::from_markdown(source).unwrap();
+        let node_id = document.snapshot().blocks().get(0).unwrap().id();
+        document
+            .apply(crate::EditCommand::ReplaceText {
+                node_id,
+                range,
+                text: text.into(),
+                selection_after: None,
+                typing: true,
+            })
+            .unwrap();
+        document
+    }
+
+    fn first_block_runs(document: &Document) -> (String, Vec<InlineRun>) {
+        let snapshot = document.snapshot();
+        let text = snapshot.blocks().get(0).unwrap().text().unwrap();
+        (text.as_string(), text.runs().to_vec())
+    }
+
+    fn assert_first_block_reopens(document: &Document) -> String {
+        let saved = document.snapshot().serialize().unwrap();
+        let reopened = Document::from_markdown(saved.as_str()).unwrap();
+        assert_eq!(
+            first_block_runs(&reopened),
+            first_block_runs(document),
+            "reopen: {saved:?}"
+        );
+        saved
+    }
+
+    #[test]
+    fn typing_beside_inline_html_and_images_keeps_the_new_text() {
+        let source = "E = mc<sup>2</sup>";
+        let document = edit_first_block(source, source.len()..source.len(), " ok");
+        let saved = assert_first_block_reopens(&document);
+        assert_eq!(saved, "E \\= mc<sup>2</sup> ok");
+
+        let document = edit_first_block(source, 6..6, "x");
+        assert_eq!(
+            assert_first_block_reopens(&document),
+            "E \\= mcx<sup>2</sup>"
+        );
+
+        let source = "see ![alt](a.png)";
+        let document = edit_first_block(source, "see alt".len().."see alt".len(), "!");
+        assert_eq!(
+            assert_first_block_reopens(&document),
+            "see ![alt](a.png)\\!"
+        );
+        let document = edit_first_block(source, 4..4, "the ");
+        assert_eq!(
+            assert_first_block_reopens(&document),
+            "see the ![alt](a.png)"
+        );
+    }
+
+    #[test]
+    fn typing_beside_inline_math_stays_outside_and_math_reparses() {
+        // A space typed after `x` belongs to the prose, not to the math.
+        let document = edit_first_block("$x$ and", 1..1, " ");
+        assert_eq!(assert_first_block_reopens(&document), "$x$  and");
+
+        // Removing the separator must not glue a digit onto the closing `$`.
+        let document = edit_first_block("$x$ 2", 1..2, "");
+        let (text, runs) = first_block_runs(&document);
+        assert_eq!(text, "x2");
+        assert!(
+            runs[0]
+                .styles
+                .contains(&InlineStyle::Math { display: false })
+        );
+        assert_first_block_reopens(&document);
+
+        // Whitespace typed inside math at its edge is insignificant to TeX but
+        // must still leave comrak-parseable math (and keep the text).
+        let document = edit_first_block("a $x y$ b", 4..5, "");
+        let (text, _) = first_block_runs(&document);
+        assert_eq!(text, "a x  b");
+        let saved = document.snapshot().serialize().unwrap();
+        let reopened = Document::from_markdown(saved.as_str()).unwrap();
+        let (reopened_text, reopened_runs) = first_block_runs(&reopened);
+        assert_eq!(reopened_text, text, "{saved:?}");
+        assert!(
+            reopened_runs.iter().any(|run| run
+                .styles
+                .contains(&InlineStyle::Math { display: false })
+                && &reopened_text[run.range.clone()] == "x"),
+            "{saved:?}"
+        );
+
+        // Content that can never parse as dollar math stays visible as text.
+        let document = edit_first_block("$ab$", 1..1, "$");
+        let saved = document.snapshot().serialize().unwrap();
+        let reopened = Document::from_markdown(saved.as_str()).unwrap();
+        assert_eq!(first_block_runs(&reopened).0, "$a$b$", "{saved:?}");
+    }
+
+    #[test]
+    fn intraword_emphasis_beside_punctuation_reopens_with_its_style() {
+        for (source, range, style) in [
+            ("words.", 5..6, InlineStyle::Bold),
+            ("(words)", 0..6, InlineStyle::Italic),
+            ("a.b", 0..2, InlineStyle::Strikethrough),
+        ] {
+            let mut document = Document::from_markdown(source).unwrap();
+            let node_id = document.snapshot().blocks().get(0).unwrap().id();
+            let format = match style {
+                InlineStyle::Bold => crate::InlineFormat::Bold,
+                InlineStyle::Italic => crate::InlineFormat::Italic,
+                _ => crate::InlineFormat::Strikethrough,
+            };
+            document
+                .apply(crate::EditCommand::ToggleInline {
+                    node_id,
+                    range,
+                    format,
+                })
+                .unwrap();
+            assert_first_block_reopens(&document);
         }
     }
 }

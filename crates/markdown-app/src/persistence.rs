@@ -304,9 +304,10 @@ fn save_with_recovery_using(
             ),
         });
     };
+    let revision = snapshot.revision;
     let entry = RecoveryEntry::new(
         source_path.clone(),
-        snapshot.revision,
+        revision,
         String::from_utf8_lossy(&snapshot.bytes).into_owned(),
         snapshot.expected_identity.clone(),
     );
@@ -314,9 +315,11 @@ fn save_with_recovery_using(
 
     match save(snapshot) {
         Ok(outcome) => {
+            // Edits made while the save ran may already have journaled a
+            // newer revision; only the saved revision is safe to drop.
             let cleanup_warning = match outcome.durability_warning {
                 Some(warning) => Some(warning),
-                None => journal.clear(&source_path).err(),
+                None => journal.clear_revision(&source_path, revision).err(),
             };
             Ok(SaveOutcome {
                 identity: outcome.identity,
@@ -333,6 +336,9 @@ fn save_with_recovery_using(
 /// Atomically creates a new file without replacing an existing path. A hard
 /// link publishes the fully synced temporary inode, which gives copy saves the
 /// same-directory atomicity of normal saves while retaining create-new safety.
+/// Filesystems without hard links (vfat, exFAT, many FUSE and SMB mounts) fall
+/// back to an exclusive create of the target, which still never replaces an
+/// existing file but is not atomic against a crash mid-write.
 pub fn atomic_write_new(path: &Path, bytes: &[u8]) -> Result<SourceIdentity, PersistenceError> {
     atomic_write_new_with_outcome(path, bytes).map(|outcome| outcome.identity)
 }
@@ -340,6 +346,39 @@ pub fn atomic_write_new(path: &Path, bytes: &[u8]) -> Result<SourceIdentity, Per
 pub(crate) fn atomic_write_new_with_outcome(
     path: &Path,
     bytes: &[u8],
+) -> Result<WriteOutcome, PersistenceError> {
+    atomic_write_new_using(path, bytes, |temporary, target| {
+        fs::hard_link(temporary, target)
+    })
+}
+
+fn hard_link_unsupported(error: &io::Error) -> bool {
+    // EPERM maps to PermissionDenied and EOPNOTSUPP/ENOTSUP to Unsupported.
+    matches!(
+        error.kind(),
+        io::ErrorKind::PermissionDenied | io::ErrorKind::Unsupported
+    )
+}
+
+fn write_new_in_place(path: &Path, bytes: &[u8]) -> Result<(), PersistenceError> {
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| PersistenceError::io(path, error))?;
+    // The target was created here, so a partial write may be removed.
+    let written = output.write_all(bytes).and_then(|()| output.sync_all());
+    drop(output);
+    written.map_err(|error| {
+        let _ = fs::remove_file(path);
+        PersistenceError::io(path, error)
+    })
+}
+
+fn atomic_write_new_using(
+    path: &Path,
+    bytes: &[u8],
+    link: impl FnOnce(&Path, &Path) -> io::Result<()>,
 ) -> Result<WriteOutcome, PersistenceError> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(parent).map_err(|error| PersistenceError::io(parent, error))?;
@@ -365,7 +404,11 @@ pub(crate) fn atomic_write_new_with_outcome(
             .sync_all()
             .map_err(|error| PersistenceError::io(&temporary, error))?;
         drop(output);
-        fs::hard_link(&temporary, path).map_err(|error| PersistenceError::io(path, error))?;
+        match link(&temporary, path) {
+            Ok(()) => {}
+            Err(error) if hard_link_unsupported(&error) => write_new_in_place(path, bytes)?,
+            Err(error) => return Err(PersistenceError::io(path, error)),
+        }
         let identity = source_identity(path)?;
         let cleanup_warning = fs::remove_file(&temporary)
             .err()
@@ -419,6 +462,14 @@ impl RecoveryEntry {
     }
 }
 
+/// A recovery record the user has not yet restored or dismissed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnresolvedRecovery {
+    pub entry: RecoveryEntry,
+    /// Whether this load copied the record into the pending sidecar.
+    pub promoted: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct RecoveryJournal {
     directory: PathBuf,
@@ -441,9 +492,12 @@ impl RecoveryJournal {
         let _gate = RECOVERY_GATE
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.write_unlocked(&self.path_for(&entry.source_path), entry)
+    }
+
+    fn write_unlocked(&self, target: &Path, entry: &RecoveryEntry) -> Result<(), PersistenceError> {
         fs::create_dir_all(&self.directory)
             .map_err(|error| PersistenceError::io(&self.directory, error))?;
-        let target = self.path_for(&entry.source_path);
         let temporary = target.with_extension(format!(
             "journal-{}-{}",
             std::process::id(),
@@ -467,8 +521,7 @@ impl RecoveryJournal {
             file.sync_all()
                 .map_err(|error| PersistenceError::io(&temporary, error))?;
             drop(file);
-            fs::rename(&temporary, &target)
-                .map_err(|error| PersistenceError::io(&target, error))?;
+            fs::rename(&temporary, target).map_err(|error| PersistenceError::io(target, error))?;
             sync_directory(&self.directory)
         })();
         if result.is_err() {
@@ -477,6 +530,7 @@ impl RecoveryJournal {
         result
     }
 
+    #[cfg(test)]
     pub fn load(&self, source_path: &Path) -> Result<Option<RecoveryEntry>, PersistenceError> {
         let _gate = RECOVERY_GATE
             .lock()
@@ -484,9 +538,90 @@ impl RecoveryJournal {
         self.load_unlocked(source_path)
     }
 
+    /// Loads the recovery record a newly opened document should offer. The
+    /// reopened document journals its own edits under the same key, so a
+    /// record found there is first preserved in a pending sidecar that only
+    /// [`Self::restore_pending`] or [`Self::dismiss_pending`] removes. An
+    /// existing sidecar wins over the main record, which may be a live draft
+    /// written by another view of the same document.
+    pub fn load_unresolved(
+        &self,
+        source_path: &Path,
+    ) -> Result<Option<UnresolvedRecovery>, PersistenceError> {
+        let _gate = RECOVERY_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let pending = self.pending_path_for(source_path);
+        if let Some(entry) = Self::read_record(&pending)? {
+            return Ok(Some(UnresolvedRecovery {
+                entry,
+                promoted: false,
+            }));
+        }
+        let Some(entry) = self.load_unlocked(source_path)? else {
+            return Ok(None);
+        };
+        self.write_unlocked(&pending, &entry)?;
+        Ok(Some(UnresolvedRecovery {
+            entry,
+            promoted: true,
+        }))
+    }
+
+    /// Removes the pending sidecar if it still holds `entry`, leaving the
+    /// main record untouched.
+    pub fn release_pending(&self, entry: &RecoveryEntry) -> Result<(), PersistenceError> {
+        let _gate = RECOVERY_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.release_pending_unlocked(entry)
+    }
+
+    /// Resolves a restored record: the restored draft is journaled under the
+    /// document's current key before the pending sidecar is dropped, so a
+    /// crash after restoring still leaves the draft recoverable.
+    pub fn restore_pending(
+        &self,
+        entry: &RecoveryEntry,
+        restored: &RecoveryEntry,
+    ) -> Result<(), PersistenceError> {
+        let _gate = RECOVERY_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.write_unlocked(&self.path_for(&restored.source_path), restored)?;
+        self.release_pending_unlocked(entry)
+    }
+
+    /// Resolves a dismissed record by removing it from the sidecar and from
+    /// the main key, unless newer drafts have already replaced it there.
+    pub fn dismiss_pending(&self, entry: &RecoveryEntry) -> Result<(), PersistenceError> {
+        let _gate = RECOVERY_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.release_pending_unlocked(entry)?;
+        if self
+            .load_unlocked(&entry.source_path)?
+            .is_some_and(|current| current == *entry)
+        {
+            self.clear_unlocked(&entry.source_path)?;
+        }
+        Ok(())
+    }
+
+    fn release_pending_unlocked(&self, entry: &RecoveryEntry) -> Result<(), PersistenceError> {
+        let pending = self.pending_path_for(&entry.source_path);
+        if Self::read_record(&pending)?.is_some_and(|current| current == *entry) {
+            self.remove_record(&pending)?;
+        }
+        Ok(())
+    }
+
     fn load_unlocked(&self, source_path: &Path) -> Result<Option<RecoveryEntry>, PersistenceError> {
-        let path = self.path_for(source_path);
-        match fs::read(&path) {
+        Self::read_record(&self.path_for(source_path))
+    }
+
+    fn read_record(path: &Path) -> Result<Option<RecoveryEntry>, PersistenceError> {
+        match fs::read(path) {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
                 .map_err(|error| PersistenceError::Journal(error.to_string())),
@@ -520,8 +655,11 @@ impl RecoveryJournal {
     }
 
     fn clear_unlocked(&self, source_path: &Path) -> Result<(), PersistenceError> {
-        let path = self.path_for(source_path);
-        match fs::remove_file(&path) {
+        self.remove_record(&self.path_for(source_path))
+    }
+
+    fn remove_record(&self, path: &Path) -> Result<(), PersistenceError> {
+        match fs::remove_file(path) {
             Ok(()) => sync_directory(&self.directory),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(PersistenceError::io(path, error)),
@@ -529,6 +667,16 @@ impl RecoveryJournal {
     }
 
     fn path_for(&self, source_path: &Path) -> PathBuf {
+        self.directory
+            .join(format!("v1-{}.json", Self::key_for(source_path)))
+    }
+
+    fn pending_path_for(&self, source_path: &Path) -> PathBuf {
+        self.directory
+            .join(format!("v1-{}.pending.json", Self::key_for(source_path)))
+    }
+
+    fn key_for(source_path: &Path) -> String {
         let mut hasher = Sha256::new();
         hasher.update(b"tachyon-recovery-v1\0");
         #[cfg(unix)]
@@ -543,7 +691,7 @@ impl RecoveryJournal {
         for byte in digest {
             let _ = write!(key, "{byte:02x}");
         }
-        self.directory.join(format!("v1-{key}.json"))
+        key
     }
 }
 
@@ -1052,6 +1200,184 @@ mod tests {
     }
 
     #[test]
+    fn save_clears_only_its_own_journal_revision() {
+        let directory = temporary_directory("save-newer-journal");
+        let recovery_directory = temporary_directory("save-newer-journal-recovery");
+        let journal = RecoveryJournal::in_directory(recovery_directory.clone());
+        let path = directory.join("document.md");
+        fs::write(&path, "old").expect("fixture");
+        let snapshot = SaveSnapshot {
+            revision: Revision(20),
+            bytes: b"saved draft".as_slice().into(),
+            expected_identity: Some(source_identity(&path).expect("identity")),
+        };
+
+        // An edit journals revision 21 while revision 20 is being saved.
+        save_with_recovery_using(snapshot, &journal, |snapshot| {
+            journal.write(&RecoveryEntry::new(
+                path.clone(),
+                Revision(21),
+                "newer draft".into(),
+                None,
+            ))?;
+            atomic_save_with_outcome(snapshot)
+        })
+        .expect("save");
+        let newer = journal
+            .load(&path)
+            .expect("journal load")
+            .expect("newer revision survives the older save");
+        assert_eq!(
+            (newer.revision, newer.markdown.as_str()),
+            (21, "newer draft")
+        );
+
+        let snapshot = SaveSnapshot {
+            revision: Revision(21),
+            bytes: b"newer draft".as_slice().into(),
+            expected_identity: Some(source_identity(&path).expect("identity")),
+        };
+        save_with_recovery(snapshot, &journal).expect("save newer revision");
+        assert_eq!(journal.load(&path).expect("journal cleared"), None);
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+        fs::remove_dir_all(recovery_directory).expect("cleanup recovery directory");
+    }
+
+    #[test]
+    fn unresolved_recovery_survives_new_journal_writes_and_saves() {
+        let directory = temporary_directory("journal-pending");
+        let journal = RecoveryJournal::in_directory(directory.clone());
+        let source = directory.join("source.md");
+        let previous = RecoveryEntry::new(source.clone(), Revision(5), "crash draft".into(), None);
+        journal.write(&previous).expect("previous session record");
+
+        let loaded = journal
+            .load_unresolved(&source)
+            .expect("load")
+            .expect("record offered");
+        assert_eq!(loaded.entry, previous);
+        assert!(loaded.promoted);
+        assert!(journal.pending_path_for(&source).exists());
+
+        // The reopened document journals, saves, and clears its own drafts.
+        let live = RecoveryEntry::new(source.clone(), Revision(5), "live edit".into(), None);
+        journal.write(&live).expect("live draft");
+        journal
+            .clear_revision(&source, Revision(5))
+            .expect("save cleanup");
+        journal.clear(&source).expect("discard cleanup");
+
+        let reloaded = journal
+            .load_unresolved(&source)
+            .expect("reload")
+            .expect("unresolved record is still offered");
+        assert_eq!(reloaded.entry, previous);
+        assert!(!reloaded.promoted);
+
+        // A sidecar wins over a newer main record, which is not promoted.
+        journal.write(&live).expect("live draft");
+        assert_eq!(
+            journal
+                .load_unresolved(&source)
+                .expect("load")
+                .expect("record")
+                .entry,
+            previous
+        );
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[test]
+    fn dismissing_unresolved_recovery_removes_it_but_keeps_newer_drafts() {
+        let directory = temporary_directory("journal-dismiss");
+        let journal = RecoveryJournal::in_directory(directory.clone());
+        let source = directory.join("source.md");
+        let previous = RecoveryEntry::new(source.clone(), Revision(3), "crash draft".into(), None);
+        journal.write(&previous).expect("previous session record");
+        let offered = journal
+            .load_unresolved(&source)
+            .expect("load")
+            .expect("record offered")
+            .entry;
+
+        journal.dismiss_pending(&offered).expect("dismiss");
+        assert!(!journal.pending_path_for(&source).exists());
+        assert_eq!(journal.load(&source).expect("load main"), None);
+        assert_eq!(journal.load_unresolved(&source).expect("load"), None);
+
+        journal.write(&previous).expect("previous session record");
+        let offered = journal
+            .load_unresolved(&source)
+            .expect("load")
+            .expect("record offered")
+            .entry;
+        let live = RecoveryEntry::new(source.clone(), Revision(1), "live edit".into(), None);
+        journal.write(&live).expect("live draft");
+        journal.dismiss_pending(&offered).expect("dismiss");
+        assert!(!journal.pending_path_for(&source).exists());
+        assert_eq!(journal.load(&source).expect("load main"), Some(live));
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[test]
+    fn restoring_unresolved_recovery_journals_the_draft_before_release() {
+        let directory = temporary_directory("journal-restore");
+        let journal = RecoveryJournal::in_directory(directory.clone());
+        let source = directory.join("source.md");
+        let previous = RecoveryEntry::new(source.clone(), Revision(3), "crash draft".into(), None);
+        journal.write(&previous).expect("previous session record");
+        let offered = journal
+            .load_unresolved(&source)
+            .expect("load")
+            .expect("record offered")
+            .entry;
+        journal
+            .write(&RecoveryEntry::new(
+                source.clone(),
+                Revision(1),
+                "live edit".into(),
+                None,
+            ))
+            .expect("live draft");
+
+        let restored =
+            RecoveryEntry::new(source.clone(), Revision(2), offered.markdown.clone(), None);
+        journal
+            .restore_pending(&offered, &restored)
+            .expect("restore");
+        assert!(!journal.pending_path_for(&source).exists());
+        assert_eq!(journal.load(&source).expect("load main"), Some(restored));
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[test]
+    fn releasing_a_promoted_record_keeps_the_main_draft() {
+        let directory = temporary_directory("journal-release");
+        let journal = RecoveryJournal::in_directory(directory.clone());
+        let source = directory.join("source.md");
+        let live = RecoveryEntry::new(source.clone(), Revision(4), "live edit".into(), None);
+        journal.write(&live).expect("live draft");
+        let offered = journal
+            .load_unresolved(&source)
+            .expect("load")
+            .expect("record offered");
+        assert!(offered.promoted);
+
+        journal.release_pending(&offered.entry).expect("release");
+        assert!(!journal.pending_path_for(&source).exists());
+        assert_eq!(journal.load(&source).expect("load main"), Some(live));
+
+        // A sidecar that no longer holds the released record is kept.
+        let other = RecoveryEntry::new(source.clone(), Revision(9), "other".into(), None);
+        journal
+            .write_unlocked(&journal.pending_path_for(&source), &other)
+            .expect("other pending record");
+        journal.release_pending(&offered.entry).expect("release");
+        assert!(journal.pending_path_for(&source).exists());
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[test]
     fn recovery_journal_round_trips_and_clears() {
         let directory = temporary_directory("journal");
         let journal = RecoveryJournal::in_directory(directory.clone());
@@ -1116,6 +1442,53 @@ mod tests {
         atomic_write_new(&path, b"first").expect("create copy");
         atomic_write_new(&path, b"second").expect_err("existing copy is protected");
         assert_eq!(fs::read_to_string(&path).expect("copy"), "first");
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    fn has_copy_temporary(directory: &Path) -> bool {
+        fs::read_dir(directory).expect("directory").any(|entry| {
+            entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .contains("tachyon-copy")
+        })
+    }
+
+    #[test]
+    fn copy_save_falls_back_when_hard_links_are_unsupported() {
+        for kind in [io::ErrorKind::Unsupported, io::ErrorKind::PermissionDenied] {
+            let directory = temporary_directory("copy-fallback");
+            let path = directory.join("copy.md");
+            let outcome = atomic_write_new_using(&path, b"first", |_, _| {
+                Err(io::Error::new(kind, "injected missing hard links"))
+            })
+            .expect("fallback creates the copy");
+            assert_eq!(outcome.identity, source_identity(&path).expect("identity"));
+            assert_eq!(fs::read_to_string(&path).expect("copy"), "first");
+            assert!(!has_copy_temporary(&directory));
+
+            atomic_write_new_using(&path, b"second", |_, _| {
+                Err(io::Error::new(kind, "injected missing hard links"))
+            })
+            .expect_err("fallback never replaces an existing file");
+            assert_eq!(fs::read_to_string(&path).expect("copy"), "first");
+            assert!(!has_copy_temporary(&directory));
+            fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+        }
+    }
+
+    #[test]
+    fn copy_save_reports_other_link_failures_without_fallback() {
+        let directory = temporary_directory("copy-link-failure");
+        let path = directory.join("copy.md");
+        let error = atomic_write_new_using(&path, b"first", |_, _| {
+            Err(io::Error::other("injected link failure"))
+        })
+        .expect_err("unrelated link failures are reported");
+        assert!(matches!(error, PersistenceError::Io { path: ref failed, .. } if failed == &path));
+        assert!(!path.exists());
+        assert!(!has_copy_temporary(&directory));
         fs::remove_dir_all(directory).expect("cleanup isolated test directory");
     }
 

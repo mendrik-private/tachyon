@@ -216,8 +216,7 @@ impl DocumentSnapshot {
         self.node(position.node_id)
             .and_then(BlockNode::text)
             .is_some_and(|text| {
-                position.text_offset <= text.len()
-                    && text.as_string().is_char_boundary(position.text_offset)
+                position.text_offset <= text.len() && text.is_char_boundary(position.text_offset)
             })
     }
 }
@@ -1021,7 +1020,7 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
                         BlockNode::Heading(crate::Heading {
                             id: paragraph.id,
                             level: level.clamp(1, 6),
-                            content: paragraph.content.clone(),
+                            content: heading_content(paragraph.id, &paragraph.content)?,
                         })
                     }
                     (BlockNode::Heading(heading), BlockStyle::Paragraph) => {
@@ -1031,16 +1030,20 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
                         })
                     }
                     (BlockNode::CodeBlock(code), BlockStyle::Paragraph) => {
+                        // A paragraph cannot hold blank or indented lines;
+                        // each line boundary becomes one hard break.
+                        let mut content = code.content.clone();
+                        content.replace_line_breaks(code.id, "  \n")?;
                         BlockNode::Paragraph(crate::Paragraph {
                             id: code.id,
-                            content: code.content.clone(),
+                            content,
                         })
                     }
                     (BlockNode::CodeBlock(code), BlockStyle::Heading(level)) => {
                         BlockNode::Heading(crate::Heading {
                             id: code.id,
                             level: level.clamp(1, 6),
-                            content: code.content.clone(),
+                            content: heading_content(code.id, &code.content)?,
                         })
                     }
                     (BlockNode::Paragraph(paragraph), BlockStyle::CodeBlock) => {
@@ -1116,6 +1119,10 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
             Ok(changed)
         }
         EditCommand::InsertBlock { index, block } => {
+            // Caller-assigned IDs are reserved so later allocations stay unique.
+            collect_block_ids(&block, &mut |id| {
+                state.next_node_id = state.next_node_id.max(id.get().saturating_add(1));
+            });
             let mut blocks = state.blocks.to_vec();
             blocks.insert(index.min(blocks.len()), block);
             state.blocks = BlockSequence::new(blocks);
@@ -1294,7 +1301,9 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
             Ok(changed)
         }
         EditCommand::OutdentListItem { item_id } => {
-            let changed = outdent_list_item(&mut state.blocks, item_id, true)?;
+            let mut next_id = state.next_node_id;
+            let changed = outdent_list_item(&mut state.blocks, item_id, true, &mut next_id)?;
+            state.next_node_id = next_id;
             if changed {
                 state.structure_changed = true;
                 state.dirty_nodes.insert(item_id);
@@ -1399,8 +1408,9 @@ fn outdent_list_item(
     blocks: &mut BlockSequence,
     item_id: NodeId,
     escape_direct: bool,
+    next_id: &mut u64,
 ) -> Result<bool, DocumentError> {
-    match outdent_in_sequence(blocks, item_id, escape_direct)? {
+    match outdent_in_sequence(blocks, item_id, escape_direct, next_id)? {
         OutdentResult::Handled => Ok(true),
         OutdentResult::NotFound => Err(PositionError::UnknownNode(item_id).into()),
         OutdentResult::Bubble(_) => {
@@ -1410,10 +1420,26 @@ fn outdent_list_item(
     }
 }
 
+/// The kind of a list continuing `kind` after `skipped` of its items.
+fn continued_list_kind(kind: &crate::ListKind, skipped: usize) -> crate::ListKind {
+    match kind {
+        crate::ListKind::Ordered { start } => crate::ListKind::Ordered {
+            start: start.saturating_add(skipped as u64),
+        },
+        kind => kind.clone(),
+    }
+}
+
+/// Outdent splits the containing list at the item, preserving document order:
+/// an item leaving a top-level list becomes its blocks between the preceding
+/// and the following items; a nested item moves after its parent item and
+/// adopts its following siblings (and any later blocks of that parent) as
+/// children. Lists emptied by the move are removed.
 fn outdent_in_sequence(
     blocks: &mut BlockSequence,
     item_id: NodeId,
     escape_direct: bool,
+    next_id: &mut u64,
 ) -> Result<OutdentResult, DocumentError> {
     let mut sequence = blocks.to_vec();
     for block_index in 0..sequence.len() {
@@ -1423,25 +1449,77 @@ fn outdent_in_sequence(
         if let BlockNode::List(list) = Arc::make_mut(&mut sequence[block_index]) {
             let mut items = list.items.to_vec();
             if let Some(item_index) = items.iter().position(|item| item.id == item_id) {
-                let item = items.remove(item_index);
+                let following = items.split_off(item_index + 1);
+                let mut item = items.pop().expect("item index resolved above");
+                let preceding_empty = items.is_empty();
                 list.items = items.into();
+                let list_id = list.id;
+                let kind = list.kind.clone();
+                let tight = list.tight;
                 if escape_direct {
-                    let insertion = if list.items.is_empty() {
-                        sequence.remove(block_index);
-                        block_index
+                    let mut replacement = Vec::with_capacity(item.blocks.len() + 2);
+                    if !preceding_empty {
+                        replacement.push(Arc::clone(&sequence[block_index]));
+                    }
+                    if item.blocks.is_empty() && !preceding_empty {
+                        // Nothing escapes; keep the remaining items together.
+                        if let BlockNode::List(list) = Arc::make_mut(&mut replacement[0]) {
+                            let mut items = list.items.to_vec();
+                            items.extend(following);
+                            list.items = items.into();
+                        }
                     } else {
-                        block_index + 1
-                    };
-                    sequence.splice(insertion..insertion, item.blocks.to_vec());
+                        replacement.extend(item.blocks.iter().cloned());
+                        if !following.is_empty() {
+                            let id = if preceding_empty {
+                                list_id
+                            } else {
+                                allocate_from(next_id)
+                            };
+                            replacement.push(Arc::new(BlockNode::List(crate::ListBlock {
+                                id,
+                                kind: continued_list_kind(&kind, item_index + 1),
+                                tight,
+                                items: following.into(),
+                            })));
+                        }
+                    }
+                    sequence.splice(block_index..=block_index, replacement);
                     *blocks = BlockSequence::new(sequence);
                     return Ok(OutdentResult::Handled);
                 }
+
+                let mut item_blocks = item.blocks.to_vec();
+                if !following.is_empty() {
+                    if let Some(BlockNode::List(nested)) = item_blocks.last_mut().map(Arc::make_mut)
+                        && nested.kind == kind
+                    {
+                        let mut nested_items = nested.items.to_vec();
+                        nested_items.extend(following);
+                        nested.items = nested_items.into();
+                    } else {
+                        item_blocks.push(Arc::new(BlockNode::List(crate::ListBlock {
+                            id: allocate_from(next_id),
+                            kind: continued_list_kind(&kind, item_index + 1),
+                            tight,
+                            items: following.into(),
+                        })));
+                    }
+                }
+                // Blocks after the list inside the parent item follow the
+                // outdented item in document order.
+                item_blocks.extend(sequence.drain(block_index + 1..));
+                if preceding_empty {
+                    sequence.remove(block_index);
+                }
+                item.blocks = BlockSequence::new(item_blocks);
                 *blocks = BlockSequence::new(sequence);
                 return Ok(OutdentResult::Bubble(item));
             }
 
             for parent_index in 0..items.len() {
-                match outdent_in_sequence(&mut items[parent_index].blocks, item_id, false)? {
+                match outdent_in_sequence(&mut items[parent_index].blocks, item_id, false, next_id)?
+                {
                     OutdentResult::Bubble(item) => {
                         items.insert(parent_index + 1, item);
                         list.items = items.into();
@@ -1464,7 +1542,7 @@ fn outdent_in_sequence(
             | BlockNode::Alert { blocks, .. }
             | BlockNode::Definition { blocks, .. }
             | BlockNode::FootnoteDefinition { blocks, .. } => {
-                outdent_in_sequence(blocks, item_id, true)?
+                outdent_in_sequence(blocks, item_id, true, next_id)?
             }
             BlockNode::Table(table) => {
                 let mut result = OutdentResult::NotFound;
@@ -1472,7 +1550,8 @@ fn outdent_in_sequence(
                 'rows: for row in &mut rows {
                     let mut cells = row.cells.to_vec();
                     for cell in &mut cells {
-                        let candidate = outdent_in_sequence(&mut cell.blocks, item_id, true)?;
+                        let candidate =
+                            outdent_in_sequence(&mut cell.blocks, item_id, true, next_id)?;
                         if !matches!(candidate, OutdentResult::NotFound) {
                             result = candidate;
                             row.cells = cells.into();
@@ -1821,6 +1900,12 @@ fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, Doc
     if imported.blocks().len() == 1
         && let Some(BlockNode::Paragraph(paragraph)) = imported.blocks().get(0).map(AsRef::as_ref)
     {
+        let into_heading = crate::tree_selection::TreeRange::resolve(&state.blocks, &selection)
+            .is_ok_and(|range| matches!(range.start_block.as_ref(), BlockNode::Heading(_)));
+        if into_heading {
+            let content = heading_content(paragraph.id, &paragraph.content)?;
+            return replace_rich_text_selection(state, selection, &content);
+        }
         return replace_rich_text_selection(state, selection, &paragraph.content);
     }
 
@@ -1887,6 +1972,16 @@ fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, Doc
         state.selection = Selection::Text(TextSelection::caret(position));
     }
     Ok(true)
+}
+
+/// ATX headings are one source line: line breaks entering one become spaces.
+fn heading_content(
+    node_id: NodeId,
+    content: &crate::RichText,
+) -> Result<crate::RichText, DocumentError> {
+    let mut content = content.clone();
+    content.replace_line_breaks(node_id, " ")?;
+    Ok(content)
 }
 
 fn block_with_text(
@@ -2114,7 +2209,14 @@ fn split_selection(state: &mut SnapshotState) -> Result<bool, DocumentError> {
 
 struct ListSplit {
     position: DocumentPosition,
-    escaped_blocks: Option<Vec<Arc<BlockNode>>>,
+    escaped: Option<EscapedListItem>,
+}
+
+/// An empty item left its list: its blocks take its place, between the
+/// remaining preceding items and a list continuing with the following ones.
+struct EscapedListItem {
+    blocks: Vec<Arc<BlockNode>>,
+    following: Option<crate::ListBlock>,
 }
 
 fn split_in_sequence(
@@ -2148,16 +2250,20 @@ fn split_in_sequence(
             None
         };
         if let Some(list_split) = list_split {
-            if let Some(escaped) = list_split.escaped_blocks {
+            if let Some(escaped) = list_split.escaped {
                 let list_empty =
                     matches!(next[index].as_ref(), BlockNode::List(list) if list.items.is_empty());
-                let insertion = if list_empty {
-                    next.remove(index);
-                    index
-                } else {
-                    index + 1
-                };
-                next.splice(insertion..insertion, escaped);
+                let mut replacement = Vec::with_capacity(escaped.blocks.len() + 2);
+                if !list_empty {
+                    replacement.push(Arc::clone(&next[index]));
+                }
+                replacement.extend(escaped.blocks);
+                replacement.extend(
+                    escaped
+                        .following
+                        .map(|following| Arc::new(BlockNode::List(following))),
+                );
+                next.splice(index..=index, replacement);
             }
             *blocks = BlockSequence::new(next);
             return Ok(Some(list_split.position));
@@ -2222,11 +2328,25 @@ fn split_in_list(
             let target_text = target.text().ok_or(PositionError::NotText(node_id))?;
             target_text.validate_range(node_id, &(offset..offset))?;
             if target_text.is_empty() && offset == 0 {
-                let escaped = items.remove(item_index).blocks.to_vec();
+                let following = items.split_off(item_index + 1);
+                let escaped = items.pop().expect("item index resolved above");
+                let following = (!following.is_empty()).then(|| crate::ListBlock {
+                    id: if items.is_empty() {
+                        list.id
+                    } else {
+                        allocate_from(next_id)
+                    },
+                    kind: continued_list_kind(&list.kind, item_index + 1),
+                    tight: list.tight,
+                    items: following.into(),
+                });
                 list.items = items.into();
                 return Ok(Some(ListSplit {
                     position: DocumentPosition::new(node_id, 0, crate::Affinity::Downstream),
-                    escaped_blocks: Some(escaped),
+                    escaped: Some(EscapedListItem {
+                        blocks: escaped.blocks.to_vec(),
+                        following,
+                    }),
                 }));
             }
 
@@ -2250,7 +2370,7 @@ fn split_in_list(
             list.items = items.into();
             return Ok(Some(ListSplit {
                 position: DocumentPosition::new(right_id, 0, crate::Affinity::Downstream),
-                escaped_blocks: None,
+                escaped: None,
             }));
         }
 
@@ -2260,7 +2380,7 @@ fn split_in_list(
             list.items = items.into();
             return Ok(Some(ListSplit {
                 position,
-                escaped_blocks: None,
+                escaped: None,
             }));
         }
     }
@@ -2654,9 +2774,8 @@ fn repair_position(
 }
 
 fn clamp_position(position: DocumentPosition, text: &crate::RichText) -> DocumentPosition {
-    let source = text.as_string();
-    let mut offset = position.text_offset.min(source.len());
-    while !source.is_char_boundary(offset) {
+    let mut offset = position.text_offset.min(text.len());
+    while !text.is_char_boundary(offset) {
         offset = offset.saturating_sub(1);
     }
     DocumentPosition::new(position.node_id, offset, position.affinity)
@@ -2983,6 +3102,23 @@ fn collect_changed_sequence(
     after: &BlockSequence,
     changed: &mut BTreeSet<NodeId>,
 ) {
+    // Node IDs are unique across the tree (see `validate_tree`), so shared
+    // storage has nothing changed and index-aligned IDs identify the same
+    // previous node as an ID lookup would.
+    if before.ptr_eq(after) {
+        return;
+    }
+    if before.len() == after.len()
+        && before
+            .iter()
+            .zip(after.iter())
+            .all(|(previous, current)| previous.id() == current.id())
+    {
+        for (previous, current) in before.iter().zip(after.iter()) {
+            collect_changed_block(previous, current, changed);
+        }
+        return;
+    }
     let before_by_id: HashMap<_, _> = before.iter().map(|block| (block.id(), block)).collect();
     let after_ids: HashSet<_> = after.iter().map(|block| block.id()).collect();
     for old in before {
@@ -2999,67 +3135,87 @@ fn collect_changed_sequence(
             });
             continue;
         };
-        if Arc::ptr_eq(previous, current) {
-            continue;
+        collect_changed_block(previous, current, changed);
+    }
+}
+
+/// The previous sibling with `id`, trying the aligned index before a scan.
+fn aligned_by_id<T>(
+    previous: &[T],
+    index: usize,
+    id: NodeId,
+    id_of: impl Fn(&T) -> NodeId,
+) -> Option<&T> {
+    previous
+        .get(index)
+        .filter(|candidate| id_of(candidate) == id)
+        .or_else(|| previous.iter().find(|candidate| id_of(candidate) == id))
+}
+
+fn collect_changed_block(
+    previous: &Arc<BlockNode>,
+    current: &Arc<BlockNode>,
+    changed: &mut BTreeSet<NodeId>,
+) {
+    if Arc::ptr_eq(previous, current) {
+        return;
+    }
+    changed.insert(current.id());
+    match (previous.as_ref(), current.as_ref()) {
+        (BlockNode::List(old), BlockNode::List(new)) => {
+            if Arc::ptr_eq(&old.items, &new.items) {
+                return;
+            }
+            for (index, item) in new.items.iter().enumerate() {
+                if let Some(old_item) = aligned_by_id(&old.items, index, item.id, |item| item.id) {
+                    collect_changed_sequence(&old_item.blocks, &item.blocks, changed);
+                } else {
+                    collect_node_ids(&item.blocks, &mut |id| {
+                        changed.insert(id);
+                    });
+                }
+            }
         }
-        changed.insert(current.id());
-        match (previous.as_ref(), current.as_ref()) {
-            (BlockNode::List(old), BlockNode::List(new)) => {
-                for item in new.items.iter() {
-                    if let Some(old_item) =
-                        old.items.iter().find(|candidate| candidate.id == item.id)
+        (BlockNode::BlockQuote { blocks: old, .. }, BlockNode::BlockQuote { blocks: new, .. })
+        | (BlockNode::Alert { blocks: old, .. }, BlockNode::Alert { blocks: new, .. })
+        | (BlockNode::Definition { blocks: old, .. }, BlockNode::Definition { blocks: new, .. })
+        | (
+            BlockNode::FootnoteDefinition { blocks: old, .. },
+            BlockNode::FootnoteDefinition { blocks: new, .. },
+        ) => collect_changed_sequence(old, new, changed),
+        (BlockNode::Table(old), BlockNode::Table(new)) => {
+            if Arc::ptr_eq(&old.rows, &new.rows) {
+                return;
+            }
+            for (row_index, row) in new.rows.iter().enumerate() {
+                let Some(old_row) = aligned_by_id(&old.rows, row_index, row.id, |row| row.id)
+                else {
+                    for cell in row.cells.iter() {
+                        changed.insert(cell.id);
+                        collect_node_ids(&cell.blocks, &mut |id| {
+                            changed.insert(id);
+                        });
+                    }
+                    continue;
+                };
+                if Arc::ptr_eq(&old_row.cells, &row.cells) {
+                    continue;
+                }
+                for (cell_index, cell) in row.cells.iter().enumerate() {
+                    if let Some(old_cell) =
+                        aligned_by_id(&old_row.cells, cell_index, cell.id, |cell| cell.id)
                     {
-                        collect_changed_sequence(&old_item.blocks, &item.blocks, changed);
+                        collect_changed_sequence(&old_cell.blocks, &cell.blocks, changed);
                     } else {
-                        collect_node_ids(&item.blocks, &mut |id| {
+                        changed.insert(cell.id);
+                        collect_node_ids(&cell.blocks, &mut |id| {
                             changed.insert(id);
                         });
                     }
                 }
             }
-            (
-                BlockNode::BlockQuote { blocks: old, .. },
-                BlockNode::BlockQuote { blocks: new, .. },
-            )
-            | (BlockNode::Alert { blocks: old, .. }, BlockNode::Alert { blocks: new, .. })
-            | (
-                BlockNode::Definition { blocks: old, .. },
-                BlockNode::Definition { blocks: new, .. },
-            )
-            | (
-                BlockNode::FootnoteDefinition { blocks: old, .. },
-                BlockNode::FootnoteDefinition { blocks: new, .. },
-            ) => collect_changed_sequence(old, new, changed),
-            (BlockNode::Table(old), BlockNode::Table(new)) => {
-                for row in new.rows.iter() {
-                    let Some(old_row) = old.rows.iter().find(|candidate| candidate.id == row.id)
-                    else {
-                        for cell in row.cells.iter() {
-                            changed.insert(cell.id);
-                            collect_node_ids(&cell.blocks, &mut |id| {
-                                changed.insert(id);
-                            });
-                        }
-                        continue;
-                    };
-                    for cell in row.cells.iter() {
-                        if let Some(old_cell) = old_row
-                            .cells
-                            .iter()
-                            .find(|candidate| candidate.id == cell.id)
-                        {
-                            collect_changed_sequence(&old_cell.blocks, &cell.blocks, changed);
-                        } else {
-                            changed.insert(cell.id);
-                            collect_node_ids(&cell.blocks, &mut |id| {
-                                changed.insert(id);
-                            });
-                        }
-                    }
-                }
-            }
-            _ => {}
         }
+        _ => {}
     }
 }
 
@@ -3103,6 +3259,103 @@ pub(crate) fn structure_changed(snapshot: &DocumentSnapshot) -> bool {
 mod tests {
     use super::*;
     use crate::Affinity;
+
+    /// The original quadratic diff, kept as the equivalence oracle for the
+    /// shortcut-based implementation.
+    fn reference_changed_node_ids(
+        before: &BlockSequence,
+        after: &BlockSequence,
+    ) -> BTreeSet<NodeId> {
+        let mut changed = BTreeSet::new();
+        reference_changed_sequence(before, after, &mut changed);
+        changed
+    }
+
+    fn reference_changed_sequence(
+        before: &BlockSequence,
+        after: &BlockSequence,
+        changed: &mut BTreeSet<NodeId>,
+    ) {
+        let before_by_id: HashMap<_, _> = before.iter().map(|block| (block.id(), block)).collect();
+        let after_ids: HashSet<_> = after.iter().map(|block| block.id()).collect();
+        for old in before {
+            if !after_ids.contains(&old.id()) {
+                collect_block_ids(old, &mut |id| {
+                    changed.insert(id);
+                });
+            }
+        }
+        for current in after {
+            let Some(previous) = before_by_id.get(&current.id()) else {
+                collect_block_ids(current, &mut |id| {
+                    changed.insert(id);
+                });
+                continue;
+            };
+            if Arc::ptr_eq(previous, current) {
+                continue;
+            }
+            changed.insert(current.id());
+            match (previous.as_ref(), current.as_ref()) {
+                (BlockNode::List(old), BlockNode::List(new)) => {
+                    for item in new.items.iter() {
+                        if let Some(old_item) =
+                            old.items.iter().find(|candidate| candidate.id == item.id)
+                        {
+                            reference_changed_sequence(&old_item.blocks, &item.blocks, changed);
+                        } else {
+                            collect_node_ids(&item.blocks, &mut |id| {
+                                changed.insert(id);
+                            });
+                        }
+                    }
+                }
+                (
+                    BlockNode::BlockQuote { blocks: old, .. },
+                    BlockNode::BlockQuote { blocks: new, .. },
+                )
+                | (BlockNode::Alert { blocks: old, .. }, BlockNode::Alert { blocks: new, .. })
+                | (
+                    BlockNode::Definition { blocks: old, .. },
+                    BlockNode::Definition { blocks: new, .. },
+                )
+                | (
+                    BlockNode::FootnoteDefinition { blocks: old, .. },
+                    BlockNode::FootnoteDefinition { blocks: new, .. },
+                ) => reference_changed_sequence(old, new, changed),
+                (BlockNode::Table(old), BlockNode::Table(new)) => {
+                    for row in new.rows.iter() {
+                        let Some(old_row) =
+                            old.rows.iter().find(|candidate| candidate.id == row.id)
+                        else {
+                            for cell in row.cells.iter() {
+                                changed.insert(cell.id);
+                                collect_node_ids(&cell.blocks, &mut |id| {
+                                    changed.insert(id);
+                                });
+                            }
+                            continue;
+                        };
+                        for cell in row.cells.iter() {
+                            if let Some(old_cell) = old_row
+                                .cells
+                                .iter()
+                                .find(|candidate| candidate.id == cell.id)
+                            {
+                                reference_changed_sequence(&old_cell.blocks, &cell.blocks, changed);
+                            } else {
+                                changed.insert(cell.id);
+                                collect_node_ids(&cell.blocks, &mut |id| {
+                                    changed.insert(id);
+                                });
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 
     #[test]
     fn cross_block_replacement_joins_top_level_text_and_undo_restores_selection() {
@@ -4135,13 +4388,104 @@ mod tests {
         );
     }
 
+    /// Saved-Markdown meaning of a block tree: kinds, text and inline styles.
+    /// Empty paragraphs are transient caret hosts (serialized as nothing), so
+    /// same-kind lists they separated legitimately reopen as one list; list
+    /// tightness is presentation that separators may legitimately change.
+    fn reopen_shape(blocks: &BlockSequence) -> Vec<String> {
+        fn rich(text: &crate::RichText) -> String {
+            let source = text.as_string();
+            text.runs()
+                .iter()
+                .map(|run| format!("{:?}{:?}", &source[run.range.clone()], run.styles))
+                .collect()
+        }
+        let mut shapes = Vec::<(Option<crate::ListKind>, Vec<String>)>::new();
+        for block in blocks {
+            let shape = match block.as_ref() {
+                BlockNode::Paragraph(paragraph) if paragraph.content.is_empty() => continue,
+                BlockNode::Paragraph(paragraph) => format!("p:{}", rich(&paragraph.content)),
+                BlockNode::Heading(heading) => {
+                    format!("h{}:{}", heading.level, rich(&heading.content))
+                }
+                // Imported fenced code always ends with its line ending.
+                BlockNode::CodeBlock(code) => {
+                    let content = code.content.as_string();
+                    let content = content.strip_suffix('\n').unwrap_or(&content);
+                    format!("code:{content:?}")
+                }
+                BlockNode::Image(image) => {
+                    format!("img:{}:{}", image.source, image.alt.as_string())
+                }
+                BlockNode::List(list) => {
+                    let items = list
+                        .items
+                        .iter()
+                        .map(|item| format!("{:?}{:?}", item.checked, reopen_shape(&item.blocks)));
+                    match shapes.last_mut() {
+                        Some((Some(kind), previous)) if *kind == list.kind => {
+                            previous.extend(items);
+                        }
+                        _ => shapes.push((Some(list.kind.clone()), items.collect())),
+                    }
+                    continue;
+                }
+                BlockNode::BlockQuote { blocks, .. } => {
+                    format!("quote:{:?}", reopen_shape(blocks))
+                }
+                BlockNode::Table(table) => format!(
+                    "table:{}:{:?}",
+                    table.header_rows,
+                    table
+                        .rows
+                        .iter()
+                        .map(|row| row
+                            .cells
+                            .iter()
+                            .map(|cell| reopen_shape(&cell.blocks))
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>()
+                ),
+                BlockNode::ThematicBreak { .. } => "hr".to_owned(),
+                other => format!("{:?}:{}", std::mem::discriminant(other), other.plain_text()),
+            };
+            shapes.push((None, vec![shape]));
+        }
+        shapes
+            .into_iter()
+            .map(|(kind, parts)| match kind {
+                Some(kind) => format!("{kind:?}:{parts:?}"),
+                None => parts.concat(),
+            })
+            .collect()
+    }
+
+    fn reopens_with_same_shape(snapshot: &DocumentSnapshot) -> Result<(), String> {
+        let saved = snapshot.serialize().map_err(|error| error.to_string())?;
+        let reopened =
+            Document::from_markdown(saved.as_str()).map_err(|error| error.to_string())?;
+        let model = reopen_shape(snapshot.blocks());
+        let back = reopen_shape(reopened.snapshot().blocks());
+        if model == back {
+            return Ok(());
+        }
+        let difference = model
+            .iter()
+            .zip(back.iter())
+            .find(|(model, back)| model != back);
+        Err(format!(
+            "saved {saved:?}\n  first difference {difference:?}"
+        ))
+    }
+
     #[test]
     fn arbitrary_edit_sequences_preserve_invariants_and_undo_state() {
         fn random(seed: &mut u64) -> u64 {
             *seed = seed
                 .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
-            *seed
+            // An LCG's low bits cycle quickly; `% n` needs the high bits.
+            *seed >> 33
         }
 
         fn editable_nodes(snapshot: &DocumentSnapshot) -> Vec<(NodeId, String)> {
@@ -4165,6 +4509,13 @@ mod tests {
         ))
         .expect("document");
         let mut seed = 0x5eed_cafe_f00d_u64;
+        // Saved Markdown must reopen with the model's meaning. A state that
+        // reopens faithfully must stay so after every checked command.
+        // Known gap: bold/italic whose text starts or ends with whitespace in
+        // an HTML-serialized table cell reopens as literal `**` (the HTML
+        // table importer wraps with Markdown delimiters), so inline toggles
+        // are exempt from the oracle.
+        let mut reopens_faithfully = reopens_with_same_shape(&document.snapshot()).is_ok();
 
         for step in 0..300 {
             let snapshot = document.snapshot();
@@ -4260,8 +4611,23 @@ mod tests {
                 },
             };
 
+            let command_debug = format!("{command:?}");
+            let oracle_exempt = matches!(command, EditCommand::ToggleInlineSelection { .. });
             match document.apply(command) {
                 Ok(result) if !result.dirty_node_ids.is_empty() => {
+                    assert_eq!(
+                        changed_node_ids(before.blocks(), result.snapshot.blocks()),
+                        reference_changed_node_ids(before.blocks(), result.snapshot.blocks()),
+                        "step {step} {command_debug} changed-node diff"
+                    );
+                    let reopened = reopens_with_same_shape(&result.snapshot);
+                    if let Err(error) = &reopened
+                        && reopens_faithfully
+                        && !oracle_exempt
+                    {
+                        panic!("step {step} {command_debug} does not reopen: {error}");
+                    }
+                    reopens_faithfully = reopened.is_ok();
                     validate_tree(result.snapshot.blocks())
                         .unwrap_or_else(|error| panic!("step {step} invalid after edit: {error}"));
                     validate_selection(&result.snapshot, result.snapshot.selection())
@@ -4338,5 +4704,529 @@ mod tests {
                 .expect("serialize"),
             source
         );
+    }
+
+    fn outline(blocks: &BlockSequence) -> String {
+        blocks
+            .iter()
+            .map(|block| match block.as_ref() {
+                BlockNode::List(list) => format!(
+                    "[{}]",
+                    list.items
+                        .iter()
+                        .map(|item| outline(&item.blocks))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                block => block.plain_text(),
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    fn item_with_text(blocks: &BlockSequence, text: &str) -> Option<NodeId> {
+        blocks.iter().find_map(|block| match block.as_ref() {
+            BlockNode::List(list) => list.items.iter().find_map(|item| {
+                if item
+                    .blocks
+                    .get(0)
+                    .and_then(|block| block.text())
+                    .is_some_and(|content| content.as_string() == text)
+                {
+                    Some(item.id)
+                } else {
+                    item_with_text(&item.blocks, text)
+                }
+            }),
+            BlockNode::BlockQuote { blocks, .. } => item_with_text(blocks, text),
+            _ => None,
+        })
+    }
+
+    fn leaf_with_text(blocks: &BlockSequence, text: &str) -> Option<NodeId> {
+        let mut ids = Vec::new();
+        collect_node_ids(blocks, &mut |id| ids.push(id));
+        ids.into_iter().find(|id| {
+            find_node(blocks, *id)
+                .and_then(BlockNode::text)
+                .is_some_and(|content| content.as_string() == text)
+        })
+    }
+
+    fn assert_saved_outline(document: &Document, expected: &str) -> String {
+        let snapshot = document.snapshot();
+        assert_eq!(outline(snapshot.blocks()), expected);
+        let saved = snapshot.serialize().expect("serialize");
+        let reopened = Document::from_markdown(saved.as_str()).expect("reopen");
+        assert_eq!(
+            outline(reopened.snapshot().blocks()),
+            expected,
+            "reopen: {saved:?}"
+        );
+        saved
+    }
+
+    #[test]
+    fn outdenting_list_items_preserves_document_order() {
+        let cases = [
+            ("- a\n- b\n- c", "b", "[a] b [c]"),
+            ("1. a\n2. b\n3. c", "b", "[a] b [c]"),
+            ("- a\n- b\n- c", "a", "a [b, c]"),
+            ("- a\n- b\n- c", "c", "[a, b] c"),
+            ("- a\n  - a1\n  - a2\n  - a3", "a2", "[a [a1], a2 [a3]]"),
+            (
+                "- a\n  - a1\n  - a2\n    - x\n  - a3",
+                "a2",
+                "[a [a1], a2 [x, a3]]",
+            ),
+            ("- a\n  - b", "b", "[a, b]"),
+            ("> - a\n> - b\n> - c", "b", "[a] b [c]"),
+        ];
+        for (source, target, expected) in cases {
+            let mut document = Document::from_markdown(source).expect("document");
+            let item_id = item_with_text(document.snapshot().blocks(), target).expect("item");
+            document
+                .apply(EditCommand::OutdentListItem { item_id })
+                .unwrap_or_else(|error| panic!("{source:?}: {error}"));
+            let snapshot = document.snapshot();
+            let blocks = match snapshot.blocks().get(0).map(AsRef::as_ref) {
+                Some(BlockNode::BlockQuote { blocks, .. }) => blocks.clone(),
+                _ => snapshot.blocks().clone(),
+            };
+            assert_eq!(outline(&blocks), expected, "{source:?}");
+            validate_tree(snapshot.blocks()).expect("valid tree");
+            let saved = snapshot.serialize().expect("serialize");
+            let reopened = Document::from_markdown(saved.as_str()).expect("reopen");
+            assert_eq!(
+                outline(reopened.snapshot().blocks()),
+                outline(snapshot.blocks()),
+                "reopen: {saved:?}"
+            );
+            assert_eq!(
+                document
+                    .undo()
+                    .expect("undo")
+                    .serialize()
+                    .expect("serialize"),
+                source
+            );
+        }
+
+        let mut document = Document::from_markdown("- a\n  - b").expect("document");
+        let item_id = item_with_text(document.snapshot().blocks(), "b").expect("item");
+        document
+            .apply(EditCommand::OutdentListItem { item_id })
+            .expect("outdent");
+        assert_eq!(
+            document.snapshot().serialize().expect("serialize"),
+            "- a\n- b"
+        );
+    }
+
+    fn block_shapes(document: &Document) -> Vec<(String, String)> {
+        document
+            .snapshot()
+            .blocks()
+            .iter()
+            .map(|block| {
+                let kind = match block.as_ref() {
+                    BlockNode::Paragraph(_) => "p".to_owned(),
+                    BlockNode::Heading(heading) => format!("h{}", heading.level),
+                    BlockNode::CodeBlock(_) => "code".to_owned(),
+                    other => format!("{:?}", std::mem::discriminant(other)),
+                };
+                (kind, block.plain_text())
+            })
+            .collect()
+    }
+
+    fn assert_block_shapes_reopen(document: &Document, expected: &[(&str, &str)]) {
+        let expected = expected
+            .iter()
+            .map(|(kind, text)| ((*kind).to_owned(), (*text).to_owned()))
+            .collect::<Vec<_>>();
+        assert_eq!(block_shapes(document), expected);
+        let saved = document.snapshot().serialize().expect("serialize");
+        let reopened = Document::from_markdown(saved.as_str()).expect("reopen");
+        assert_eq!(block_shapes(&reopened), expected, "reopen: {saved:?}");
+    }
+
+    #[test]
+    fn line_breaks_never_split_headings_or_paragraphs_on_reopen() {
+        // Hard break paragraph -> heading.
+        let mut document = Document::from_markdown("a  \nb").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("block").id();
+        document
+            .apply(EditCommand::SetBlockStyle {
+                node_id,
+                style: BlockStyle::Heading(1),
+            })
+            .expect("heading");
+        assert_block_shapes_reopen(&document, &[("h1", "a b")]);
+
+        // Multi-line code -> heading.
+        let mut document = Document::from_markdown("```\nx\ny\n```\n").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("block").id();
+        document
+            .apply(EditCommand::SetBlockStyle {
+                node_id,
+                style: BlockStyle::Heading(2),
+            })
+            .expect("heading");
+        assert_block_shapes_reopen(&document, &[("h2", "x y")]);
+
+        // Code with a blank line -> paragraph.
+        let mut document = Document::from_markdown("```\nx\n\n  y\n```\n").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("block").id();
+        document
+            .apply(EditCommand::SetBlockStyle {
+                node_id,
+                style: BlockStyle::Paragraph,
+            })
+            .expect("paragraph");
+        assert_block_shapes_reopen(&document, &[("p", "x  \ny")]);
+
+        // Markdown paste with a hard break into a heading.
+        let mut document = Document::from_markdown("# h").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("block").id();
+        document
+            .apply(EditCommand::SetSelection(Selection::Text(
+                TextSelection::caret(DocumentPosition::new(node_id, 1, Affinity::Downstream)),
+            )))
+            .expect("caret");
+        document
+            .apply(EditCommand::PasteMarkdown {
+                markdown: "a  \nb".into(),
+            })
+            .expect("paste");
+        assert_block_shapes_reopen(&document, &[("h1", "ha b")]);
+
+        // Any other route that leaves a line break in a heading still
+        // serializes it as one heading with the same text.
+        let mut document = Document::from_markdown("# h").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("block").id();
+        document
+            .apply(EditCommand::ReplaceText {
+                node_id,
+                range: 1..1,
+                text: "\nnext".into(),
+                selection_after: None,
+                typing: false,
+            })
+            .expect("type");
+        assert_block_shapes_reopen(&document, &[("h1", "h\nnext")]);
+    }
+
+    #[test]
+    fn enter_on_an_empty_middle_list_item_splits_the_list_in_order() {
+        for (source, expected) in [
+            ("- a\n- c", "[a]  [c]"),
+            ("1. a\n2. c", "[a]  [c]"),
+            ("- x\n  - a\n  - c", "[x [a]  [c]]"),
+        ] {
+            let mut document = Document::from_markdown(source).expect("document");
+            let a = leaf_with_text(document.snapshot().blocks(), "a").expect("a");
+            document
+                .apply(EditCommand::SetSelection(Selection::Text(
+                    TextSelection::caret(DocumentPosition::new(a, 1, Affinity::Downstream)),
+                )))
+                .expect("caret");
+            document
+                .apply(EditCommand::SplitSelection)
+                .expect("new item");
+            let before = document.snapshot().serialize().expect("serialize");
+            let result = document.apply(EditCommand::SplitSelection).expect("escape");
+            let snapshot = document.snapshot();
+            assert_eq!(outline(snapshot.blocks()), expected, "{source:?}");
+            validate_tree(snapshot.blocks()).expect("valid tree");
+            let Selection::Text(caret) = result.selection else {
+                panic!("text selection");
+            };
+            assert!(snapshot.validates_position(caret.head));
+            assert!(
+                snapshot
+                    .node(caret.head.node_id)
+                    .and_then(BlockNode::text)
+                    .is_some_and(crate::RichText::is_empty),
+                "caret stays in the escaped empty block"
+            );
+            // The empty caret paragraph is transient; typing makes it real.
+            document
+                .apply(EditCommand::ReplaceSelection {
+                    text: "b".into(),
+                    typing: false,
+                })
+                .expect("type");
+            let expected_typed = expected.replacen("  ", " b ", 1);
+            assert_saved_outline(&document, &expected_typed);
+            document.undo().expect("undo typing");
+            document.undo().expect("undo escape");
+            assert_eq!(document.snapshot().serialize().expect("serialize"), before);
+        }
+    }
+
+    #[test]
+    fn toggling_a_link_over_linked_text_replaces_the_destination() {
+        let mut document = Document::from_markdown("[text](https://a.example)").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("paragraph").id();
+        document
+            .apply(EditCommand::ToggleInline {
+                node_id,
+                range: 0..4,
+                format: InlineFormat::Link("https://b.example".into()),
+            })
+            .expect("toggle link");
+        assert_eq!(
+            document.snapshot().serialize().expect("serialize"),
+            "[text](https://b.example)"
+        );
+
+        let mut document = Document::from_markdown("[te](https://a.example)xt").expect("document");
+        let node_id = document.snapshot().blocks().get(0).expect("paragraph").id();
+        document
+            .apply(EditCommand::SetSelection(Selection::Text(TextSelection {
+                anchor: DocumentPosition::new(node_id, 0, Affinity::Downstream),
+                head: DocumentPosition::new(node_id, 4, Affinity::Upstream),
+            })))
+            .expect("selection");
+        document
+            .apply(EditCommand::ToggleInlineSelection {
+                format: InlineFormat::Link("https://b.example".into()),
+            })
+            .expect("toggle link");
+        let snapshot = document.snapshot();
+        let text = snapshot
+            .node(node_id)
+            .and_then(BlockNode::text)
+            .expect("text");
+        assert!(text.runs().iter().all(|run| {
+            run.styles
+                .iter()
+                .filter(|style| matches!(style, crate::InlineStyle::Link(_)))
+                .count()
+                <= 1
+        }));
+        assert_eq!(
+            snapshot.serialize().expect("serialize"),
+            "[text](https://b.example)"
+        );
+        // Toggling the same destination again removes it.
+        document
+            .apply(EditCommand::ToggleInlineSelection {
+                format: InlineFormat::Link("https://b.example".into()),
+            })
+            .expect("toggle off");
+        assert_eq!(document.snapshot().serialize().expect("serialize"), "text");
+    }
+
+    #[test]
+    fn inserted_caller_blocks_reserve_their_ids_for_later_allocation() {
+        let mut document = Document::from_markdown("a").expect("document");
+        let future = document.snapshot().0.next_node_id;
+        let block = Arc::new(BlockNode::BlockQuote {
+            id: NodeId::new_unchecked(future),
+            blocks: BlockSequence::new(vec![Arc::new(BlockNode::Paragraph(crate::Paragraph {
+                id: NodeId::new_unchecked(future + 1),
+                content: crate::RichText::new("quoted"),
+            }))]),
+        });
+        document
+            .apply(EditCommand::InsertBlock { index: 1, block })
+            .expect("insert caller block");
+        for _ in 0..3 {
+            document
+                .apply(EditCommand::InsertBlockAfterSelection {
+                    kind: InsertBlockKind::Paragraph,
+                })
+                .expect("later allocations stay unique");
+        }
+        validate_tree(document.snapshot().blocks()).expect("unique IDs");
+    }
+
+    #[test]
+    fn tsv_paste_keeps_interior_empty_lines_and_crlf_rows() {
+        fn pasted_column(text: &str) -> Vec<String> {
+            let mut document = Document::from_markdown("| h |\n| - |\n| x |\n").expect("table");
+            let table_id = document.snapshot().blocks().get(0).expect("table").id();
+            document
+                .apply(EditCommand::PasteTsv {
+                    table_id,
+                    row: 1,
+                    column: 0,
+                    text: text.into(),
+                })
+                .expect("paste");
+            let snapshot = document.snapshot();
+            let BlockNode::Table(table) = snapshot.blocks().get(0).expect("table").as_ref() else {
+                panic!("table");
+            };
+            table.rows[1..]
+                .iter()
+                .map(|row| {
+                    row.cells
+                        .iter()
+                        .map(|cell| {
+                            cell.blocks
+                                .iter()
+                                .map(|block| block.plain_text())
+                                .collect::<String>()
+                        })
+                        .collect::<Vec<_>>()
+                        .join("|")
+                })
+                .collect()
+        }
+
+        assert_eq!(pasted_column("a\n\nc"), ["a", "", "c"]);
+        assert_eq!(pasted_column("a\r\nb\r\n"), ["a", "b"]);
+        assert_eq!(pasted_column("a\r\n\r\nc\n"), ["a", "", "c"]);
+        assert_eq!(pasted_column("a\rb"), ["a", "b"]);
+        assert_eq!(pasted_column("a\tb\n"), ["a|b"]);
+    }
+
+    #[test]
+    fn changed_node_ids_match_the_reference_diff_for_every_snapshot_pair() {
+        let mut document = Document::from_markdown(concat!(
+            "# Title\n\n",
+            "- [ ] task one\n- [x] task two\n  - nested a\n  - nested b\n\n",
+            "> quoted\n>\n> - q1\n> - q2\n\n",
+            "> [!NOTE]\n> alert body\n\n",
+            "| A | B |\n| --- | --- |\n| one | two |\n| three | four |\n\n",
+            "Tail paragraph.\n"
+        ))
+        .expect("document");
+        let mut snapshots = vec![document.snapshot()];
+        let leaf = |document: &Document, text: &str| {
+            leaf_with_text(document.snapshot().blocks(), text).expect("leaf")
+        };
+        let item = |document: &Document, text: &str| {
+            item_with_text(document.snapshot().blocks(), text).expect("item")
+        };
+        let table_id = |document: &Document| {
+            document
+                .snapshot()
+                .blocks()
+                .iter()
+                .find(|block| matches!(block.as_ref(), BlockNode::Table(_)))
+                .expect("table")
+                .id()
+        };
+        let caret = |node_id: NodeId, offset: usize| {
+            EditCommand::SetSelection(Selection::Text(TextSelection::caret(
+                DocumentPosition::new(node_id, offset, Affinity::Downstream),
+            )))
+        };
+
+        type CommandsFor<'a> = Box<dyn Fn(&Document) -> Vec<EditCommand> + 'a>;
+        let commands: Vec<CommandsFor<'_>> = vec![
+            Box::new(|document| {
+                vec![EditCommand::ReplaceText {
+                    node_id: leaf(document, "nested a"),
+                    range: 0..0,
+                    text: "x".into(),
+                    selection_after: None,
+                    typing: false,
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::ToggleTask {
+                    item_id: item(document, "task one"),
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::IndentListItem {
+                    item_id: item(document, "q2"),
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::OutdentListItem {
+                    item_id: item(document, "nested b"),
+                }]
+            }),
+            Box::new(|document| {
+                vec![
+                    caret(leaf(document, "task two"), 4),
+                    EditCommand::SplitSelection,
+                ]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::InsertTableRow {
+                    table_id: table_id(document),
+                    index: 1,
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::MoveTableRow {
+                    table_id: table_id(document),
+                    from: 1,
+                    to: 2,
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::MoveTableColumn {
+                    table_id: table_id(document),
+                    from: 0,
+                    to: 1,
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::ReplaceText {
+                    node_id: leaf(document, "four"),
+                    range: 0..4,
+                    text: "4".into(),
+                    selection_after: None,
+                    typing: false,
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::PasteTsv {
+                    table_id: table_id(document),
+                    row: 1,
+                    column: 0,
+                    text: "p\tq\nr\ts\nt\tu".into(),
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::DeleteTableRow {
+                    table_id: table_id(document),
+                    index: 2,
+                }]
+            }),
+            Box::new(|document| {
+                vec![EditCommand::ReplaceText {
+                    node_id: leaf(document, "alert body"),
+                    range: 0..5,
+                    text: "note".into(),
+                    selection_after: None,
+                    typing: false,
+                }]
+            }),
+            Box::new(|_| vec![EditCommand::MoveBlock { from: 0, to: 3 }]),
+            Box::new(|document| {
+                vec![EditCommand::DeleteBlock {
+                    node_id: document.snapshot().blocks().get(1).expect("block").id(),
+                }]
+            }),
+        ];
+        for command in commands {
+            for command in command(&document) {
+                let result = document.apply(command).expect("command");
+                snapshots.push(result.snapshot);
+            }
+        }
+        snapshots.push(document.undo().expect("undo"));
+        snapshots.push(document.redo().expect("redo"));
+
+        for before in &snapshots {
+            for after in &snapshots {
+                assert_eq!(
+                    changed_node_ids(before.blocks(), after.blocks()),
+                    reference_changed_node_ids(before.blocks(), after.blocks()),
+                    "revision {} -> {}",
+                    before.revision(),
+                    after.revision()
+                );
+            }
+        }
     }
 }

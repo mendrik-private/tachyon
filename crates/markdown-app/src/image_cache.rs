@@ -127,15 +127,47 @@ impl BoundedImageCache {
     }
 
     fn evict(&mut self, key: u64, window: &mut Window, cx: &mut App) {
+        Self::release(self.forget(key), window, cx);
+    }
+
+    fn forget(&mut self, key: u64) -> Option<CacheEntry> {
         self.recency.retain(|candidate| *candidate != key);
         self.total_bytes = self
             .total_bytes
             .saturating_sub(self.weights.remove(&key).unwrap_or(0));
-        if let Some(CacheEntry::Decoding(mut item)) = self.entries.remove(&key)
+        self.entries.remove(&key)
+    }
+
+    fn release(entry: Option<CacheEntry>, window: &mut Window, cx: &mut App) {
+        if let Some(CacheEntry::Decoding(mut item)) = entry
             && let Some(Ok(image)) = item.get()
         {
             cx.drop_image(image, Some(window));
         }
+    }
+
+    /// Replaces a decoded image larger than the whole cache budget with a
+    /// failed entry, so later renders report the error instead of fetching
+    /// and decoding it again. Returns the error and the displaced entry,
+    /// whose texture the caller releases.
+    fn reject_oversized(
+        &mut self,
+        key: u64,
+        bytes: usize,
+    ) -> Option<(ImageCacheError, Option<CacheEntry>)> {
+        if bytes <= self.max_bytes {
+            return None;
+        }
+        let displaced = self.forget(key);
+        let error = ImageCacheError::Asset(
+            format!(
+                "decoded image uses {bytes} bytes, exceeding the {} byte limit",
+                self.max_bytes
+            )
+            .into(),
+        );
+        self.entries.insert(key, CacheEntry::Failed(error.clone()));
+        Some((error, displaced))
     }
 
     fn trim(&mut self, protected: u64, window: &mut Window, cx: &mut App) {
@@ -224,15 +256,9 @@ impl ImageCache for BoundedImageCache {
         {
             if let Ok(image) = &result {
                 let bytes = Self::decoded_bytes(image);
-                if bytes > self.max_bytes {
-                    self.evict(key, window, cx);
-                    return Some(Err(ImageCacheError::Asset(
-                        format!(
-                            "decoded image uses {bytes} bytes, exceeding the {} byte limit",
-                            self.max_bytes
-                        )
-                        .into(),
-                    )));
+                if let Some((error, displaced)) = self.reject_oversized(key, bytes) {
+                    Self::release(displaced, window, cx);
+                    return Some(Err(error));
                 }
                 self.record_weight(key, bytes);
             }
@@ -716,6 +742,33 @@ mod tests {
         cache.touch(2);
         cache.touch(1);
         assert_eq!(cache.recency, vec![1, 2]);
+    }
+
+    #[test]
+    fn oversized_decoded_images_stay_failed() {
+        let mut cache = BoundedImageCache {
+            max_bytes: 10,
+            total_bytes: 0,
+            recency: Vec::new(),
+            weights: HashMap::new(),
+            entries: HashMap::new(),
+            disk: DiskImageCache::in_directory(PathBuf::new(), 10),
+            dimensions: Arc::new(Mutex::new((0, HashMap::new()))),
+        };
+        cache.touch(1);
+        cache.touch(2);
+        cache.record_weight(2, 4);
+        assert!(cache.reject_oversized(1, 10).is_none());
+        assert!(cache.entries.is_empty());
+
+        let (error, _) = cache
+            .reject_oversized(1, 11)
+            .expect("oversized image is rejected");
+        assert!(error.to_string().contains("exceeding the 10 byte limit"));
+        assert!(matches!(cache.entries.get(&1), Some(CacheEntry::Failed(_))));
+        assert_eq!(cache.recency, vec![2]);
+        assert_eq!(cache.total_bytes, 4);
+        assert_eq!(cache.loading_count(), 0);
     }
 
     #[test]

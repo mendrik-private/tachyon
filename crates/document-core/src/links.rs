@@ -1,6 +1,9 @@
 //! Read-only link resolution. No filesystem access, resource loading, or shell
 //! dispatch: the application owns opening documents and external URLs.
-use std::path::{Path, PathBuf};
+use std::{
+    ops::ControlFlow,
+    path::{Path, PathBuf},
+};
 
 use comrak::Anchorizer;
 use percent_encoding::percent_decode_str;
@@ -97,34 +100,52 @@ fn decode_fragment(fragment: &str) -> Result<String, LinkError> {
 /// canonical headings in source order. HTML IDs remain opaque, not invented.
 #[must_use]
 pub fn heading_node(blocks: &BlockSequence, fragment: &str) -> Option<NodeId> {
-    fn visit(blocks: &BlockSequence, fragment: &str, anchors: &mut Anchorizer) -> Option<NodeId> {
+    visit_heading_anchors(blocks, &mut |id, anchor| {
+        if anchor == fragment {
+            ControlFlow::Break(id)
+        } else {
+            ControlFlow::Continue(())
+        }
+    })
+    .break_value()
+}
+
+/// Visit every canonical heading with its GFM anchor in source order. Static
+/// export IDs and fragment navigation share this so they cannot diverge.
+pub(crate) fn visit_heading_anchors<B>(
+    blocks: &BlockSequence,
+    visitor: &mut impl FnMut(NodeId, String) -> ControlFlow<B>,
+) -> ControlFlow<B> {
+    fn visit<B>(
+        blocks: &BlockSequence,
+        anchors: &mut Anchorizer,
+        visitor: &mut impl FnMut(NodeId, String) -> ControlFlow<B>,
+    ) -> ControlFlow<B> {
         for block in blocks {
-            let found = match block.as_ref() {
-                BlockNode::Heading(heading) => (anchors.anchorize(&heading.content.as_string())
-                    == fragment)
-                    .then_some(heading.id),
-                BlockNode::List(list) => list
-                    .items
-                    .iter()
-                    .find_map(|item| visit(&item.blocks, fragment, anchors)),
+            match block.as_ref() {
+                BlockNode::Heading(heading) => {
+                    visitor(heading.id, anchors.anchorize(&heading.content.as_string()))?;
+                }
+                BlockNode::List(list) => {
+                    for item in list.items.iter() {
+                        visit(&item.blocks, anchors, visitor)?;
+                    }
+                }
                 BlockNode::BlockQuote { blocks, .. }
                 | BlockNode::Alert { blocks, .. }
                 | BlockNode::Definition { blocks, .. }
-                | BlockNode::FootnoteDefinition { blocks, .. } => visit(blocks, fragment, anchors),
-                BlockNode::Table(table) => table.rows.iter().find_map(|row| {
-                    row.cells
-                        .iter()
-                        .find_map(|cell| visit(&cell.blocks, fragment, anchors))
-                }),
-                _ => None,
-            };
-            if found.is_some() {
-                return found;
+                | BlockNode::FootnoteDefinition { blocks, .. } => visit(blocks, anchors, visitor)?,
+                BlockNode::Table(table) => {
+                    for cell in table.rows.iter().flat_map(|row| row.cells.iter()) {
+                        visit(&cell.blocks, anchors, visitor)?;
+                    }
+                }
+                _ => {}
             }
         }
-        None
+        ControlFlow::Continue(())
     }
-    visit(blocks, fragment, &mut Anchorizer::new())
+    visit(blocks, &mut Anchorizer::new(), visitor)
 }
 
 #[cfg(test)]

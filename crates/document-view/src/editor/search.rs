@@ -27,6 +27,7 @@ fn named_button(button: Button, label: &'static str) -> NamedButton {
 struct Part {
     node: NodeId,
     text: String,
+    folded: FoldedText,
     html: Option<Arc<str>>,
     leaves: Vec<Range<usize>>,
 }
@@ -114,34 +115,38 @@ impl Index {
         let projection = TextProjection::from_snapshot(snapshot);
         let mut parts = Vec::new();
         for segment in projection.segments() {
-            let mut part = Part {
-                node: segment.node_id,
-                text: projection.text()[segment.projection_range()].to_owned(),
-                html: None,
-                leaves: Vec::new(),
-            };
+            let mut text = String::new();
+            let mut html = None;
+            let mut leaves = Vec::new();
             if let Some(BlockNode::PreservedSource { source, .. }) =
                 projection.block(segment.node_id)
             {
-                part.html = Some(source.clone());
-                part.text.clear();
+                html = Some(source.clone());
                 if let Some(texts) = document_core::editable_html_text_nodes(source) {
-                    for text in texts {
-                        if !part.leaves.is_empty() {
-                            part.text.push('\n');
+                    for leaf in texts {
+                        if !leaves.is_empty() {
+                            text.push('\n');
                         }
-                        let start = part.text.len();
-                        part.text.push_str(&text);
-                        part.leaves.push(start..part.text.len());
+                        let start = text.len();
+                        text.push_str(&leaf);
+                        leaves.push(start..text.len());
                     }
                 } else {
-                    part.text = document_core::inert_html_fragment(source)
+                    text = document_core::inert_html_fragment(source)
                         .map_or_else(|| source.to_string(), |fragment| fragment.text().to_owned());
                 }
             } else if segment.context.preserved_source {
                 continue;
+            } else {
+                text = projection.text()[segment.projection_range()].to_owned();
             }
-            parts.push(part);
+            parts.push(Part {
+                node: segment.node_id,
+                folded: FoldedText::new(&text),
+                text,
+                html,
+                leaves,
+            });
         }
         Self { generation, parts }
     }
@@ -155,7 +160,7 @@ impl Index {
         let mut selected = None;
         let mut first = None;
         for part in &self.parts {
-            for_matches(&part.text, &query, |range| {
+            part.folded.for_matches(&part.text, &query, |range| {
                 if count == requested || count == 0 {
                     let position = part
                         .leaves
@@ -210,29 +215,66 @@ fn fold(text: &str) -> String {
     text.chars().flat_map(fold_char).collect()
 }
 
-/// Unicode lowercase matching with original UTF-8 addresses. ASCII avoids a
-/// per-character address map; expansions (İ → i + dot) keep whole source chars.
-/// The query must already be folded with `fold`.
-fn for_matches(text: &str, query: &str, mut visit: impl FnMut(Range<usize>)) {
-    if text.is_ascii() {
-        for (start, _) in text.to_ascii_lowercase().match_indices(query) {
-            visit(start..start + query.len());
+/// A part's text folded once per index build, so each query only scans.
+struct FoldedText {
+    text: String,
+    /// Every source char folds to one char of equal UTF-8 length, so folded
+    /// and source byte addresses coincide (ASCII, most accented and CJK text).
+    aligned: bool,
+}
+
+impl FoldedText {
+    fn new(source: &str) -> Self {
+        let mut text = String::with_capacity(source.len());
+        let mut aligned = true;
+        for ch in source.chars() {
+            let start = text.len();
+            let mut folded_chars = 0;
+            for lower in fold_char(ch) {
+                text.push(lower);
+                folded_chars += 1;
+            }
+            aligned &= folded_chars == 1 && text.len() - start == ch.len_utf8();
         }
-        return;
+        Self { text, aligned }
     }
-    let folded = fold(text);
-    let mut offsets = Vec::new();
-    let mut folded_byte = 0;
-    for (byte, ch) in text.char_indices() {
-        for lower in fold_char(ch) {
-            offsets.push((folded_byte, byte, byte + ch.len_utf8()));
-            folded_byte += lower.len_utf8();
+
+    /// Unicode lowercase matches of `query` (already folded with `fold`) as
+    /// ranges of `source`, the text this was built from. Expansions (İ → i +
+    /// dot) keep whole source chars.
+    fn for_matches(&self, source: &str, query: &str, mut visit: impl FnMut(Range<usize>)) {
+        if self.aligned {
+            for (start, _) in self.text.match_indices(query) {
+                visit(start..start + query.len());
+            }
+            return;
         }
-    }
-    for (start, _) in folded.match_indices(query) {
-        let first = offsets.partition_point(|entry| entry.0 < start);
-        let last = offsets.partition_point(|entry| entry.0 < start + query.len()) - 1;
-        visit(offsets[first].1..offsets[last].2);
+        // (folded char start, source char range), walked forward once:
+        // matches are ordered and do not overlap.
+        let mut folded_byte = 0;
+        let mut chars = source
+            .char_indices()
+            .flat_map(|(byte, ch)| {
+                fold_char(ch).map(move |lower| (lower.len_utf8(), byte..byte + ch.len_utf8()))
+            })
+            .map(|(len, range)| {
+                let start = folded_byte;
+                folded_byte += len;
+                (start, range)
+            })
+            .peekable();
+        for (start, _) in self.text.match_indices(query) {
+            let end = start + query.len();
+            while chars.next_if(|(folded, _)| *folded < start).is_some() {}
+            let Some((_, first)) = chars.next() else {
+                return;
+            };
+            let mut range = first;
+            while let Some((_, last)) = chars.next_if(|(folded, _)| *folded < end) {
+                range.end = last.end;
+            }
+            visit(range);
+        }
     }
 }
 
@@ -427,11 +469,7 @@ impl RichDocumentEditor {
                 ..segment.projection_start() + found.range.end;
             self.set_selection(range.clone(), false, window, cx);
             _ = self.reveal_find_horizontal();
-            if let Some(line) = self
-                .visual_lines
-                .iter()
-                .find(|line| line.projected_range().contains(&range.start))
-            {
+            if let Some(line) = visual_line_containing(&self.visual_lines, range.start) {
                 self.center_find_vertical(line.y, line.y + line.style.line_height, cx);
             }
         }
@@ -450,11 +488,7 @@ impl RichDocumentEditor {
         {
             return;
         }
-        let target = self.visual_lines.iter().find_map(|line| {
-            (segment_for_line(&self.projection, &line.projected_range())?.node_id == found.node)
-                .then_some(line)
-        });
-        let Some(line) = target else {
+        let Some(line) = self.visual_lines_for_node(found.node).next() else {
             return;
         };
         let mut target_top = line.y;
@@ -533,15 +567,10 @@ impl RichDocumentEditor {
         let width = f32::from(container.size.width);
         let selected = self.selected_byte_range().0;
         let html = self.html_selection.as_ref();
-        let line = self.visual_lines.iter().find(|line| {
-            html.map_or_else(
-                || line.projected_range().contains(&selected.start),
-                |selection| {
-                    segment_for_line(&self.projection, &line.projected_range())
-                        .is_some_and(|segment| segment.node_id == selection.node)
-                },
-            )
-        })?;
+        let line = match html {
+            Some(selection) => self.visual_lines_for_node(selection.node).next(),
+            None => visual_line_containing(&self.visual_lines, selected.start),
+        }?;
         let segment = segment_for_line(&self.projection, &line.projected_range())?;
         let owner = horizontal_scroll_owner(&self.projection, segment)?;
         let is_code = matches!(
@@ -829,13 +858,19 @@ mod tests {
         assert_eq!(index.find("", 0).0, 0);
         assert_eq!(index.find("CAFÉ", 0).0, 2);
         assert_eq!(document.snapshot().serialize().unwrap(), SOURCE);
-        let text = "İSTANBUL café 東京";
-        let mut ranges = Vec::new();
-        for_matches(text, "café", |range| ranges.push(range));
-        assert_eq!(&text[ranges[0].clone()], "café");
-        ranges.clear();
-        for_matches(text, "i", |range| ranges.push(range));
-        assert_eq!(&text[ranges[0].clone()], "İ");
+        let text = "İSTANBUL café 東京 İi";
+        let folded = FoldedText::new(text);
+        assert!(!folded.aligned);
+        let matches = |query: &str| {
+            let mut ranges = Vec::new();
+            folded.for_matches(text, &fold(query), |range| ranges.push(&text[range]));
+            ranges
+        };
+        assert_eq!(matches("café"), ["café"]);
+        assert_eq!(matches("i"), ["İ", "İ", "i"]);
+        assert_eq!(matches("stanbul"), ["STANBUL"]);
+        assert_eq!(matches("東京 i"), ["東京 İ"]);
+        assert!(FoldedText::new("ÉCOLE 東京").aligned);
     }
 
     #[test]
@@ -1291,8 +1326,7 @@ mod tests {
                 .find(|line| line.range.contains(&range.start))
                 .expect("find must paint the clipped target column");
             let viewport = line.content_mask.as_ref().unwrap().bounds;
-            let start = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + line.layout.x_for_index(range.start - line.range.start);
+            let start = line.x_for_offset(range.start);
             let end = start + line.layout.width();
             assert!(
                 start >= viewport.left() && end <= viewport.right(),

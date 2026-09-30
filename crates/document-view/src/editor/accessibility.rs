@@ -1220,7 +1220,7 @@ mod tests {
         let source = "[Handbook](guide.md): The complete description.\n\n[Compact](other.md)\n\n[One](one.md) and [two](two.md).\n";
         let document = Document::from_markdown(source).unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = Arc::new(build_visual_lines(&document, &projection));
+        let lines = Arc::new(build_visual_lines(&projection));
         let tree = SemanticCache::default().get(&projection, &lines, 760.);
         assert_eq!(tree.specs[0].resource_link.as_deref(), Some("guide.md"));
         assert_eq!(tree.specs[0].label, "Handbook: The complete description.");
@@ -1240,7 +1240,7 @@ mod tests {
         .unwrap();
         let original = document.snapshot().serialize().unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = Arc::new(build_visual_lines(&document, &projection));
+        let lines = Arc::new(build_visual_lines(&projection));
         let tree = SemanticCache::default().get(&projection, &lines, 760.);
         let mut tokens = Vec::new();
         fn visit(markup: &crate::math::semantics::MathMarkup, tokens: &mut Vec<String>) {
@@ -1341,7 +1341,7 @@ mod tests {
         ))
         .unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = Arc::new(build_visual_lines(&document, &projection));
+        let lines = Arc::new(build_visual_lines(&projection));
         assert!(
             lines.iter().any(|line| line.html_preview.is_some()),
             "HTML fixture must exercise the actual Blitz preview"
@@ -1383,7 +1383,7 @@ mod tests {
         let original = "> <details><summary>Nested summary</summary><p>Hidden body</p></details>\n\n<custom-widget>\nOriginal unsupported source\n</custom-widget>\n";
         let document = Document::from_markdown(original).unwrap();
         let mut projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = Arc::new(build_visual_lines(&document, &projection));
+        let lines = Arc::new(build_visual_lines(&projection));
         let mut cache = SemanticCache::default();
         let closed = cache.get(&projection, &lines, 760.);
         assert_eq!(closed.specs[0].label, "Nested summary");
@@ -1408,7 +1408,7 @@ mod tests {
                 overrides: [(0, true)].into(),
             },
         );
-        let opened_lines = Arc::new(build_visual_lines(&document, &projection));
+        let opened_lines = Arc::new(build_visual_lines(&projection));
         let opened = cache.get(&projection, &opened_lines, 760.);
         assert_eq!(opened.specs[0].label, "Nested summary\nHidden body");
         assert_eq!(
@@ -1482,7 +1482,7 @@ mod tests {
         ))
         .unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let mut lines = Arc::new(build_visual_lines(&document, &projection));
+        let mut lines = Arc::new(build_visual_lines(&projection));
         let mut cache = SemanticCache::default();
         assert!(cache.current().is_none());
         let tree = cache.get(&projection, &lines, 760.);

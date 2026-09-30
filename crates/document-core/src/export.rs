@@ -42,7 +42,8 @@ impl DocumentSnapshot {
     /// or a paged-HTML renderer. The canonical snapshot remains unchanged.
     pub fn export_static_html(&self, options: &StaticHtmlOptions) -> Result<String, DocumentError> {
         let body = crate::markdown::static_html_blocks(self.blocks())?;
-        let title = escape_html(&options.title);
+        let mut title = String::with_capacity(options.title.len());
+        crate::html::push_escaped_html(&mut title, &options.title, false);
         let language = normalized_language(&options.language);
         let page_size = options.page_size.css();
         Ok(format!(
@@ -58,21 +59,6 @@ fn normalized_language(language: &str) -> &str {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-');
     if valid { language } else { "und" }
-}
-
-fn escape_html(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
-    for character in value.chars() {
-        match character {
-            '&' => output.push_str("&amp;"),
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#39;"),
-            _ => output.push(character),
-        }
-    }
-    output
 }
 
 const STYLE: &str = r#":root { color-scheme: light; --paper:#fbfaf6; --ink:#17212b; --muted:#52616d; --rule:#9ba8b2; --accent:#245f8f; --panel:#f1f3f2; }
@@ -144,6 +130,21 @@ mod tests {
         assert!(!html.contains("<script"));
         assert!(!html.contains("Copy"));
         assert_eq!(document.snapshot().serialize().unwrap(), before);
+    }
+
+    #[test]
+    fn title_is_escaped_for_text_and_double_quoted_attributes() {
+        let html = Document::from_markdown("Body")
+            .unwrap()
+            .snapshot()
+            .export_static_html(&StaticHtmlOptions {
+                title: "Tom's \"A&B\" <x>".into(),
+                ..StaticHtmlOptions::default()
+            })
+            .unwrap();
+        let escaped = "Tom's &quot;A&amp;B&quot; &lt;x&gt;";
+        assert!(html.contains(&format!("<title>{escaped}</title>")));
+        assert!(html.contains(&format!("<article aria-label=\"{escaped}\">")));
     }
 
     #[test]

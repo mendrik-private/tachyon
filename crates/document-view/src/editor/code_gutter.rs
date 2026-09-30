@@ -39,9 +39,8 @@ pub(super) fn retain_width(
     let Some(segment) = projection.segment_for_node(node) else {
         return;
     };
-    let first = lines.partition_point(|line| line.projected_start() < segment.projection_start());
-    let end = lines.partition_point(|line| line.projected_start() <= segment.projection_end());
-    for line in &mut lines[first..end] {
+    let span = segment_line_span(lines, segment);
+    for line in &mut lines[span] {
         if segment.projection_start() <= line.projected_start()
             && line.projected_end() <= segment.projection_end()
             && let Some(code) = &mut line.code_line
@@ -59,8 +58,7 @@ pub(super) fn active_width(
 ) -> Option<(NodeId, f32, bool)> {
     let node = node?;
     let segment = projection.segment_for_node(node)?;
-    let first = lines.partition_point(|line| line.projected_start() < segment.projection_start());
-    let line = lines.get(first)?;
+    let line = lines.get(segment_line_span(lines, segment).start)?;
     Some((
         node,
         line.code_line?.width / line.style.font_size,
@@ -79,8 +77,7 @@ pub(super) fn restore_active_width(
     let Some(segment) = projection.segment_for_node(node) else {
         return false;
     };
-    let first = lines.partition_point(|line| line.projected_start() < segment.projection_start());
-    let Some(line) = lines.get(first) else {
+    let Some(line) = lines.get(segment_line_span(lines, segment).start) else {
         return false;
     };
     let Some(code) = line.code_line else {

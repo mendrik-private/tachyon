@@ -192,10 +192,10 @@ impl RichDocumentEditor {
         {
             return;
         }
-        cx.emit(EditorEvent::RetryImage {
-            source: source.to_owned(),
-            document_directory: self.document_directory.clone(),
-        });
+        cx.emit(EditorEvent::RetryImage(resolved_image_resource(
+            source,
+            self.document_directory.as_deref(),
+        )));
         cx.notify();
     }
 }
@@ -320,13 +320,16 @@ mod tests {
         let cx: &mut gpui::VisualTestContext = cx;
         let (editor, cache) =
             host.read_with(cx, |host, _| (host.editor.clone(), host.cache.clone()));
+        editor.update(cx, |editor, cx| {
+            editor.set_document_directory(Some(PathBuf::from("/notes")), cx)
+        });
         let retries = Arc::new(Mutex::new(Vec::new()));
         let recorded = retries.clone();
         editor
             .update(cx, |_, cx| {
                 cx.subscribe(&editor, move |_, _, event, _| {
-                    if let EditorEvent::RetryImage { source, .. } = event {
-                        recorded.lock().unwrap().push(source.clone());
+                    if let EditorEvent::RetryImage(resource) = event {
+                        recorded.lock().unwrap().push(resource.clone());
                     }
                 })
             })
@@ -378,7 +381,8 @@ mod tests {
                 assert_eq!(editor.document.snapshot().serialize().unwrap(), SOURCE);
             });
         }
-        assert_eq!(*retries.lock().unwrap(), ["missing.png", "missing.png"]);
+        let missing = Resource::Path(PathBuf::from("/notes/missing.png").into());
+        assert_eq!(*retries.lock().unwrap(), [missing.clone(), missing]);
         editor.update_in(cx, |editor, window, cx| {
             editor.set_selection(0..0, false, window, cx)
         });

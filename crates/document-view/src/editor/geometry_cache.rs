@@ -244,7 +244,6 @@ impl Key {
             if let Some(html) = &line.html_preview {
                 bytes = bytes
                     .saturating_add(html.source.len())
-                    .saturating_add(html.text.len())
                     .saturating_add(html.editable_text.len())
                     .saturating_add(html.text_ranges.len() * std::mem::size_of::<Range<usize>>())
                     .saturating_add(
@@ -485,8 +484,10 @@ impl FontMeasurement {
         let cached = key.as_ref().and_then(|key| {
             self.geometry
                 .lock()
-                .ok()
-                .and_then(|cache| cache.entries.get(key).cloned())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .entries
+                .get(key)
+                .cloned()
         });
         if let Some(cached) = cached {
             let segment = projection
@@ -517,8 +518,11 @@ impl FontMeasurement {
         );
         if lines.len() <= MAX_SEGMENT_LINES
             && let Some(key) = key
-            && let Ok(mut cache) = self.geometry.lock()
         {
+            let mut cache = self
+                .geometry
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             let coordinate_segment = projection
                 .segment_for_node(segment.node_id)
                 .unwrap_or(segment);

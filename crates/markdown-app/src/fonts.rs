@@ -3,24 +3,25 @@ use std::borrow::Cow;
 #[cfg(feature = "layout-validation")]
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use document_view::fonts;
 use gpui::App;
 
 pub fn register(cx: &mut App) {
     let fonts: Vec<Cow<'static, [u8]>> = [
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBoldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Bold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLightItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Italic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-SemiboldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-BoldItalic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Semibold.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Italic.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/FiraCode-Tachyon-Regular.ttf").as_slice(),
+        fonts::FRAUNCES_EXTRA_BOLD,
+        fonts::FRAUNCES_EXTRA_BOLD_ITALIC,
+        fonts::PUBLIC_SANS_EXTRA_LIGHT,
+        fonts::PUBLIC_SANS_REGULAR,
+        fonts::PUBLIC_SANS_SEMIBOLD,
+        fonts::PUBLIC_SANS_BOLD,
+        fonts::PUBLIC_SANS_EXTRA_LIGHT_ITALIC,
+        fonts::PUBLIC_SANS_ITALIC,
+        fonts::PUBLIC_SANS_SEMIBOLD_ITALIC,
+        fonts::PUBLIC_SANS_BOLD_ITALIC,
+        fonts::SPLINE_SANS_MONO_REGULAR,
+        fonts::SPLINE_SANS_MONO_SEMIBOLD,
+        fonts::SPLINE_SANS_MONO_ITALIC,
+        fonts::FIRA_CODE_REGULAR,
     ]
     .into_iter()
     .map(Cow::Borrowed)
@@ -35,13 +36,10 @@ pub fn register(cx: &mut App) {
 }
 
 fn alternate_body_fonts() -> Vec<Cow<'static, [u8]>> {
-    [
-        include_bytes!("../../../assets/fonts/NotoSans-Tachyon-Regular.ttf").as_slice(),
-        include_bytes!("../../../assets/fonts/NotoSans-Tachyon-Italic.ttf").as_slice(),
-    ]
-    .into_iter()
-    .map(Cow::Borrowed)
-    .collect()
+    [fonts::NOTO_SANS_REGULAR, fonts::NOTO_SANS_ITALIC]
+        .into_iter()
+        .map(Cow::Borrowed)
+        .collect()
 }
 
 /// Register a body family after the validation window is already displaying a
@@ -62,15 +60,17 @@ pub fn register_delayed_alternate_for_validation(cx: &mut App) -> bool {
 
 #[cfg(test)]
 mod tests {
-    const BODY_FONTS: [&[u8]; 8] = [
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Regular.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Semibold.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Bold.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLightItalic.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-Italic.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-SemiboldItalic.ttf"),
-        include_bytes!("../../../assets/fonts/PublicSans-Tachyon-BoldItalic.ttf"),
+    use super::fonts;
+
+    static BODY_FONTS: [&[u8]; 8] = [
+        fonts::PUBLIC_SANS_EXTRA_LIGHT,
+        fonts::PUBLIC_SANS_REGULAR,
+        fonts::PUBLIC_SANS_SEMIBOLD,
+        fonts::PUBLIC_SANS_BOLD,
+        fonts::PUBLIC_SANS_EXTRA_LIGHT_ITALIC,
+        fonts::PUBLIC_SANS_ITALIC,
+        fonts::PUBLIC_SANS_SEMIBOLD_ITALIC,
+        fonts::PUBLIC_SANS_BOLD_ITALIC,
     ];
 
     #[test]
@@ -92,8 +92,8 @@ mod tests {
     #[test]
     fn bundled_headline_faces_are_extra_bold() {
         for data in [
-            include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBold.ttf").as_slice(),
-            include_bytes!("../../../assets/fonts/Fraunces-Tachyon-ExtraBoldItalic.ttf").as_slice(),
+            fonts::FRAUNCES_EXTRA_BOLD,
+            fonts::FRAUNCES_EXTRA_BOLD_ITALIC,
         ] {
             let face = ttf_parser::Face::parse(data, 0).expect("valid bundled headline font");
             assert_eq!(face.weight().to_number(), 800);
@@ -102,11 +102,8 @@ mod tests {
 
     #[test]
     fn bundled_fira_code_retains_programming_ligature_features() {
-        let face = ttf_parser::Face::parse(
-            include_bytes!("../../../assets/fonts/FiraCode-Tachyon-Regular.ttf"),
-            0,
-        )
-        .expect("valid bundled Fira Code font");
+        let face = ttf_parser::Face::parse(fonts::FIRA_CODE_REGULAR, 0)
+            .expect("valid bundled Fira Code font");
         let features = face
             .tables()
             .gsub

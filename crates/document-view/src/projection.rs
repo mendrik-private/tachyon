@@ -15,6 +15,16 @@ use rustc_hash::FxHashMap;
 const PROJECTION_CHUNK_SEGMENTS: usize = 256;
 const PROJECTION_CHUNK_BYTES: usize = 64 * 1024;
 
+pub(crate) type EditorialMembers =
+    std::collections::HashMap<NodeId, crate::adaptive::editorial::Member>;
+pub(crate) type FigureRoles = FxHashMap<NodeId, (NodeId, crate::FigureTextRole)>;
+
+/// The parsed value of an authored color literal role.
+fn literal_rgba(role: Option<crate::signals::ColorRole>, block: &BlockNode) -> Option<u32> {
+    role.filter(|role| *role == crate::signals::ColorRole::Literal)
+        .and_then(|_| crate::signals::color_literal(block))
+}
+
 /// Native document-unit constraints, never persisted into Markdown.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TableMeasurements {
@@ -147,6 +157,9 @@ pub struct ProjectionContext {
     pub figure_text: Option<(NodeId, crate::FigureTextRole)>,
     /// Section-local reading mode, derived on projection rebuild. Never source.
     pub narrative: bool,
+    /// This segment's role admits the section reading face. A mode retained
+    /// across a focused edit never overrides a reference role.
+    pub(crate) narrative_eligible: bool,
     /// Authored bibliography section owning this citation paragraph/list leaf.
     pub bibliography: Option<NodeId>,
     /// Authored resource-title boundary, prepared once rather than recognized
@@ -640,6 +653,10 @@ pub struct TextProjection {
     pub(crate) expanded_code_tail: Option<NodeId>,
     pub(crate) command_strip_lock: Option<(NodeId, Option<u32>)>,
     pub(crate) footnotes: Arc<crate::footnotes::Index>,
+    // Root-level relationships, analyzed at most once per published source.
+    // An in-place text refresh can change them and resets both.
+    editorials: OnceLock<Arc<EditorialMembers>>,
+    figure_roles: OnceLock<Arc<FigureRoles>>,
     pub(crate) html_disclosures: Arc<FxHashMap<NodeId, crate::html::DisclosureState>>,
     pub(crate) html_image_references: FxHashMap<NodeId, Vec<document_core::InertHtmlImage>>,
     pub(crate) html_images: Arc<FxHashMap<NodeId, crate::html::images::BoundImages>>,
@@ -669,6 +686,8 @@ impl Clone for TextProjection {
             expanded_code_tail: self.expanded_code_tail,
             command_strip_lock: self.command_strip_lock,
             footnotes: self.footnotes.clone(),
+            editorials: self.editorials.clone(),
+            figure_roles: self.figure_roles.clone(),
             html_disclosures: self.html_disclosures.clone(),
             html_image_references: self.html_image_references.clone(),
             html_images: self.html_images.clone(),
@@ -857,6 +876,8 @@ impl TextProjection {
             container_edges: FxHashMap::default(),
             measured_tables: FxHashMap::default(),
             footnotes: Arc::default(),
+            editorials: OnceLock::new(),
+            figure_roles: OnceLock::new(),
             table_layout_lock: None,
             html_disclosures: Arc::default(),
             html_image_references: FxHashMap::default(),
@@ -904,14 +925,37 @@ impl TextProjection {
         projection
     }
 
+    pub(crate) fn editorial_members(&self) -> &EditorialMembers {
+        self.editorials.get_or_init(|| {
+            Arc::new(crate::adaptive::editorial::analyze(
+                &self.roots().collect::<Vec<_>>(),
+            ))
+        })
+    }
+
+    pub(crate) fn figure_roles(&self) -> &FigureRoles {
+        self.figure_roles.get_or_init(|| {
+            Arc::new(crate::figures::associations(
+                &self.roots().collect::<Vec<_>>(),
+            ))
+        })
+    }
+
     fn assign_reading_modes(&mut self) {
         // A sustained prose section gets the reading face; reference material
         // keeps a coherent sans mode. Work is linear at source publication,
         // never a document scan in painting or scrolling.
-        let editorials = crate::adaptive::editorial::analyze(&self.roots().collect::<Vec<_>>());
-        let metadata = crate::adaptive::metadata::analyze(&self.roots().collect::<Vec<_>>());
-        let figures = crate::figures::associations(&self.roots().collect::<Vec<_>>());
-        let bibliography = crate::bibliography::entries(&self.roots().collect::<Vec<_>>());
+        let (editorials, figures, metadata, bibliography) = {
+            let roots = self.roots().collect::<Vec<_>>();
+            (
+                Arc::new(crate::adaptive::editorial::analyze(&roots)),
+                Arc::new(crate::figures::associations(&roots)),
+                crate::adaptive::metadata::analyze(&roots),
+                crate::bibliography::entries(&roots),
+            )
+        };
+        self.editorials = OnceLock::from(editorials.clone());
+        self.figure_roles = OnceLock::from(figures.clone());
         let mut narrative = std::collections::HashSet::new();
         let mut start = 0;
         while start < self.roots.len() {
@@ -964,11 +1008,8 @@ impl TextProjection {
             segment.context.color_role = editorials
                 .get(&segment.top_level_node_id)
                 .and_then(|member| member.color_role(segment.node_id));
-            segment.context.color_rgba = segment
-                .context
-                .color_role
-                .filter(|role| *role == crate::signals::ColorRole::Literal)
-                .and_then(|_| crate::signals::color_literal(&self.blocks[&segment.node_id]));
+            segment.context.color_rgba =
+                literal_rgba(segment.context.color_role, &self.blocks[&segment.node_id]);
             segment.context.bibliography = bibliography.get(&segment.node_id).copied();
             segment.context.figure_text = figures.get(&segment.node_id).copied();
             let resource = if segment.context.figure_text.is_none()
@@ -988,13 +1029,14 @@ impl TextProjection {
             };
             segment.context.resource_title_end = resource.and_then(|r| r.body_start);
             segment.context.metadata = metadata.contains(&segment.top_level_node_id);
-            segment.context.narrative = narrative.contains(&segment.top_level_node_id)
-                && segment.context.bibliography.is_none()
+            segment.context.narrative_eligible = segment.context.bibliography.is_none()
                 && segment.context.figure_text.is_none()
                 && !editorials.contains_key(&segment.top_level_node_id)
                 && resource.is_none()
                 && segment.context.table_cell.is_none()
                 && segment.context.list_depth == 0;
+            segment.context.narrative = narrative.contains(&segment.top_level_node_id)
+                && segment.context.narrative_eligible;
         }
         for index in 0..self.segments.len() {
             let badge = crate::signals::badge(self, &self.segments[index]);
@@ -1005,11 +1047,7 @@ impl TextProjection {
     pub(crate) fn retain_reading_modes(&mut self, modes: &std::collections::HashMap<NodeId, bool>) {
         for segment in &mut self.segments {
             if let Some(mode) = modes.get(&segment.top_level_node_id) {
-                segment.context.narrative = *mode
-                    && segment.context.bibliography.is_none()
-                    && segment.context.resource_title_end.is_none()
-                    && segment.context.list_depth == 0
-                    && segment.context.table_cell.is_none();
+                segment.context.narrative = *mode && segment.context.narrative_eligible;
             }
         }
     }
@@ -1053,11 +1091,8 @@ impl TextProjection {
             if members.get(&segment.node_id) == Some(member) {
                 segment.context.metric = member.metric_role(segment.node_id);
                 segment.context.color_role = member.color_role(segment.node_id);
-                segment.context.color_rgba = segment
-                    .context
-                    .color_role
-                    .filter(|role| *role == crate::signals::ColorRole::Literal)
-                    .and_then(|_| crate::signals::color_literal(&self.blocks[&segment.node_id]));
+                segment.context.color_rgba =
+                    literal_rgba(segment.context.color_role, &self.blocks[&segment.node_id]);
                 segment.context.narrative = false;
             }
         }
@@ -1477,9 +1512,7 @@ impl TextProjection {
         segment.projection_len = u32::try_from(replacement.len()).ok()?;
         segment.utf16_len = u32::try_from(replacement_utf16_len).ok()?;
         segment.node_range = 0..replacement.len();
-        if segment.context.color_role == Some(crate::signals::ColorRole::Literal) {
-            segment.context.color_rgba = crate::signals::color_literal(&block);
-        }
+        segment.context.color_rgba = literal_rgba(segment.context.color_role, &block);
         if let Some(before) = segment.context.resource_title_end {
             segment.context.resource_title_end = Some(
                 match &block {
@@ -1505,6 +1538,8 @@ impl TextProjection {
         }
         coordinate_chunk.add_suffix(coordinate_chunk.index + 1, delta, utf16_delta)?;
         self.blocks.insert(node_id, Arc::new(block));
+        self.editorials = OnceLock::new();
+        self.figure_roles = OnceLock::new();
         if let Some((id, table)) = table {
             self.blocks.insert(id, Arc::new(table));
             // The lock retains the visible widths, but these measurements no
@@ -2331,6 +2366,75 @@ mod tests {
                 .iter()
                 .all(|s| s.context.narrative),
             "releasing editing may reconsider typography without changing source"
+        );
+    }
+
+    #[test]
+    fn focused_edit_into_a_caption_keeps_the_caption_reference_face() {
+        let prose = "A sustained passage gives an idea enough room to develop, keeping examples and qualifications close to the argument. ".repeat(2);
+        let source =
+            format!("## Reading\n\n{prose}\n\n![Harbor photo at dawn](harbor.png)\n\n{prose}\n");
+        let mut document = Document::from_markdown(source.as_str()).unwrap();
+        let previous = TextProjection::from_snapshot(&document.snapshot());
+        let modes = previous
+            .segments()
+            .iter()
+            .map(|s| (s.top_level_node_id, s.context.narrative))
+            .collect();
+        let paragraph = previous.segments().last().unwrap().node_id;
+        assert!(
+            previous
+                .segment_for_node(paragraph)
+                .unwrap()
+                .context
+                .narrative
+        );
+        document
+            .apply(EditCommand::ReplaceText {
+                node_id: paragraph,
+                range: 0..0,
+                text: "Figure 1. ".into(),
+                selection_after: None,
+                typing: true,
+            })
+            .unwrap();
+        let mut focused = TextProjection::from_snapshot(&document.snapshot());
+        focused.retain_reading_modes(&modes);
+        let caption = focused.segment_for_node(paragraph).unwrap();
+        assert!(caption.context.figure_text.is_some());
+        assert!(
+            !caption.context.narrative,
+            "a retained section mode never overrides a caption's reference role"
+        );
+        assert!(focused.segments()[1].context.narrative);
+    }
+
+    #[test]
+    fn text_refresh_reanalyzes_root_relationships() {
+        let mut document =
+            Document::from_markdown("![Harbor photo](harbor.png)\n\nThe harbor at dawn.\n")
+                .unwrap();
+        let mut projection = TextProjection::from_snapshot(&document.snapshot());
+        let paragraph = projection.segments().last().unwrap().node_id;
+        assert!(projection.figure_roles().is_empty());
+        let edit = document
+            .apply(EditCommand::ReplaceText {
+                node_id: paragraph,
+                range: 0..0,
+                text: "Figure 1. ".into(),
+                selection_after: None,
+                typing: true,
+            })
+            .unwrap();
+        projection
+            .refresh_text_node(&edit.snapshot, paragraph)
+            .unwrap();
+        assert_eq!(
+            projection
+                .figure_roles()
+                .get(&paragraph)
+                .map(|(_, role)| *role),
+            Some(crate::FigureTextRole::Caption)
         );
     }
 

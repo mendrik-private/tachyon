@@ -1,18 +1,26 @@
 //! Exact model comparison for attaching parsed source ranges to live IDs.
-use crate::{BlockNode, BlockSequence, RichText};
+use rustc_hash::FxHashMap;
+
+use crate::{BlockNode, BlockSequence, NodeId, RichText};
 
 fn text(a: &RichText, b: &RichText) -> bool {
     a.as_cow() == b.as_cow() && a.runs() == b.runs()
 }
 
-pub(super) fn same_blocks(a: &BlockSequence, b: &BlockSequence) -> bool {
-    a.len() == b.len() && a.iter().zip(b).all(|(a, b)| same_block(a, b))
+/// Whether both trees have the same content and shape, ignoring IDs. While
+/// comparing, records each node ID of `a` (including list items, rows and
+/// cells) against the ID at the same position in `b`; on a mismatch the
+/// recorded pairs are incomplete.
+pub(super) fn same_blocks(
+    a: &BlockSequence,
+    b: &BlockSequence,
+    ids: &mut FxHashMap<NodeId, NodeId>,
+) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(a, b)| same_block(a, b, ids))
 }
 
-fn same_block(a: &BlockNode, b: &BlockNode) -> bool {
-    if a.id() != b.id() {
-        return false;
-    }
+fn same_block(a: &BlockNode, b: &BlockNode, ids: &mut FxHashMap<NodeId, NodeId>) -> bool {
+    ids.insert(a.id(), b.id());
     match (a, b) {
         (BlockNode::Paragraph(a), BlockNode::Paragraph(b)) => text(&a.content, &b.content),
         (BlockNode::Heading(a), BlockNode::Heading(b)) => {
@@ -37,11 +45,12 @@ fn same_block(a: &BlockNode, b: &BlockNode) -> bool {
                 && a.tight == b.tight
                 && a.items.len() == b.items.len()
                 && a.items.iter().zip(b.items.iter()).all(|(a, b)| {
-                    a.id == b.id && a.checked == b.checked && same_blocks(&a.blocks, &b.blocks)
+                    ids.insert(a.id, b.id);
+                    a.checked == b.checked && same_blocks(&a.blocks, &b.blocks, ids)
                 })
         }
         (BlockNode::BlockQuote { blocks: a, .. }, BlockNode::BlockQuote { blocks: b, .. }) => {
-            same_blocks(a, b)
+            same_blocks(a, b, ids)
         }
         (
             BlockNode::Definition {
@@ -54,7 +63,7 @@ fn same_block(a: &BlockNode, b: &BlockNode) -> bool {
                 blocks: b,
                 ..
             },
-        ) => ak == bk && same_blocks(a, b),
+        ) => ak == bk && same_blocks(a, b, ids),
         (
             BlockNode::FootnoteDefinition {
                 label: ak,
@@ -66,7 +75,7 @@ fn same_block(a: &BlockNode, b: &BlockNode) -> bool {
                 blocks: b,
                 ..
             },
-        ) => ak == bk && same_blocks(a, b),
+        ) => ak == bk && same_blocks(a, b, ids),
         (
             BlockNode::Alert {
                 kind: ak,
@@ -87,7 +96,7 @@ fn same_block(a: &BlockNode, b: &BlockNode) -> bool {
                     (Some(a), Some(b)) => text(a, b),
                     _ => false,
                 }
-                && same_blocks(a, b)
+                && same_blocks(a, b, ids)
         }
         (BlockNode::Table(a), BlockNode::Table(b)) => {
             a.columns == b.columns
@@ -96,12 +105,12 @@ fn same_block(a: &BlockNode, b: &BlockNode) -> bool {
                 && a.preserved_metadata == b.preserved_metadata
                 && a.rows.len() == b.rows.len()
                 && a.rows.iter().zip(b.rows.iter()).all(|(a, b)| {
-                    a.id == b.id
-                        && a.cells.len() == b.cells.len()
-                        && a.cells
-                            .iter()
-                            .zip(b.cells.iter())
-                            .all(|(a, b)| a.id == b.id && same_blocks(&a.blocks, &b.blocks))
+                    ids.insert(a.id, b.id);
+                    a.cells.len() == b.cells.len()
+                        && a.cells.iter().zip(b.cells.iter()).all(|(a, b)| {
+                            ids.insert(a.id, b.id);
+                            same_blocks(&a.blocks, &b.blocks, ids)
+                        })
                 })
         }
         (BlockNode::ThematicBreak { .. }, BlockNode::ThematicBreak { .. }) => true,

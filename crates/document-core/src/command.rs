@@ -51,13 +51,6 @@ pub enum InsertBlockKind {
     ThematicBreak,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FormatState {
-    Off,
-    On,
-    Mixed,
-}
-
 #[derive(Clone, Debug)]
 pub enum EditCommand {
     SetSelection(Selection),

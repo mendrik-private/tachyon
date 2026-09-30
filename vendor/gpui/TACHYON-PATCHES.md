@@ -16,7 +16,7 @@ normalized. The normalized graph SHA-256 is
 `3249e38f00c9f63295c6baaebe90a9e63c4689c3c228c05a774add0f447a1b0a`.
 
 This package now contains Tachyon's retained-accessibility implementation from
-`performance/RETAINED-ACCESSIBILITY-PLAN.md`. It remains excluded from ordinary
+`performance/RETAINED-ACCESSIBILITY-PLAN.md` (commit 9977ce8). It remains excluded from ordinary
 workspace lint/test ownership; the focused production harness under
 `performance/a11y-publication-tests` compiles these exact sources and exercises
 them against the pinned AccessKit consumer.

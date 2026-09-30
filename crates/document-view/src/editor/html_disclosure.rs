@@ -108,10 +108,7 @@ impl RichDocumentEditor {
         {
             return;
         }
-        let target = self.visual_lines.iter().find_map(|line| {
-            if segment_for_line(&self.projection, &line.projected_range())?.node_id != jump.node {
-                return None;
-            }
+        let target = self.visual_lines_for_node(jump.node).find_map(|line| {
             let preview = line.html_preview.as_ref()?;
             let anchor = preview
                 .anchors
@@ -237,32 +234,33 @@ impl RichDocumentEditor {
         {
             return;
         }
-        let Some((y, disclosure)) = self.visual_lines.iter().find_map(|line| {
-            let preview = line.html_preview.as_ref()?;
-            (segment_for_line(&self.projection, &line.projected_range())?.node_id == node
-                && &preview.source == source)
-                .then(|| {
-                    preview
-                        .disclosures
-                        .iter()
-                        .find(|d| d.ordinal == ordinal)
-                        .map(|d| (line.y, d))
-                })?
-        }) else {
+        let Some((top, authored_open, rendered_open)) =
+            self.visual_lines_for_node(node).find_map(|line| {
+                let preview = line.html_preview.as_ref()?;
+                if preview.source != *source {
+                    return None;
+                }
+                let disclosure = preview.disclosures.iter().find(|d| d.ordinal == ordinal)?;
+                Some((
+                    line.y + disclosure.bounds[1] * self.zoom_factor,
+                    disclosure.authored_open,
+                    disclosure.open,
+                ))
+            })
+        else {
             return;
         };
-        let authored_open = disclosure.authored_open;
         self.html_anchor_jump = None;
         let open = self
             .projection
             .html_disclosure_overrides(node)
             .and_then(|state| state.get(&ordinal))
             .copied()
-            .unwrap_or(disclosure.open);
+            .unwrap_or(rendered_open);
         self.disclosure_anchor = Some(DisclosureAnchor {
             node,
             ordinal,
-            viewport_y: y + disclosure.bounds[1] * self.zoom_factor - self.scroll_metrics().0,
+            viewport_y: top - self.scroll_metrics().0,
             jump_generation: self.jump_generation,
         });
         let states = Arc::make_mut(&mut self.projection.html_disclosures);
@@ -297,10 +295,7 @@ impl RichDocumentEditor {
         if anchor.jump_generation != self.jump_generation {
             return None;
         }
-        let y = self.visual_lines.iter().find_map(|line| {
-            if segment_for_line(&self.projection, &line.projected_range())?.node_id != anchor.node {
-                return None;
-            }
+        let y = self.visual_lines_for_node(anchor.node).find_map(|line| {
             let summary = line
                 .html_preview
                 .as_ref()?

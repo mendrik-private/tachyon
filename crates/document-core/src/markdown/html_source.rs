@@ -124,8 +124,8 @@ fn elements(source: &str) -> Option<Vec<Element>> {
 
 fn canonical_leaf(source: &str) -> Option<Arc<BlockNode>> {
     let markdown = crate::html::html_fragment_to_markdown(source).ok()?;
-    let snapshot = super::import(markdown.into()).ok()?;
-    (snapshot.blocks().len() == 1).then(|| snapshot.blocks().get(0).unwrap().clone())
+    let blocks = super::import_fragment(&markdown).ok()?;
+    (blocks.len() == 1).then(|| blocks.get(0).unwrap().clone())
 }
 
 pub(super) fn paragraph_spans(
@@ -211,7 +211,7 @@ pub(super) fn replace_paragraph(
     if let Some(replacement) = text_patch(source, before, after) {
         return Some(replacement);
     }
-    let replacement = super::serialize_inline_html(after);
+    let replacement = super::serialize_inline_html(after, super::HtmlTarget::Clipboard);
     same_text(&replacement, after).then_some(replacement)
 }
 

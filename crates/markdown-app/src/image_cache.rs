@@ -1,9 +1,8 @@
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
-    io::Write as _,
+    fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -18,6 +17,8 @@ use gpui::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
+
+use crate::persistence::{FileMode, replace_atomically};
 
 const MAX_CONCURRENT_LOADS: usize = 4;
 const MAX_CACHE_ENTRIES: usize = 256;
@@ -69,7 +70,7 @@ impl BoundedImageCache {
             recency: Vec::new(),
             weights: HashMap::new(),
             entries: HashMap::new(),
-            disk: DiskImageCache::for_current_user(DISK_CACHE_BYTES),
+            disk: DiskImageCache::shared(),
             dimensions: Arc::new(Mutex::new((0, HashMap::new()))),
         }
     }
@@ -319,6 +320,8 @@ struct DiskCacheRecord {
     last_modified: Option<String>,
     size: u64,
     last_access_unix_ms: u128,
+    // Records written before dimensions were stored still parse, so disk
+    // trimming keeps accounting for them until they are read as misses.
     #[serde(default)]
     width: u32,
     #[serde(default)]
@@ -326,17 +329,26 @@ struct DiskCacheRecord {
 }
 
 impl DiskImageCache {
-    fn for_current_user(max_bytes: u64) -> Self {
-        let directory = std::env::var_os("XDG_CACHE_HOME")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
-            .unwrap_or_else(std::env::temp_dir)
-            .join("tachyon/images");
-        Self {
-            directory,
-            max_bytes,
-            filesystem_lock: Arc::new(Mutex::new(())),
-        }
+    /// The per-user cache every window shares, so one lock serializes this
+    /// process's access to the cache directory.
+    fn shared() -> Self {
+        static SHARED: OnceLock<DiskImageCache> = OnceLock::new();
+        SHARED
+            .get_or_init(|| {
+                let directory = std::env::var_os("XDG_CACHE_HOME")
+                    .map(PathBuf::from)
+                    .or_else(|| {
+                        std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache"))
+                    })
+                    .unwrap_or_else(std::env::temp_dir)
+                    .join("tachyon/images");
+                Self {
+                    directory,
+                    max_bytes: DISK_CACHE_BYTES,
+                    filesystem_lock: Arc::new(Mutex::new(())),
+                }
+            })
+            .clone()
     }
 
     #[cfg(test)]
@@ -443,9 +455,9 @@ impl DiskImageCache {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(format!("cannot read image cache metadata: {error}")),
         };
-        let mut record = match serde_json::from_slice::<DiskCacheRecord>(&bytes) {
-            Ok(record) => record,
-            Err(_) => {
+        let record = match serde_json::from_slice::<DiskCacheRecord>(&bytes) {
+            Ok(record) if record.width > 0 && record.height > 0 => record,
+            _ => {
                 let _ = fs::remove_file(&record_path);
                 let _ = fs::remove_file(&data_path);
                 return Ok(None);
@@ -454,17 +466,6 @@ impl DiskImageCache {
         if !data_path.is_file() {
             let _ = fs::remove_file(record_path);
             return Ok(None);
-        }
-        if record.width == 0 || record.height == 0 {
-            let image = fs::read(&data_path)
-                .map_err(|error| format!("cannot read cached image: {error}"))?;
-            let (width, height) = validate_image_dimensions(&image)?;
-            record.width = width;
-            record.height = height;
-            write_atomic(
-                &record_path,
-                &serde_json::to_vec(&record).map_err(|error| error.to_string())?,
-            )?;
         }
         Ok(Some((record, data_path)))
     }
@@ -494,8 +495,6 @@ impl DiskImageCache {
             .filesystem_lock
             .lock()
             .map_err(|_| "image cache lock was poisoned".to_owned())?;
-        fs::create_dir_all(&self.directory)
-            .map_err(|error| format!("cannot create image cache: {error}"))?;
         let (data_path, record_path) = self.paths(url);
         let (width, height) = validate_image_dimensions(bytes)?;
         write_atomic(&data_path, bytes)?;
@@ -558,9 +557,14 @@ impl DiskImageCache {
 }
 
 fn validate_image_dimensions(bytes: &[u8]) -> Result<(u32, u32), String> {
-    let (width, height) = imagesize::blob_size(bytes)
-        .map(|dimensions| (dimensions.width, dimensions.height))
-        .or_else(|_| svg_dimensions(bytes))?;
+    bounded_dimensions(
+        imagesize::blob_size(bytes)
+            .map(|dimensions| (dimensions.width, dimensions.height))
+            .or_else(|_| svg_dimensions(bytes))?,
+    )
+}
+
+fn bounded_dimensions((width, height): (usize, usize)) -> Result<(u32, u32), String> {
     let pixels = width.saturating_mul(height);
     if width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION || pixels > MAX_IMAGE_PIXELS {
         return Err(format!(
@@ -586,10 +590,19 @@ fn prepare_local_image(path: PathBuf) -> Result<PreparedImage, String> {
             "local image exceeds the {MAX_DOWNLOAD_BYTES} byte limit"
         ));
     }
-    let bytes = fs::read(&path)
-        .map_err(|error| format!("cannot read local image {}: {error}", path.display()))?;
-    let dimensions = validate_image_dimensions(&bytes)?;
-    Ok(PreparedImage { path, dimensions })
+    // Raster headers are read in place; only SVG needs the whole document.
+    let dimensions = match imagesize::size(&path) {
+        Ok(dimensions) => (dimensions.width, dimensions.height),
+        Err(_) => {
+            let bytes = fs::read(&path)
+                .map_err(|error| format!("cannot read local image {}: {error}", path.display()))?;
+            svg_dimensions(&bytes)?
+        }
+    };
+    Ok(PreparedImage {
+        path,
+        dimensions: bounded_dimensions(dimensions)?,
+    })
 }
 
 fn svg_dimensions(bytes: &[u8]) -> Result<(usize, usize), String> {
@@ -649,27 +662,10 @@ fn cache_key(url: &str) -> String {
 }
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    let temporary = path.with_extension(format!("tmp-{}-{}", std::process::id(), now_unix_ms()));
-    let result = (|| {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|error| error.to_string())?;
-        file.write_all(bytes).map_err(|error| error.to_string())?;
-        file.sync_all().map_err(|error| error.to_string())?;
-        drop(file);
-        fs::rename(&temporary, path).map_err(|error| error.to_string())?;
-        File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .map_err(|error| error.to_string())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(temporary);
+    match replace_atomically(path, "cache", bytes, &FileMode::Default) {
+        Ok(None) => Ok(()),
+        Ok(Some(error)) | Err(error) => Err(error.to_string()),
     }
-    result
 }
 
 fn now_unix_ms() -> u128 {
@@ -817,6 +813,68 @@ mod tests {
         assert!(!old_data.exists());
         assert!(new_data.exists());
         fs::remove_dir_all(directory).expect("cleanup isolated cache fixture");
+    }
+
+    #[test]
+    fn records_without_dimensions_are_cache_misses() {
+        let directory = std::env::temp_dir().join(format!(
+            "tachyon-image-dimensionless-{}-{}",
+            std::process::id(),
+            now_unix_ms()
+        ));
+        fs::create_dir_all(&directory).expect("cache fixture");
+        let cache = DiskImageCache::in_directory(directory.clone(), DISK_CACHE_BYTES);
+        let url = "https://example.test/older.svg";
+        let (data, record) = cache.paths(url);
+        fs::write(&data, TEST_SVG).expect("cached image");
+        fs::write(
+            &record,
+            br#"{"etag":null,"last_modified":null,"size":4,"last_access_unix_ms":1}"#,
+        )
+        .expect("record without dimensions");
+
+        assert!(cache.read_record(url).expect("read record").is_none());
+        assert!(!record.exists());
+        assert!(!data.exists());
+        fs::remove_dir_all(directory).expect("cleanup isolated cache fixture");
+    }
+
+    #[test]
+    fn local_images_report_bounded_dimensions() {
+        let directory = std::env::temp_dir().join(format!(
+            "tachyon-local-image-{}-{}",
+            std::process::id(),
+            now_unix_ms()
+        ));
+        fs::create_dir_all(&directory).expect("image fixture");
+        let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        png.extend_from_slice(&640_u32.to_be_bytes());
+        png.extend_from_slice(&480_u32.to_be_bytes());
+        png.extend_from_slice(&[8, 6, 0, 0, 0]);
+        let raster = directory.join("photo.png");
+        fs::write(&raster, &png).expect("PNG header");
+        let svg = directory.join("figure.svg");
+        fs::write(&svg, TEST_SVG).expect("SVG");
+        let oversized = directory.join("oversized.png");
+        png[16..20].copy_from_slice(&20_000_u32.to_be_bytes());
+        fs::write(&oversized, &png).expect("oversized PNG header");
+
+        assert_eq!(
+            prepare_local_image(raster.clone()).expect("raster header"),
+            PreparedImage {
+                path: raster,
+                dimensions: (640, 480)
+            }
+        );
+        assert_eq!(
+            prepare_local_image(svg.clone()).expect("SVG document"),
+            PreparedImage {
+                path: svg,
+                dimensions: (128, 128)
+            }
+        );
+        assert!(prepare_local_image(oversized).is_err());
+        fs::remove_dir_all(directory).expect("cleanup isolated image fixture");
     }
 
     #[test]

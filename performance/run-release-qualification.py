@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PERFORMANCE = ROOT / "performance"
 APP = ROOT / "target/release/tachyon"
 FIXTURE_GENERATOR = ROOT / "target/release/tachyon-fixture"
+CORE_BENCHMARK = ROOT / "target/release/tachyon-perf"
 UINPUT_CLIENT = PERFORMANCE / "wayland-harness/build/uinput-client"
 SIZES = (("100k", 100 * 1024), ("1m", 1024 * 1024), ("10m", 10 * 1024 * 1024))
 
@@ -624,13 +625,15 @@ def main() -> None:
                 temporary,
             )
 
-    core_report = json.loads((PERFORMANCE / "core-2026-09-06-10m.json").read_text())
+    core_command = [str(CORE_BENCHMARK), "--bytes", str(10 * 1024 * 1024), "--runs", "10"]
+    core_report = json.loads(checked(core_command, cwd=ROOT, stdout=subprocess.PIPE).stdout)
     core_p95 = float(core_report["open_prepare_ms"]["p95"])
     report["core_open_prepare_10m"] = {
         "p95_ms": core_p95,
         "target_p95_ms": 1000.0,
         "passes": core_p95 <= 1000.0,
-        "source": "performance/core-2026-09-06-10m.json",
+        "command": " ".join(core_command),
+        "report": core_report,
     }
     gates = [report["core_open_prepare_10m"]["passes"]]
     if "startup_100k" in report:

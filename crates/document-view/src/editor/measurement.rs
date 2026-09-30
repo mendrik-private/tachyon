@@ -3,6 +3,7 @@
 //! ranges. No focusable elements, resource requests, or editor transactions.
 
 use super::*;
+use crate::lru::memoize;
 
 /// Hold the allocation as well as its identity: an allocator cannot recycle
 /// this address while the key is retained. Equal IDs/revisions from another
@@ -64,14 +65,14 @@ struct ListItemMeasureKey {
 pub(super) struct FontMeasurement {
     pub identity: Arc<()>,
     pub(super) typography: typography::Options,
-    hyphen_cache: Mutex<BoundedLru<HyphenKey, Vec<usize>>>,
+    hyphen_cache: Mutex<BoundedLru<HyphenKey, Arc<[usize]>>>,
     pub(super) geometry: Mutex<super::geometry_cache::GeometryCache>,
     fonts: Arc<gpui::TextSystem>,
     style: gpui::TextStyle,
     zoom: f32,
     prose_measures: [f32; 2],
     pub(super) code_digit_width: f32,
-    cache: Mutex<BoundedLru<MeasureKey, Vec<Range<usize>>>>,
+    cache: Mutex<BoundedLru<MeasureKey, Arc<[Range<usize>]>>>,
     intrinsic_cache: Mutex<BoundedLru<IntrinsicKey, f32>>,
     table_cache: Mutex<
         BoundedLru<
@@ -107,19 +108,20 @@ impl FontMeasurement {
             range: segment.node_range.clone(),
         };
         let start = segment.projection_start();
-        if let Some(local) = self
-            .hyphen_cache
-            .lock()
-            .ok()
-            .and_then(|mut cache| cache.get(&key))
-        {
-            return local.into_iter().map(|i| start + i).collect();
-        }
-        let breaks = typography::breaks(projection, segment);
-        if let Ok(mut cache) = self.hyphen_cache.lock() {
-            cache.insert(key, breaks.iter().map(|i| i - start).collect());
-        }
-        breaks
+        memoize(
+            &self.hyphen_cache,
+            Some(key),
+            || {},
+            || {
+                Some(
+                    typography::breaks(projection, segment)
+                        .into_iter()
+                        .map(|i| i - start)
+                        .collect(),
+                )
+            },
+        )
+        .map_or_else(Vec::new, |local| local.iter().map(|i| start + i).collect())
     }
 
     pub(super) fn hyphenated_width(
@@ -209,21 +211,16 @@ impl FontMeasurement {
             footnotes: projection.footnotes.numbering.clone(),
         };
         diagnostics::count(|counts| counts.item_requests += 1);
-        if let Some(value) = self
-            .item_cache
-            .lock()
-            .ok()
-            .and_then(|mut cache| cache.get(&key))
-        {
-            diagnostics::count(|counts| counts.item_cache_hits += 1);
-            return Some(value);
-        }
-        let value = measure()?;
-        diagnostics::count(|counts| counts.items_measured += 1);
-        if let Ok(mut cache) = self.item_cache.lock() {
-            cache.insert(key, value);
-        }
-        Some(value)
+        memoize(
+            &self.item_cache,
+            Some(key),
+            || diagnostics::count(|counts| counts.item_cache_hits += 1),
+            || {
+                let value = measure()?;
+                diagnostics::count(|counts| counts.items_measured += 1);
+                Some(value)
+            },
+        )
     }
 
     pub(super) fn cached_group(
@@ -232,24 +229,16 @@ impl FontMeasurement {
         measure: impl FnOnce() -> Option<crate::adaptive::rows::GroupMeasurement>,
     ) -> Option<crate::adaptive::rows::GroupMeasurement> {
         diagnostics::count(|counts| counts.group_requests += 1);
-        if let Some(value) = key.as_ref().and_then(|key| {
-            self.group_cache
-                .lock()
-                .ok()
-                .and_then(|mut cache| cache.get(key))
-        }) {
-            diagnostics::count(|counts| counts.group_cache_hits += 1);
-            return Some(value);
-        }
-        // Never hold a cache lock while shaping or entering other caches.
-        let value = measure()?;
-        diagnostics::count(|counts| counts.groups_measured += 1);
-        if let Some(key) = key
-            && let Ok(mut cache) = self.group_cache.lock()
-        {
-            cache.insert(key, value);
-        }
-        Some(value)
+        memoize(
+            &self.group_cache,
+            key,
+            || diagnostics::count(|counts| counts.group_cache_hits += 1),
+            || {
+                let value = measure()?;
+                diagnostics::count(|counts| counts.groups_measured += 1);
+                Some(value)
+            },
+        )
     }
 
     pub(super) fn shape_unwrapped(
@@ -292,7 +281,6 @@ impl FontMeasurement {
         projection: &mut TextProjection,
         active: Option<&std::collections::HashSet<NodeId>>,
     ) {
-        use crate::projection::TableMeasurements;
         let mut tables = HashMap::<NodeId, Vec<usize>>::new();
         for (index, segment) in projection.segments().iter().enumerate() {
             if let Some((id, _, _)) = segment.context.table_cell
@@ -311,131 +299,18 @@ impl FontMeasurement {
                     ContentIdentity(projection.block_handle(id)?.clone()),
                     projection.footnotes.numbering.clone(),
                 );
-                if let Some(value) = self
-                    .table_cache
-                    .lock()
-                    .ok()
-                    .and_then(|mut cache| cache.get(&key))
-                {
-                    cache_hits += 1;
-                    return Some((id, value));
-                }
-                if active.is_some_and(|active| !active.contains(&id)) {
-                    return None;
-                }
-                let BlockNode::Table(table) = projection.block(id)? else {
-                    return None;
-                };
-                if table.columns.is_empty() || table.columns.len() > 32 || indexes.len() > 512 {
-                    return None;
-                }
-                let bytes = indexes
-                    .iter()
-                    .map(|i| projection.segments()[*i].projection_len())
-                    .sum::<usize>();
-                if bytes > 64 * 1024 {
-                    return None;
-                }
-                let mut result = TableMeasurements {
-                    minimum: vec![64.; table.columns.len()],
-                    preferred: vec![64.; table.columns.len()],
-                    reading_width: self.prose_measures().fit_width(f32::INFINITY, false, false),
-                    record_headers: table_records::headers(projection, table, self),
-                };
-                for index in indexes {
-                    let segment = &projection.segments()[index];
-                    let (_, row, column) = segment.context.table_cell?;
-                    let block = projection.block(segment.node_id)?;
-                    if column >= table.columns.len()
-                        || segment.projection_len() > 4096
-                        || !matches!(
-                            block,
-                            BlockNode::Paragraph(_)
-                                | BlockNode::Heading(_)
-                                | BlockNode::CodeBlock(_)
-                        )
-                    {
-                        return None;
-                    }
-                    let font_size = visual_line_style_for(
-                        projection,
-                        block,
-                        segment,
-                        &segment.projection_range(),
-                        None,
-                    )
-                    .font_size;
-                    let minimum_font_size = if row > 0
-                        && column == 0
-                        && result.record_headers.as_ref().is_some_and(|h| h.len() > 2)
-                    {
-                        table_records::TITLE_SIZE
-                    } else {
-                        font_size
-                    };
-                    // Container indentation is applied once to the table's
-                    // origin/viewport; intrinsic columns own only cell padding.
-                    let code = matches!(block, BlockNode::CodeBlock(_));
-                    let text = &projection.text()[segment.projection_range()];
-                    let inset = 24.
-                        + table_insets(segment, projection).1
-                        + if code { CODE_BLOCK_PADDING * 2. } else { 0. }
-                        + code_gutter::width(block, text, Some(self)).unwrap_or(0.);
-                    let mut valid = true;
-                    for_each_display_line_range(text, |range| {
-                        let range = segment.projection_start() + range.start
-                            ..segment.projection_start() + range.end;
-                        match self.line_width(projection, range, font_size) {
-                            Some(width) => {
-                                result.preferred[column] = result.preferred[column]
-                                    .max(table_constraint_width(width, inset));
-                                if code || segment.context.badge.is_some() {
-                                    // Code lines and source-recognized short
-                                    // status badges need their complete text,
-                                    // not merely the longest word. Ordinary
-                                    // prose stays flexible. Explicit widths
-                                    // below still take precedence.
-                                    result.minimum[column] = result.minimum[column]
-                                        .max(table_constraint_width(width, inset));
-                                }
-                            }
-                            None => valid = false,
+                memoize(
+                    &self.table_cache,
+                    Some(key),
+                    || cache_hits += 1,
+                    || {
+                        if active.is_some_and(|active| !active.contains(&id)) {
+                            return None;
                         }
-                    });
-                    // Unicode word boundaries avoid treating a whole CJK cell as
-                    // one unbreakable Latin word. Inline styles use the exact font
-                    // runs of each source slice. No byte-count width assumptions.
-                    for (offset, word) in text
-                        .split_word_bound_indices()
-                        .filter(|(_, s)| !s.trim().is_empty())
-                    {
-                        let start = segment.projection_start() + offset;
-                        result.minimum[column] =
-                            result.minimum[column].max(table_constraint_width(
-                                self.line_width(
-                                    projection,
-                                    start..start + word.len(),
-                                    minimum_font_size,
-                                )?,
-                                inset,
-                            ));
-                    }
-                    if !valid {
-                        return None;
-                    }
-                }
-                for (i, column) in table.columns.iter().enumerate() {
-                    if let Some(width) = column.width {
-                        result.minimum[i] = width.max(32.);
-                        result.preferred[i] = width.max(32.);
-                    } else {
-                        result.preferred[i] = result.preferred[i].max(result.minimum[i]);
-                    }
-                }
-                if let Ok(mut cache) = self.table_cache.lock() {
-                    cache.insert(key, result.clone());
-                }
-                Some((id, result))
+                        self.measure_table(projection, id, &indexes)
+                    },
+                )
+                .map(|value| (id, value))
             })
             .collect::<Vec<_>>();
         diagnostics::count(|counts| {
@@ -446,6 +321,120 @@ impl FontMeasurement {
         for (id, measured) in measured {
             projection.install_table_measurements(id, measured);
         }
+    }
+
+    /// Column constraints from every participating header/cell, or `None`
+    /// when the table is unsupported or any cell cannot be measured.
+    fn measure_table(
+        &self,
+        projection: &TextProjection,
+        id: NodeId,
+        indexes: &[usize],
+    ) -> Option<crate::projection::TableMeasurements> {
+        use crate::projection::TableMeasurements;
+        let BlockNode::Table(table) = projection.block(id)? else {
+            return None;
+        };
+        if table.columns.is_empty() || table.columns.len() > 32 || indexes.len() > 512 {
+            return None;
+        }
+        let bytes = indexes
+            .iter()
+            .map(|i| projection.segments()[*i].projection_len())
+            .sum::<usize>();
+        if bytes > 64 * 1024 {
+            return None;
+        }
+        let mut result = TableMeasurements {
+            minimum: vec![64.; table.columns.len()],
+            preferred: vec![64.; table.columns.len()],
+            reading_width: self.prose_measures().fit_width(f32::INFINITY, false, false),
+            record_headers: table_records::headers(projection, table, self),
+        };
+        for &index in indexes {
+            let segment = &projection.segments()[index];
+            let (_, row, column) = segment.context.table_cell?;
+            let block = projection.block(segment.node_id)?;
+            if column >= table.columns.len()
+                || segment.projection_len() > 4096
+                || !matches!(
+                    block,
+                    BlockNode::Paragraph(_) | BlockNode::Heading(_) | BlockNode::CodeBlock(_)
+                )
+            {
+                return None;
+            }
+            let font_size = visual_line_style_for(
+                projection,
+                block,
+                segment,
+                &segment.projection_range(),
+                None,
+            )
+            .font_size;
+            let minimum_font_size = if row > 0
+                && column == 0
+                && result.record_headers.as_ref().is_some_and(|h| h.len() > 2)
+            {
+                table_records::TITLE_SIZE
+            } else {
+                font_size
+            };
+            // Container indentation is applied once to the table's
+            // origin/viewport; intrinsic columns own only cell padding.
+            let code = matches!(block, BlockNode::CodeBlock(_));
+            let text = &projection.text()[segment.projection_range()];
+            let inset = 24.
+                + table_insets(segment, projection).1
+                + if code { CODE_BLOCK_PADDING * 2. } else { 0. }
+                + code_gutter::width(block, text, Some(self)).unwrap_or(0.);
+            let mut valid = true;
+            for_each_display_line_range(text, |range| {
+                let range = segment.projection_start() + range.start
+                    ..segment.projection_start() + range.end;
+                match self.line_width(projection, range, font_size) {
+                    Some(width) => {
+                        result.preferred[column] =
+                            result.preferred[column].max(table_constraint_width(width, inset));
+                        if code || segment.context.badge.is_some() {
+                            // Code lines and source-recognized short
+                            // status badges need their complete text,
+                            // not merely the longest word. Ordinary
+                            // prose stays flexible. Explicit widths
+                            // below still take precedence.
+                            result.minimum[column] =
+                                result.minimum[column].max(table_constraint_width(width, inset));
+                        }
+                    }
+                    None => valid = false,
+                }
+            });
+            // Unicode word boundaries avoid treating a whole CJK cell as
+            // one unbreakable Latin word. Inline styles use the exact font
+            // runs of each source slice. No byte-count width assumptions.
+            for (offset, word) in text
+                .split_word_bound_indices()
+                .filter(|(_, s)| !s.trim().is_empty())
+            {
+                let start = segment.projection_start() + offset;
+                result.minimum[column] = result.minimum[column].max(table_constraint_width(
+                    self.line_width(projection, start..start + word.len(), minimum_font_size)?,
+                    inset,
+                ));
+            }
+            if !valid {
+                return None;
+            }
+        }
+        for (i, column) in table.columns.iter().enumerate() {
+            if let Some(width) = column.width {
+                result.minimum[i] = width.max(32.);
+                result.preferred[i] = width.max(32.);
+            } else {
+                result.preferred[i] = result.preferred[i].max(result.minimum[i]);
+            }
+        }
+        Some(result)
     }
 
     /// Intrinsic width in document units, using exactly the paint font runs.
@@ -487,44 +476,37 @@ impl FontMeasurement {
             run.len.hash(&mut hasher);
             run.font.hash(&mut hasher);
         }
-        let key = IntrinsicKey {
+        let key = (text.len() <= 16 * 1024).then(|| IntrinsicKey {
             text: text.into(),
             font_size: (font_size * self.zoom).to_bits(),
             runs: hasher.finish(),
-        };
-        if let Some(width) = self
-            .intrinsic_cache
-            .lock()
-            .ok()
-            .and_then(|mut cache| cache.get(&key))
-        {
-            diagnostics::count(|counts| counts.intrinsic_cache_hits += 1);
-            return Some(width);
-        }
-        diagnostics::count(|counts| {
-            counts.intrinsic_cache_misses += 1;
-            counts.shaping_calls += 1;
         });
-        let system = gpui::WindowTextSystem::new(self.fonts.clone());
-        let line = system
-            .shape_text(
-                text.to_owned().into(),
-                px(font_size * self.zoom),
-                &runs,
-                None,
-                None,
-            )
-            .ok()?;
-        let width = line
-            .first()
-            .map_or(0., |line| f32::from(line.unwrapped_layout.width))
-            / self.zoom;
-        if text.len() <= 16 * 1024
-            && let Ok(mut cache) = self.intrinsic_cache.lock()
-        {
-            cache.insert(key, width);
-        }
-        Some(width)
+        memoize(
+            &self.intrinsic_cache,
+            key,
+            || diagnostics::count(|counts| counts.intrinsic_cache_hits += 1),
+            || {
+                diagnostics::count(|counts| {
+                    counts.intrinsic_cache_misses += 1;
+                    counts.shaping_calls += 1;
+                });
+                let system = gpui::WindowTextSystem::new(self.fonts.clone());
+                let line = system
+                    .shape_text(
+                        text.to_owned().into(),
+                        px(font_size * self.zoom),
+                        &runs,
+                        None,
+                        None,
+                    )
+                    .ok()?;
+                Some(
+                    line.first()
+                        .map_or(0., |line| f32::from(line.unwrapped_layout.width))
+                        / self.zoom,
+                )
+            },
+        )
     }
 
     pub fn matches(&self, family: &str, zoom: f32) -> bool {
@@ -643,7 +625,11 @@ impl FontMeasurement {
             run.len.hash(&mut hasher);
             run.font.hash(&mut hasher);
         }
-        let key = MeasureKey {
+        // Justified paragraphs allow a naturally short final line. Moving
+        // words down would force oversized gaps into the preceding line.
+        let refine_ending =
+            !self.typography.justify && paragraph_endings::eligible(projection, segment, &range);
+        let key = (text.len() <= 16 * 1024).then(|| MeasureKey {
             node: segment.node_id,
             revision: projection.node_revision(segment.node_id),
             local_range: range.start - segment.projection_start()
@@ -652,38 +638,55 @@ impl FontMeasurement {
             font_size: (font_size * self.zoom).to_bits(),
             runs: hasher.finish(),
             text: text.clone(),
-            // Justified paragraphs allow a naturally short final line. Moving
-            // words down would force oversized gaps into the preceding line.
-            refine_ending: !self.typography.justify
-                && paragraph_endings::eligible(projection, segment, &range),
+            refine_ending,
             hyphenate: self.typography.hyphenate && typography::eligible(projection, segment),
-        };
-        if let Some(cached) = self.cache.lock().ok().and_then(|mut cache| cache.get(&key)) {
-            diagnostics::count(|counts| counts.wrap_cache_hits += 1);
-            return Some(
-                cached
-                    .into_iter()
-                    .map(|local| range.start + local.start..range.start + local.end)
-                    .collect(),
-            );
-        }
-        // A short-lived layout cache prevents cold long-document measurement
-        // from retaining every glyph in GPUI's per-window frame cache.
-        diagnostics::count(|counts| counts.wrap_cache_misses += 1);
-        if contains_strong_rtl(&text) {
-            let local =
-                self.wrap_bidi_source_order(projection, range.clone(), &text, width, font_size)?;
-            if text.len() <= 16 * 1024
-                && let Ok(mut cache) = self.cache.lock()
-            {
-                cache.insert(key, local.clone());
-            }
-            return Some(
-                local
-                    .into_iter()
-                    .map(|local| range.start + local.start..range.start + local.end)
-                    .collect(),
-            );
+        });
+        let local = memoize(
+            &self.cache,
+            key,
+            || diagnostics::count(|counts| counts.wrap_cache_hits += 1),
+            || {
+                // A short-lived layout cache prevents cold long-document
+                // measurement from retaining every glyph in GPUI's per-window
+                // frame cache.
+                diagnostics::count(|counts| counts.wrap_cache_misses += 1);
+                self.wrap_uncached(
+                    projection,
+                    segment,
+                    range.clone(),
+                    &text,
+                    &runs,
+                    width,
+                    font_size,
+                    refine_ending,
+                )
+            },
+        )?;
+        Some(
+            local
+                .iter()
+                .map(|local| range.start + local.start..range.start + local.end)
+                .collect(),
+        )
+    }
+
+    /// Source-local line ranges for one uncached wrap request.
+    #[allow(clippy::too_many_arguments)]
+    fn wrap_uncached(
+        &self,
+        projection: &TextProjection,
+        segment: &crate::ProjectionSegment,
+        range: Range<usize>,
+        text: &str,
+        runs: &[TextRun],
+        width: f32,
+        font_size: f32,
+        refine_ending: bool,
+    ) -> Option<Arc<[Range<usize>]>> {
+        if contains_strong_rtl(text) {
+            return self
+                .wrap_bidi_source_order(projection, range, text, width, font_size)
+                .map(Into::into);
         }
         diagnostics::count(|counts| counts.shaping_calls += 1);
         let system = gpui::WindowTextSystem::new(self.fonts.clone());
@@ -691,7 +694,7 @@ impl FontMeasurement {
             .shape_text(
                 text.to_string().into(),
                 px(font_size * self.zoom),
-                &runs,
+                runs,
                 Some(px((width * self.zoom).max(1.))),
                 None,
             )
@@ -727,7 +730,7 @@ impl FontMeasurement {
             .map(|pair| pair[0]..pair[1])
             .collect::<Vec<_>>();
         if let Some(repaired) = line_breaks::repair(
-            &text,
+            text,
             &local,
             &graphemes,
             &line.unwrapped_layout,
@@ -750,7 +753,7 @@ impl FontMeasurement {
             .map(|i| i - range.start)
             .collect::<Vec<_>>();
         let hyphenated = typography::wrap(
-            &text,
+            text,
             &line.unwrapped_layout,
             &hyphens,
             width,
@@ -767,7 +770,7 @@ impl FontMeasurement {
         if let Some(lines) = hyphenated {
             local = lines;
         }
-        if key.refine_ending {
+        if refine_ending {
             // Moving words between the last two lines must not introduce a
             // new break inside an inline code span or a link label.
             let protected = projection
@@ -797,7 +800,7 @@ impl FontMeasurement {
                         .any(|span| span.start < node_offset && node_offset < span.end)
                 })
                 .collect::<Vec<_>>();
-            paragraph_endings::refine(&text, &mut local, &ending_breaks, width, |local| {
+            paragraph_endings::refine(text, &mut local, &ending_breaks, width, |local| {
                 self.line_width(
                     projection,
                     range.start + local.start..range.start + local.end,
@@ -805,17 +808,7 @@ impl FontMeasurement {
                 )
             });
         }
-        if text.len() <= 16 * 1024
-            && let Ok(mut cache) = self.cache.lock()
-        {
-            cache.insert(key, local.clone());
-        }
-        Some(
-            local
-                .into_iter()
-                .map(|local| range.start + local.start..range.start + local.end)
-                .collect(),
-        )
+        Some(local.into())
     }
 
     /// GPUI's exposed wrap-boundary representation follows visual glyph order
@@ -1395,7 +1388,10 @@ mod tests {
             // still occupy different cache entries; production glyph widths
             // are validated separately with the native Wayland fixture.
             assert!(thin > 0. && wide > 0.);
-            assert_eq!(measurement.intrinsic_cache.lock().unwrap().entries.len(), 2);
+            assert_eq!(
+                measurement.intrinsic_cache.lock().unwrap().keys().count(),
+                2
+            );
             assert_eq!(
                 wide,
                 measurement
@@ -1409,7 +1405,10 @@ mod tests {
                 .line_width(&projection, ranges[1].clone(), 36.)
                 .unwrap();
             assert!(larger > wide * 1.9);
-            assert_eq!(measurement.intrinsic_cache.lock().unwrap().entries.len(), 4);
+            assert_eq!(
+                measurement.intrinsic_cache.lock().unwrap().keys().count(),
+                4
+            );
         });
     }
 
@@ -1437,7 +1436,7 @@ mod tests {
                     previous = Some(ranges.len());
                 }
             }
-            assert_eq!(measurement.cache.lock().unwrap().entries.len(), 8);
+            assert_eq!(measurement.cache.lock().unwrap().keys().count(), 8);
         });
     }
 

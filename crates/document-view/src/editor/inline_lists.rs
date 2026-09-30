@@ -1,30 +1,13 @@
 //! Native measured presentation of one source-owned enumerated paragraph.
 use super::*;
 use crate::adaptive::{candidates, inline_lists::InlineList, prose::Flow};
+use prose_flow::{MAX_BYTES, fragment_lines, slotted_fragment};
 
-fn fragment_lines(
-    projection: &TextProjection,
-    segment: &crate::ProjectionSegment,
-    range: Range<usize>,
-    width: f32,
-    fonts: Option<&FontMeasurement>,
-) -> Vec<VisualLineSpec> {
-    let mut fragment = segment.clone();
-    fragment.node_range =
-        segment.node_range.start + range.start..segment.node_range.start + range.end;
-    fragment.set_projection_range(
-        segment.projection_start() + range.start..segment.projection_start() + range.end,
-    );
-    fragment.context.narrative = false;
-    build_visual_lines_for_segment(
-        projection,
-        &fragment,
-        &HashMap::new(),
-        width + 8.,
-        &[],
-        fonts,
-        None,
-    )
+/// Enumerated clauses keep reference typography inside a reading section.
+fn reference_face(segment: &crate::ProjectionSegment) -> crate::ProjectionSegment {
+    let mut segment = segment.clone();
+    segment.context.narrative = false;
+    segment
 }
 
 pub(super) fn measure(
@@ -44,7 +27,7 @@ pub(super) fn measure(
         let text = &projection.text()[segment.projection_range()];
         if let Some(old) = previous.and_then(|old| old.inline_lists.get(&p.id))
             && old.flow.canvas <= plan.canvas + 0.01
-            && text.len() <= 64 * 1024
+            && text.len() <= MAX_BYTES
             && (keep
                 || plan.editing_node == Some(p.id)
                 || (!plan.measures_root(p.id) && old.flow.sources[0].1.as_ref() == text))
@@ -76,25 +59,14 @@ pub(super) fn measure(
             || segment.context.bibliography.is_some()
             || keep
             || !plan.measures_root(p.id)
-            || measurement::contains_strong_rtl(text)
+            || !prose_flow::fragmentable(p, text)
         {
             continue;
         }
         let Some(starts) = crate::adaptive::inline_lists::starts(&p.content) else {
             continue;
         };
-        if p.content.runs().iter().any(|run| {
-            run.styles.iter().any(|s| {
-                matches!(
-                    s,
-                    InlineStyle::Image { .. }
-                        | InlineStyle::Math { .. }
-                        | InlineStyle::PreservedHtml(_)
-                )
-            })
-        }) {
-            continue;
-        }
+        let fragment_source = reference_face(segment);
         let decision = candidates::choose_list(
             starts.len() - 1,
             plan.canvas,
@@ -105,7 +77,13 @@ pub(super) fn measure(
             |item, width, _| {
                 let index = item + 1;
                 let range = starts[index]..starts.get(index + 1).copied().unwrap_or(text.len());
-                let lines = fragment_lines(projection, segment, range.clone(), width, Some(fonts));
+                let lines = fragment_lines(
+                    projection,
+                    &fragment_source,
+                    range.clone(),
+                    width,
+                    Some(fonts),
+                );
                 let preferred = fonts.line_width(
                     projection,
                     segment.projection_start() + range.start
@@ -156,6 +134,7 @@ pub(super) fn build(
     width: f32,
     fonts: Option<&FontMeasurement>,
 ) -> Vec<VisualLineSpec> {
+    let fragment_source = reference_face(segment);
     let mut output = Vec::new();
     for (range, item) in list.flow.fragments(
         segment.node_id,
@@ -178,21 +157,15 @@ pub(super) fn build(
             span: (12 / columns) as u8,
             fixed_canvas: Some(list.flow.canvas),
         };
-        let mut lines = fragment_lines(projection, segment, range, slot.width(width), fonts);
-        for line in &mut lines {
-            // The introduction is ordinary full-width flow. The first clause
-            // owns its 16 px attachment gap; subsequent rows use the shared
-            // grid gutter, never a second locally added margin.
-            line.set_slot((item > 0).then_some(slot));
-            line.x_fraction = slot.left(width) / width;
-            line.width_fraction = slot.width(width) / width;
-            line.style.space_above = 0.;
-            line.style.space_below = 0.;
-            line.gap_before = 0.;
-        }
-        if item > 0
-            && let Some(first) = lines.first_mut()
-        {
+        let mut lines = slotted_fragment(projection, &fragment_source, range, slot, width, fonts);
+        if item == 0 {
+            // The introduction is ordinary full-width flow.
+            for line in &mut lines {
+                line.set_slot(None);
+            }
+        } else if let Some(first) = lines.first_mut() {
+            // The first clause owns its 16 px attachment gap; subsequent rows
+            // use the shared grid gutter, never a second locally added margin.
             first.gap_before = if row == 1 { 16. } else { 0. };
         }
         output.extend(lines);

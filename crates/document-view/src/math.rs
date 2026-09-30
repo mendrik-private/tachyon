@@ -1,12 +1,11 @@
 //! Inert formula previews. The canonical code node remains the editable source.
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex, OnceLock},
-};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use document_core::BlockNode;
 use gpui::{Image, ImageFormat};
 use latex_rust::{Color, Dim, MathFont, MathStyle, SvgOptions};
+
+use crate::lru::{BoundedLru, memoize};
 
 pub(crate) mod semantics;
 
@@ -61,14 +60,10 @@ pub(crate) enum FormulaError {
     TooLarge,
 }
 
-struct Entry {
-    source: String,
-    color: u32,
-    inline: bool,
-    formula: Result<Arc<Formula>, FormulaError>,
-}
-
-static CACHE: OnceLock<Mutex<VecDeque<Entry>>> = OnceLock::new();
+type Cached = Result<Arc<Formula>, FormulaError>;
+/// Source, color and inline style.
+type Key = (String, u32, bool);
+static CACHE: OnceLock<Mutex<BoundedLru<Key, Cached>>> = OnceLock::new();
 
 #[cfg(test)]
 thread_local! {
@@ -109,36 +104,16 @@ fn cached_formula(source: &str, color: u32, inline: bool) -> Result<Arc<Formula>
     if source.len() > MAX_SOURCE_BYTES {
         return Err(FormulaError::TooComplex);
     }
-    let cache = CACHE.get_or_init(|| Mutex::new(VecDeque::new()));
-    {
-        let mut entries = cache
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(index) = entries.iter().position(|entry| {
-            entry.source == source && entry.color == color && entry.inline == inline
-        }) {
-            let entry = entries
-                .remove(index)
-                .expect("position came from this cache");
-            let result = entry.formula.clone();
-            entries.push_front(entry);
-            return result;
-        }
-    }
-    // Do not hold a shared lock while parsing or outlining glyphs. Failed
-    // formulas are cached too, so malformed input is not retried every frame.
-    let result = render_style(source, color, inline).map(Arc::new);
-    let mut entries = cache
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    entries.push_front(Entry {
-        source: source.into(),
-        color,
-        inline,
-        formula: result.clone(),
-    });
-    entries.truncate(MAX_CACHE_ENTRIES);
-    result
+    let cache = CACHE.get_or_init(|| Mutex::new(BoundedLru::new(MAX_CACHE_ENTRIES)));
+    // Failed formulas are cached too, so malformed input is not retried every
+    // frame.
+    memoize(
+        cache,
+        Some((source.to_owned(), color, inline)),
+        || {},
+        || Some(render_style(source, color, inline).map(Arc::new)),
+    )
+    .expect("rendering always yields a result")
 }
 
 #[cfg(test)]

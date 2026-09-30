@@ -22,8 +22,8 @@ to the space available. Your work lives in local Markdown files.
   compact records emerge from your document's structure.
 - **Technical writing built in.** Syntax-highlighted code with Copy actions,
   mathematical formulas, Mermaid previews and explicit JSON Schema trees.
-- **Find your place.** File browser, document outline, minimap, in-document
-  search and local-file/heading links.
+- **Find your place.** File browser, document outline, in-document search and
+  local-file/heading links.
 - **Keep your work.** Atomic autosave, recoverable untitled drafts, crash
   recovery and explicit handling of changes made outside the app.
 - **Comfortable reading.** Light and dark appearance, serif headings, bundled
@@ -239,8 +239,8 @@ The document scrollbar sits at the outer window edge. Formatting and table
 commands have icons and tooltips.
 
 Open the [synthetic documents](performance/layout-fixtures/) to explore the
-design. The [implementation and validation notes](performance/ADAPTIVE-LAYOUTS.md)
-describe candidate selection, conservative fallbacks and performance evidence.
+design. The [layout cookbook](docs/markdown-layouts.md) describes the recognized
+Markdown shapes, candidate selection and conservative fallbacks.
 
 ## Storage and recovery
 

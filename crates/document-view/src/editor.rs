@@ -35,12 +35,9 @@ use unicode_segmentation::UnicodeSegmentation as _;
 use crate::adaptive::{
     AdaptivePlan, CARD_PADDING, LAYOUT_GAP, LAYOUT_HEADER, LayoutSlot, ListLayout,
 };
+use crate::lru::BoundedLru;
 use crate::theme::DocumentStyle;
-use crate::{
-    ButtonAccessibilityExt as _, Minimap, MinimapAlertTone, MinimapCodeTone, SharedDocumentSession,
-    TachyonPalette, TextProjection,
-    minimap::{MinimapSourceKind, MinimapSourceLine},
-};
+use crate::{ButtonAccessibilityExt as _, SharedDocumentSession, TachyonPalette, TextProjection};
 
 mod arrangement;
 #[cfg(test)]
@@ -1178,10 +1175,8 @@ pub enum EditorEvent {
     },
     LinkFailed(String),
     LayoutDiagnostics(Arc<LayoutDiagnosticsReport>),
-    RetryImage {
-        source: String,
-        document_directory: Option<PathBuf>,
-    },
+    /// A failed image resource the host cache should forget and load again.
+    RetryImage(Resource),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1210,6 +1205,26 @@ struct PaintedLine {
     horizontal_owner: Option<NodeId>,
     content_mask: Option<ContentMask<Pixels>>,
     alignment: ColumnAlignment,
+}
+
+impl PaintedLine {
+    fn text_left(&self) -> Pixels {
+        aligned_text_left(self.bounds, &self.layout, self.alignment)
+    }
+
+    /// Caret x of a projection offset, clamped into this line.
+    fn x_for_offset(&self, offset: usize) -> Pixels {
+        let local = offset
+            .saturating_sub(self.range.start)
+            .min(self.range.len());
+        self.text_left() + shaped_x_for_index(&self.layout, local)
+    }
+
+    /// Projection offset of the caret stop nearest `x`.
+    fn offset_for_x(&self, x: Pixels) -> usize {
+        self.range.start
+            + shaped_index_for_x(&self.layout, x - self.text_left()).min(self.range.len())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1302,52 +1317,6 @@ struct ShapeCacheInput<'a> {
     width: f32,
     scale: f32,
     marked: Option<&'a Range<usize>>,
-}
-
-struct BoundedLru<K, V> {
-    entries: HashMap<K, (V, u64)>,
-    capacity: usize,
-    clock: u64,
-}
-
-impl<K: Clone + Eq + std::hash::Hash, V: Clone> BoundedLru<K, V> {
-    fn new(capacity: usize) -> Self {
-        Self {
-            entries: HashMap::new(),
-            capacity: capacity.max(1),
-            clock: 0,
-        }
-    }
-
-    fn get(&mut self, key: &K) -> Option<V> {
-        self.clock = self.clock.wrapping_add(1);
-        let (value, last_used) = self.entries.get_mut(key)?;
-        *last_used = self.clock;
-        Some(value.clone())
-    }
-
-    fn insert(&mut self, key: K, value: V) {
-        self.clock = self.clock.wrapping_add(1);
-        if self.entries.len() >= self.capacity
-            && !self.entries.contains_key(&key)
-            && let Some(oldest) = self
-                .entries
-                .iter()
-                .min_by_key(|(_, (_, last_used))| *last_used)
-                .map(|(key, _)| key.clone())
-        {
-            self.entries.remove(&oldest);
-        }
-        self.entries.insert(key, (value, self.clock));
-    }
-
-    fn clear(&mut self) {
-        self.entries.clear();
-    }
-
-    fn retain(&mut self, mut keep: impl FnMut(&K) -> bool) {
-        self.entries.retain(|key, _| keep(key));
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -1484,6 +1453,7 @@ impl RichDocumentEditor {
         )
     }
 
+    #[cfg(test)]
     #[must_use]
     pub fn with_session(
         document: SharedDocumentSession,
@@ -2406,22 +2376,14 @@ impl RichDocumentEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(segment) = self
-            .projection
-            .segments()
-            .iter()
-            .find(|segment| segment.node_id == node_id)
-        else {
+        let Some(segment) = self.projection.segment_for_node(node_id) else {
             window.play_system_bell();
             return;
         };
         let offset = segment.projection_start();
         let (start_y, viewport_height) = self.scroll_metrics();
         // Land the target below the top fade band rather than under its wash.
-        let y = self
-            .visual_lines
-            .iter()
-            .find(|line| line.projected_range().contains(&offset) || line.projected_end() == offset)
+        let y = visual_line_containing_or_ending_at(&self.visual_lines, offset)
             .map_or(0., |line| {
                 (line.y - viewport_fade_height(viewport_height, self.zoom_factor)).max(0.)
             });
@@ -2484,25 +2446,6 @@ impl RichDocumentEditor {
         let inset = viewport_fade_height(viewport_height, self.zoom_factor);
         self.components
             .active_heading(scroll_y + inset, viewport_height - inset)
-    }
-
-    /// Rebuilds the navigation miniature from the exact line records used by
-    /// this editor for painting, hit testing, scrolling, and outline jumps.
-    pub fn rebuild_minimap(&self, minimap: &mut Minimap, minimap_height: f32) {
-        let lines = self.visual_lines.iter().filter_map(|line| {
-            minimap_source_line(&self.projection, line, self.layout_width, self.zoom_factor)
-        });
-        minimap.rebuild_rendered(
-            lines,
-            self.document_height,
-            self.layout_width,
-            minimap_height,
-        );
-    }
-
-    #[must_use]
-    pub fn geometry_generation(&self) -> u64 {
-        self.geometry_generation
     }
 
     #[must_use]
@@ -2731,15 +2674,8 @@ impl RichDocumentEditor {
         if !selected.is_empty() {
             return None;
         }
-        let line = painted_line_for_offset(&self.painted_lines, selected.start).filter(|line| {
-            line.range.contains(&selected.start) || line.range.end == selected.start
-        })?;
-        let local = selected
-            .start
-            .saturating_sub(line.range.start)
-            .min(line.range.len());
-        let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-            + shaped_x_for_index(&line.layout, local);
+        let line = painted_line_for_offset(&self.painted_lines, selected.start)?;
+        let x = line.x_for_offset(selected.start);
         Some([
             x.into(),
             line.bounds.top().into(),
@@ -2762,7 +2698,7 @@ impl RichDocumentEditor {
                 })
             })
             .map(|line| {
-                let left = aligned_text_left(line.bounds, &line.layout, line.alignment);
+                let left = line.text_left();
                 [
                     left.into(),
                     line.bounds.top().into(),
@@ -3431,11 +3367,7 @@ impl RichDocumentEditor {
             return boundary;
         }
         let text = self.editing_text();
-        let offset = offset.min(text.len());
-        text[..offset]
-            .grapheme_indices(true)
-            .next_back()
-            .map_or(0, |(index, _)| index)
+        previous_grapheme_boundary(text, offset.min(text.len()))
     }
 
     fn next_boundary(&self, offset: usize) -> usize {
@@ -3443,11 +3375,7 @@ impl RichDocumentEditor {
             return boundary;
         }
         let text = self.editing_text();
-        let offset = offset.min(text.len());
-        text[offset..]
-            .grapheme_indices(true)
-            .nth(1)
-            .map_or(text.len(), |(index, _)| offset + index)
+        next_grapheme_boundary(text, offset.min(text.len()))
     }
 
     fn left(&mut self, _: &Left, window: &mut Window, cx: &mut Context<Self>) {
@@ -3568,11 +3496,7 @@ impl RichDocumentEditor {
         if !line.range.contains(&range.end) && range.end != line.range.end {
             return selection_collapse_offset(range, left);
         }
-        let start = range.start.saturating_sub(line.range.start);
-        let end = range.end.saturating_sub(line.range.start);
-        let start_x = shaped_x_for_index(&line.layout, start);
-        let end_x = shaped_x_for_index(&line.layout, end);
-        if (start_x <= end_x) == left {
+        if (line.x_for_offset(range.start) <= line.x_for_offset(range.end)) == left {
             range.start
         } else {
             range.end
@@ -3645,16 +3569,9 @@ impl RichDocumentEditor {
                 .iter()
                 .find(|line| line.range == target.projected_range())
         {
-            let local = offset
-                .saturating_sub(current_painted.range.start)
-                .min(current_painted.layout.len());
-            let mut preferred_x = self.preferred_x.unwrap_or(
-                aligned_text_left(
-                    current_painted.bounds,
-                    &current_painted.layout,
-                    current_painted.alignment,
-                ) + shaped_x_for_index(&current_painted.layout, local),
-            );
+            let mut preferred_x = self
+                .preferred_x
+                .unwrap_or_else(|| current_painted.x_for_offset(offset));
             if in_prose_flow
                 && current
                     .slot
@@ -3665,18 +3582,7 @@ impl RichDocumentEditor {
                 preferred_x += target_painted.bounds.left() - current_painted.bounds.left();
             }
             self.preferred_x = Some(preferred_x);
-            let relative_x = (preferred_x
-                - aligned_text_left(
-                    target_painted.bounds,
-                    &target_painted.layout,
-                    target_painted.alignment,
-                ))
-            .max(px(0.));
-            return Some(
-                target.projected_start()
-                    + shaped_index_for_x(&target_painted.layout, relative_x)
-                        .min(target.projected_range().len()),
-            );
+            return Some(target_painted.offset_for_x(preferred_x.max(target_painted.text_left())));
         }
 
         let local = offset.saturating_sub(current.projected_start());
@@ -4519,7 +4425,7 @@ impl RichDocumentEditor {
             .rows
             .get(target_row)
             .and_then(|row| row.cells.get(target_column))
-            .and_then(|cell| first_editable_position(&cell.blocks))
+            .and_then(|cell| cell.blocks.first_editable_position())
         else {
             window.play_system_bell();
             return;
@@ -4737,24 +4643,15 @@ impl RichDocumentEditor {
 
     fn index_for_mouse_position(&self, position: Point<Pixels>) -> usize {
         if let Some(index) = self.table_line_hit_index(position) {
-            let line = &self.painted_lines[index];
-            let local = shaped_index_for_x(
-                &line.layout,
-                position.x - aligned_text_left(line.bounds, &line.layout, line.alignment),
-            );
-            return line.range.start + local.min(line.range.len());
+            return self.painted_lines[index].offset_for_x(position.x);
         }
-        let Some(line) = self.painted_lines.iter().min_by(|left, right| {
-            distance_to_bounds(position, &left.bounds)
-                .total_cmp(&distance_to_bounds(position, &right.bounds))
-        }) else {
-            return 0;
-        };
-        let local = shaped_index_for_x(
-            &line.layout,
-            position.x - aligned_text_left(line.bounds, &line.layout, line.alignment),
-        );
-        line.range.start + local.min(line.range.len())
+        self.painted_lines
+            .iter()
+            .min_by(|left, right| {
+                distance_to_bounds(position, &left.bounds)
+                    .total_cmp(&distance_to_bounds(position, &right.bounds))
+            })
+            .map_or(0, |line| line.offset_for_x(position.x))
     }
 
     /// Resolve a pointer inside a table using the cell's horizontal extent and
@@ -4812,14 +4709,7 @@ impl RichDocumentEditor {
         let Some(line) = painted_line_for_offset(&self.painted_lines, selection.start) else {
             return (8., 0.);
         };
-        let local_index = selection
-            .start
-            .saturating_sub(line.range.start)
-            .min(line.range.len());
-        let left: f32 = (aligned_text_left(line.bounds, &line.layout, line.alignment)
-            + shaped_x_for_index(&line.layout, local_index)
-            - element.left())
-        .into();
+        let left: f32 = (line.x_for_offset(selection.start) - element.left()).into();
         let top: f32 = (line.bounds.top() - element.top()).into();
         let available: f32 = element.size.width.into();
         (
@@ -5417,10 +5307,8 @@ impl RichDocumentEditor {
         let heading = document_core::heading_node(self.document.snapshot().blocks(), fragment);
         let heading_offset = heading.and_then(|node| {
             self.projection
-                .segments()
-                .iter()
-                .find(|segment| segment.node_id == node)
-                .map(|segment| segment.projection_start())
+                .segment_for_node(node)
+                .map(crate::ProjectionSegment::projection_start)
         });
         if let Some(result) = self.navigate_to_html_anchor(fragment, heading_offset, window, cx) {
             return result;
@@ -5846,10 +5734,7 @@ impl EntityInputHandler for RichDocumentEditor {
         if let Some(selection) = &self.html_selection {
             let text = selection.text();
             let range = utf16_range_in_text(text, range_utf16);
-            actual_range.replace(
-                text[..range.start].encode_utf16().count()
-                    ..text[..range.end].encode_utf16().count(),
-            );
+            actual_range.replace(utf16_range_for_bytes(text, range.clone()));
             return text.get(range).map(ToOwned::to_owned);
         }
         let range = self.projection.range_from_utf16(range_utf16);
@@ -5864,11 +5749,8 @@ impl EntityInputHandler for RichDocumentEditor {
         _: &mut Context<Self>,
     ) -> Option<UTF16Selection> {
         if let Some(selection) = &self.html_selection {
-            let text = selection.text();
-            let range = selection.range();
             return Some(UTF16Selection {
-                range: text[..range.start].encode_utf16().count()
-                    ..text[..range.end].encode_utf16().count(),
+                range: utf16_range_for_bytes(selection.text(), selection.range()),
                 reversed: selection.head < selection.anchor,
             });
         }
@@ -6093,27 +5975,11 @@ impl EntityInputHandler for RichDocumentEditor {
         }
         let range = self.projection.range_from_utf16(range_utf16);
         let line = painted_line_for_offset(&self.painted_lines, range.start)?;
-        let start = range
-            .start
-            .saturating_sub(line.range.start)
-            .min(line.range.len());
-        let end = range
-            .end
-            .saturating_sub(line.range.start)
-            .min(line.range.len());
+        let start = line.x_for_offset(range.start);
+        let end = line.x_for_offset(range.end);
         Some(Bounds::from_corners(
-            point(
-                aligned_text_left(line.bounds, &line.layout, line.alignment)
-                    + shaped_x_for_index(&line.layout, start)
-                        .min(shaped_x_for_index(&line.layout, end)),
-                line.bounds.top(),
-            ),
-            point(
-                aligned_text_left(line.bounds, &line.layout, line.alignment)
-                    + shaped_x_for_index(&line.layout, start)
-                        .max(shaped_x_for_index(&line.layout, end)),
-                line.bounds.bottom(),
-            ),
+            point(start.min(end), line.bounds.top()),
+            point(start.max(end), line.bounds.bottom()),
         ))
     }
 
@@ -6126,14 +5992,14 @@ impl EntityInputHandler for RichDocumentEditor {
         if let Some(selection) = &self.html_selection {
             if let Some(cross) = &selection.cross {
                 let byte = cross.byte(&self.preview_position_at(point)?)?;
-                return Some(cross.text[..byte].encode_utf16().count());
+                return Some(utf16_offset_for_byte(&cross.text, byte));
             }
             let (node, preview, position) = self.html_target_at(point)?;
             if node != selection.node {
                 return None;
             }
             let byte = preview.byte_for_position(position)?;
-            return Some(preview.editable_text[..byte].encode_utf16().count());
+            return Some(utf16_offset_for_byte(&preview.editable_text, byte));
         }
         self.projection
             .utf16_offset_for_byte(self.index_for_mouse_position(point))
@@ -6160,7 +6026,8 @@ impl EntityInputHandler for RichDocumentEditor {
 
     fn text_length_utf16(&mut self, _: &mut Window, _: &mut Context<Self>) -> Option<usize> {
         if let Some(selection) = &self.html_selection {
-            return Some(selection.text().encode_utf16().count());
+            let text = selection.text();
+            return Some(utf16_offset_for_byte(text, text.len()));
         }
         Some(self.projection.utf16_len())
     }
@@ -9590,143 +9457,8 @@ fn push_table_border(
 }
 
 #[cfg(test)]
-fn build_visual_lines(document: &Document, projection: &TextProjection) -> Vec<VisualLineSpec> {
-    let _ = document;
+fn build_visual_lines(projection: &TextProjection) -> Vec<VisualLineSpec> {
     build_visual_lines_with_images(projection, &HashMap::new(), 760.)
-}
-
-fn minimap_source_line(
-    projection: &TextProjection,
-    line: &VisualLineSpec,
-    layout_width: f32,
-    zoom_factor: f32,
-) -> Option<MinimapSourceLine> {
-    let segment = segment_for_line(projection, &line.projected_range())?;
-    let block = projection.block(segment.node_id)?;
-    let text = projection
-        .text()
-        .get(line.projected_range())
-        .unwrap_or_default();
-    let first_visual_line = line.projected_start() == segment.projection_start();
-    let top_level_is_task_list = matches!(
-        projection.block(segment.top_level_node_id),
-        Some(BlockNode::List(list)) if list.kind == document_core::ListKind::Task
-    );
-    let kind = if let Some((table_id, row, column, _)) = line.table_cell {
-        MinimapSourceKind::Table {
-            table_id,
-            row,
-            column,
-        }
-    } else if segment.context.image_source.is_some() || matches!(block, BlockNode::Image(_)) {
-        MinimapSourceKind::Image
-    } else if let BlockNode::Heading(heading) = block {
-        MinimapSourceKind::Heading {
-            level: heading.level,
-        }
-    } else if matches!(block, BlockNode::CodeBlock(_)) {
-        MinimapSourceKind::Code(minimap_code_tone(text))
-    } else if top_level_is_task_list {
-        MinimapSourceKind::Task {
-            checked: segment.context.task_checked.unwrap_or(false),
-        }
-    } else if segment.context.list_depth > 0 {
-        MinimapSourceKind::List
-    } else if line.projected_range().is_empty() {
-        MinimapSourceKind::Placeholder
-    } else {
-        MinimapSourceKind::Text
-    };
-    let columns = estimated_wrap_columns(
-        block,
-        segment,
-        projection,
-        layout_width / zoom_factor.max(MIN_ZOOM),
-    );
-    Some(MinimapSourceLine {
-        node_id: segment.node_id,
-        top_level_node_id: segment.top_level_node_id,
-        kind,
-        y: line.y,
-        height: line.style.line_height,
-        inset: line.inset,
-        x_fraction: line.x_fraction,
-        width_fraction: line.width_fraction,
-        fill_fraction: minimap_text_fill(text, columns, kind),
-        first_visual_line,
-        alert: segment
-            .context
-            .alert
-            .as_ref()
-            .map(|(id, kind)| (*id, minimap_alert_tone(kind))),
-        quote_depth: segment.context.quote_depth,
-    })
-}
-
-fn minimap_text_fill(text: &str, columns: usize, kind: MinimapSourceKind) -> f32 {
-    if matches!(kind, MinimapSourceKind::Image) {
-        return 1.;
-    }
-    let graphemes = text.trim_end().graphemes(true).count();
-    if graphemes == 0 {
-        return 0.18;
-    }
-    let reference = if columns == usize::MAX {
-        72
-    } else {
-        columns.max(1)
-    };
-    (graphemes as f32 / reference as f32).clamp(0.2, 1.)
-}
-
-fn minimap_code_tone(text: &str) -> MinimapCodeTone {
-    let trimmed = text.trim_start();
-    if trimmed.starts_with("//")
-        || trimmed.starts_with('#')
-        || trimmed.starts_with("<!--")
-        || trimmed.starts_with("/*")
-        || trimmed.starts_with('*')
-    {
-        MinimapCodeTone::Comment
-    } else if trimmed.contains(['\"', '\'']) {
-        MinimapCodeTone::String
-    } else if trimmed
-        .split(|character: char| !character.is_alphanumeric() && character != '_')
-        .any(|word| {
-            matches!(
-                word,
-                "as" | "async"
-                    | "await"
-                    | "const"
-                    | "enum"
-                    | "fn"
-                    | "for"
-                    | "impl"
-                    | "let"
-                    | "match"
-                    | "mod"
-                    | "pub"
-                    | "return"
-                    | "struct"
-                    | "trait"
-                    | "use"
-            )
-        })
-    {
-        MinimapCodeTone::Keyword
-    } else {
-        MinimapCodeTone::Plain
-    }
-}
-
-fn minimap_alert_tone(kind: &AlertKind) -> MinimapAlertTone {
-    match kind {
-        AlertKind::Note | AlertKind::Important => MinimapAlertTone::Info,
-        AlertKind::Tip => MinimapAlertTone::Success,
-        AlertKind::Warning => MinimapAlertTone::Warning,
-        AlertKind::Caution => MinimapAlertTone::Error,
-        AlertKind::Other(_) => MinimapAlertTone::Other,
-    }
 }
 
 fn scale_visual_lines(lines: &mut [VisualLineSpec], scale: f32) {
@@ -9823,9 +9555,8 @@ fn resolve_scroll_anchor(
         })
     };
     let segment = projection
-        .segments()
-        .iter()
-        .find(|segment| segment.node_id == anchor.node_id && matches_hint(segment))
+        .segment_for_node(anchor.node_id)
+        .filter(matches_hint)
         .or_else(|| {
             projection
                 .segments()
@@ -10053,8 +9784,7 @@ fn refresh_arranged_text_node_geometry(
     } = request;
     let segment = projection.segment_for_node(node_id)?;
     let table_cell = segment.context.table_cell;
-    let node_first =
-        visual_lines.partition_point(|line| line.projected_start() < segment.projection_start());
+    let node_first = segment_line_span(visual_lines, segment).start;
     let slot = visual_lines.get(node_first)?.slot;
     let code_width = visual_lines
         .get(node_first)?
@@ -10202,10 +9932,10 @@ fn refresh_text_node_geometry(
     if old_segment.context.table_cell.is_some() {
         return None;
     }
-    let first_line = visual_lines
-        .partition_point(|line| line.projected_start() < old_segment.projection_start());
-    let after_lines =
-        visual_lines.partition_point(|line| line.projected_start() <= old_segment.projection_end());
+    let Range {
+        start: first_line,
+        end: after_lines,
+    } = segment_line_span(visual_lines, &old_segment);
     let first = visual_lines.get(first_line)?;
     let old_math_extent = first.preview_extent();
     let code_width = first.code_line.map(|c| (c.width, c.strip));
@@ -10370,29 +10100,6 @@ fn visual_line_paint_order(lines: &[VisualLineSpec]) -> Vec<usize> {
             .then_with(|| left.cmp(right))
     });
     order
-}
-
-#[cfg(test)]
-fn visible_paint_order_range(
-    lines: &[VisualLineSpec],
-    order: &[usize],
-    top: f32,
-    bottom: f32,
-) -> Range<usize> {
-    if order.is_empty() || bottom < top {
-        return 0..0;
-    }
-    let mut start = order
-        .partition_point(|index| lines[*index].y < top)
-        .saturating_sub(1);
-    if let Some(index) = order.get(start) {
-        let first_y = lines[*index].y;
-        while start > 0 && lines[order[start - 1]].y == first_y {
-            start -= 1;
-        }
-    }
-    let end = order.partition_point(|index| lines[*index].y <= bottom);
-    start.min(end)..end
 }
 
 fn build_visual_lines_for_segment(
@@ -11492,23 +11199,20 @@ fn word_range_at(text: &str, offset: usize) -> Range<usize> {
 }
 
 fn visual_line_range_at(editor: &RichDocumentEditor, offset: usize) -> Range<usize> {
-    let split = editor
-        .visual_lines
-        .partition_point(|line| line.projected_start() <= offset);
-    split
-        .checked_sub(1)
-        .and_then(|index| editor.visual_lines.get(index))
-        .filter(|line| line.projected_range().contains(&offset) || line.projected_end() == offset)
-        .map(|line| line.projected_range())
-        .unwrap_or_else(|| editor.projection.text().len()..editor.projection.text().len())
+    visual_line_index_at_offset(&editor.visual_lines, offset).map_or_else(
+        || editor.projection.text().len()..editor.projection.text().len(),
+        |index| editor.visual_lines[index].projected_range(),
+    )
 }
 
+/// The painted line containing `offset`, else the first ending there. Painted
+/// lines cover only the viewport and overscan, so an offset outside them has
+/// no painted geometry and callers use their logical fallback.
 fn painted_line_for_offset(lines: &[PaintedLine], offset: usize) -> Option<&PaintedLine> {
     lines
         .iter()
         .find(|line| line.range.contains(&offset))
         .or_else(|| lines.iter().find(|line| line.range.end == offset))
-        .or_else(|| lines.last())
 }
 
 fn distance_to_vertical_bounds(y: Pixels, bounds: &Bounds<Pixels>) -> f32 {
@@ -11937,37 +11641,42 @@ fn caret_stops_from_clusters(
 
 const CARET_STOP_CACHE_CAPACITY: usize = 128;
 
-type CaretStopEntry = (
-    Arc<gpui::LineLayout>,
-    gpui::SharedString,
-    Arc<[VisualCaretStop]>,
-);
+/// A shaped line by layout identity and text. The key retains its layout, so
+/// the identity cannot be recycled while cached. Short shared strings are
+/// stored inline, so text is compared by value.
+#[derive(Clone)]
+struct CaretStopKey(Arc<gpui::LineLayout>, gpui::SharedString);
+
+impl PartialEq for CaretStopKey {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) && self.1 == other.1
+    }
+}
+impl Eq for CaretStopKey {}
+impl std::hash::Hash for CaretStopKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(Arc::as_ptr(&self.0), state);
+        self.1.hash(state);
+    }
+}
 
 thread_local! {
     /// Stops for recently queried shaped lines. Selection paint, carets and
-    /// hit testing ask for the same lines several times per frame. Entries
-    /// retain their layout, so its identity cannot be recycled.
-    static CARET_STOP_CACHE: RefCell<std::collections::VecDeque<CaretStopEntry>> =
-        const { RefCell::new(std::collections::VecDeque::new()) };
+    /// hit testing ask for the same lines several times per frame.
+    static CARET_STOP_CACHE: RefCell<BoundedLru<CaretStopKey, Arc<[VisualCaretStop]>>> =
+        RefCell::new(BoundedLru::new(CARET_STOP_CACHE_CAPACITY));
 }
 
 fn cached_caret_stops(layout: &ShapedLine) -> Arc<[VisualCaretStop]> {
     let shape: &Arc<gpui::LineLayout> = layout;
+    let key = CaretStopKey(shape.clone(), layout.text.clone());
     CARET_STOP_CACHE.with(|cache| {
         let mut cache = cache.borrow_mut();
-        // Short shared strings are stored inline, so compare text by value.
-        let hit = cache
-            .iter()
-            .position(|(cached, text, _)| Arc::ptr_eq(cached, shape) && *text == layout.text);
-        if let Some(index) = hit {
-            let entry = cache.remove(index).expect("cached caret stops");
-            let stops = entry.2.clone();
-            cache.push_front(entry);
+        if let Some(stops) = cache.get(&key) {
             return stops;
         }
         let stops: Arc<[VisualCaretStop]> = shaped_caret_stops(layout).into();
-        cache.push_front((shape.clone(), layout.text.clone(), stops.clone()));
-        cache.truncate(CARET_STOP_CACHE_CAPACITY);
+        cache.insert(key, stops.clone());
         stops
     })
 }
@@ -12458,65 +12167,6 @@ fn segment_for_line<'a>(
     line: &Range<usize>,
 ) -> Option<&'a crate::ProjectionSegment> {
     projection.segment_for_range(line)
-}
-
-#[cfg(test)]
-fn active_heading_node_for_viewport(
-    projection: &TextProjection,
-    lines: &[VisualLineSpec],
-    scroll_y: f32,
-    viewport_height: f32,
-) -> Option<NodeId> {
-    let viewport_top = scroll_y + 8.;
-    let viewport_bottom = scroll_y + viewport_height;
-    let mut first_visible = None;
-    let mut active = None;
-    for line in lines {
-        let Some(node_id) = (|| {
-            let segment = segment_for_line(projection, &line.projected_range())?;
-            matches!(
-                projection.block(segment.node_id),
-                Some(BlockNode::Heading(_))
-            )
-            .then_some(segment.node_id)
-        })() else {
-            continue;
-        };
-        if line.y <= viewport_top {
-            active = Some(node_id);
-        } else if first_visible.is_none() && line.y < viewport_bottom {
-            first_visible = Some(node_id);
-        }
-    }
-    active.or(first_visible)
-}
-
-fn first_editable_position(blocks: &document_core::BlockSequence) -> Option<DocumentPosition> {
-    for block in blocks {
-        if block.text().is_some() {
-            return Some(DocumentPosition::new(block.id(), 0, Affinity::Downstream));
-        }
-        let nested = match block.as_ref() {
-            BlockNode::List(list) => list
-                .items
-                .iter()
-                .find_map(|item| first_editable_position(&item.blocks)),
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => first_editable_position(blocks),
-            BlockNode::Definition { blocks, .. } => first_editable_position(blocks),
-            BlockNode::Table(table) => table.rows.iter().find_map(|row| {
-                row.cells
-                    .iter()
-                    .find_map(|cell| first_editable_position(&cell.blocks))
-            }),
-            _ => None,
-        };
-        if nested.is_some() {
-            return nested;
-        }
-    }
-    None
 }
 
 fn semantic_document_tree(
@@ -13345,18 +12995,31 @@ fn apply_marked_runs(
     result
 }
 
-fn utf16_range_in_text(text: &str, range: Range<usize>) -> Range<usize> {
-    fn byte_for_utf16(text: &str, target: usize) -> usize {
-        let mut units = 0;
-        for (byte, character) in text.char_indices() {
-            if units >= target || units + character.len_utf16() > target {
-                return byte;
-            }
-            units += character.len_utf16();
+/// Byte offset of a platform UTF-16 offset in `text`. An offset inside a
+/// surrogate pair resolves to its character's start.
+fn byte_offset_for_utf16(text: &str, target: usize) -> usize {
+    let mut units = 0;
+    for (byte, character) in text.char_indices() {
+        if units >= target || units + character.len_utf16() > target {
+            return byte;
         }
-        text.len()
+        units += character.len_utf16();
     }
-    byte_for_utf16(text, range.start)..byte_for_utf16(text, range.end)
+    text.len()
+}
+
+fn utf16_offset_for_byte(text: &str, byte: usize) -> usize {
+    text[..byte].encode_utf16().count()
+}
+
+/// The byte range of a platform UTF-16 range in `text`.
+fn utf16_range_in_text(text: &str, range: Range<usize>) -> Range<usize> {
+    byte_offset_for_utf16(text, range.start)..byte_offset_for_utf16(text, range.end)
+}
+
+/// The platform UTF-16 range of a byte range in `text`.
+fn utf16_range_for_bytes(text: &str, range: Range<usize>) -> Range<usize> {
+    utf16_offset_for_byte(text, range.start)..utf16_offset_for_byte(text, range.end)
 }
 
 fn selection_collapse_offset(range: &Range<usize>, left: bool) -> usize {
@@ -13374,24 +13037,49 @@ fn visual_line_index_at_offset(lines: &[VisualLineSpec], offset: usize) -> Optio
     (line.projected_range().contains(&offset) || line.projected_end() == offset).then_some(index)
 }
 
-/// The line containing `offset`, else the first line ending there. Visual
-/// lines are sorted by source and never overlap, so both lookups are binary
-/// and agree with the first match of a front-to-back scan.
+/// Index of the line containing `offset`, else of the first line ending
+/// there. Visual lines are sorted by source and never overlap, so both
+/// lookups are binary and agree with the first match of a front-to-back scan.
+fn visual_line_index_containing_or_ending_at(
+    lines: &[VisualLineSpec],
+    offset: usize,
+) -> Option<usize> {
+    visual_line_index_containing(lines, offset).or_else(|| {
+        let index = lines.partition_point(|line| line.projected_end() < offset);
+        lines
+            .get(index)
+            .is_some_and(|line| line.projected_end() == offset)
+            .then_some(index)
+    })
+}
+
 fn visual_line_containing_or_ending_at(
     lines: &[VisualLineSpec],
     offset: usize,
 ) -> Option<&VisualLineSpec> {
+    visual_line_index_containing_or_ending_at(lines, offset).map(|index| &lines[index])
+}
+
+fn visual_line_index_containing(lines: &[VisualLineSpec], offset: usize) -> Option<usize> {
     lines
         .partition_point(|line| line.projected_start() <= offset)
         .checked_sub(1)
-        .map(|index| &lines[index])
-        .filter(|line| line.projected_range().contains(&offset))
-        .or_else(|| {
-            let index = lines.partition_point(|line| line.projected_end() < offset);
-            lines
-                .get(index)
-                .filter(|line| line.projected_end() == offset)
-        })
+        .filter(|index| lines[*index].projected_range().contains(&offset))
+}
+
+/// The line containing `offset`; the first match of a front-to-back scan.
+fn visual_line_containing(lines: &[VisualLineSpec], offset: usize) -> Option<&VisualLineSpec> {
+    visual_line_index_containing(lines, offset).map(|index| &lines[index])
+}
+
+/// Indexes of the lines that start within `segment`, its end included. Every
+/// line the segment owns is among them; callers that need exact ownership
+/// still check each line's segment.
+fn segment_line_span(lines: &[VisualLineSpec], segment: &crate::ProjectionSegment) -> Range<usize> {
+    let start = lines.partition_point(|line| line.projected_start() < segment.projection_start());
+    let end = start
+        + lines[start..].partition_point(|line| line.projected_start() <= segment.projection_end());
+    start..end
 }
 
 /// The first line spanning exactly `range`.
@@ -13455,22 +13143,32 @@ fn snap_offset_to_grapheme(text: &str, range: Range<usize>, candidate: usize) ->
     }
 }
 
+/// Start of the grapheme ending at `offset`, a boundary of `text`.
+fn previous_grapheme_boundary(text: &str, offset: usize) -> usize {
+    text[..offset]
+        .grapheme_indices(true)
+        .next_back()
+        .map_or(0, |(index, _)| index)
+}
+
+/// End of the grapheme starting at `offset`, a boundary of `text`.
+fn next_grapheme_boundary(text: &str, offset: usize) -> usize {
+    text[offset..]
+        .grapheme_indices(true)
+        .nth(1)
+        .map_or(text.len(), |(index, _)| offset + index)
+}
+
 fn previous_word_boundary(text: &str, offset: usize) -> usize {
     let mut cursor = offset.min(text.len());
     while cursor > 0 {
-        let previous = text[..cursor]
-            .grapheme_indices(true)
-            .next_back()
-            .map_or(0, |(index, _)| index);
+        let previous = previous_grapheme_boundary(text, cursor);
         let grapheme = &text[previous..cursor];
         if !grapheme.chars().all(char::is_whitespace) {
             let class = word_class(grapheme);
             cursor = previous;
             while cursor > 0 {
-                let start = text[..cursor]
-                    .grapheme_indices(true)
-                    .next_back()
-                    .map_or(0, |(index, _)| index);
+                let start = previous_grapheme_boundary(text, cursor);
                 if word_class(&text[start..cursor]) != class {
                     break;
                 }
@@ -13486,19 +13184,13 @@ fn previous_word_boundary(text: &str, offset: usize) -> usize {
 fn next_word_boundary(text: &str, offset: usize) -> usize {
     let mut cursor = offset.min(text.len());
     while cursor < text.len() {
-        let end = text[cursor..]
-            .grapheme_indices(true)
-            .nth(1)
-            .map_or(text.len(), |(index, _)| cursor + index);
+        let end = next_grapheme_boundary(text, cursor);
         let grapheme = &text[cursor..end];
         if !grapheme.chars().all(char::is_whitespace) {
             let class = word_class(grapheme);
             cursor = end;
             while cursor < text.len() {
-                let next_end = text[cursor..]
-                    .grapheme_indices(true)
-                    .nth(1)
-                    .map_or(text.len(), |(index, _)| cursor + index);
+                let next_end = next_grapheme_boundary(text, cursor);
                 if word_class(&text[cursor..next_end]) != class {
                     break;
                 }
@@ -14069,10 +13761,7 @@ mod tests {
             .unwrap();
         let hit = &state.link_hitboxes[0];
         assert_eq!(line.alignment, ColumnAlignment::Right);
-        assert_eq!(
-            hit.left(),
-            aligned_text_left(line.bounds, &line.layout, line.alignment)
-        );
+        assert_eq!(hit.left(), line.text_left());
         assert_eq!(hit.right(), hit.left() + line.layout.width());
         let mask = line
             .content_mask
@@ -17456,7 +17145,6 @@ mod tests {
                 editor
                     .shaped_line_cache
                     .borrow()
-                    .entries
                     .keys()
                     .any(|key| key.scale_bits == scale.to_bits())
             });
@@ -17728,16 +17416,45 @@ mod tests {
         assert_eq!(editor.read_with(cx, |editor, _| editor.toolbar_opacity), 1.);
     }
 
-    #[test]
-    fn shaped_line_cache_is_lru_bounded() {
-        let mut cache = BoundedLru::new(2);
-        cache.insert("old", 1);
-        cache.insert("hot", 2);
-        assert_eq!(cache.get(&"old"), Some(1));
-        cache.insert("new", 3);
-        assert_eq!(cache.get(&"hot"), None);
-        assert_eq!(cache.get(&"old"), Some(1));
-        assert_eq!(cache.get(&"new"), Some(3));
+    #[gpui::test]
+    fn horizontal_motion_outside_painted_lines_uses_logical_boundary(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(init_editor);
+        let source = (0..200)
+            .map(|index| format!("Paragraph {index} keeps the caret far below the viewport."))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let (editor, cx) = cx.add_window_view(|window, cx| {
+            RichDocumentEditor::new(
+                Document::from_markdown(source.as_str()).unwrap(),
+                window,
+                cx,
+            )
+        });
+        cx.simulate_resize(size(px(600.), px(320.)));
+        for _ in 0..2 {
+            cx.update(|window, cx| {
+                _ = window.draw(cx);
+            });
+            cx.run_until_parked();
+        }
+        cx.update(|window, cx| {
+            editor.update(cx, |editor, cx| {
+                let offset = editor.projection.text().rfind("below").unwrap();
+                assert!(!editor.painted_lines.is_empty());
+                assert!(
+                    editor
+                        .painted_lines
+                        .iter()
+                        .all(|line| !line.range.contains(&offset) && line.range.end != offset),
+                    "the caret must lie outside the painted lines"
+                );
+                editor.move_to(offset, window, cx);
+                editor.left(&Left, window, cx);
+                assert_eq!(editor.cursor_offset(), offset - 1);
+            });
+        });
     }
 
     #[test]
@@ -17818,7 +17535,8 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let order = visual_line_paint_order(&lines);
-        let visible = visible_paint_order_range(&lines, &order, 1_000_000., 1_002_400.);
+        let components = component_geometry(&TextProjection::default(), &lines, 760., 1., &order);
+        let visible = components.visible_range(&lines, &order, 1_000_000., 1_002_400.);
         assert!(visible.len() < 100, "one viewport must not scan 100k lines");
         assert!(visible.clone().all(|index| {
             let line = &lines[order[index]];
@@ -19065,7 +18783,7 @@ mod tests {
         let text = "a".repeat(80);
         let document = Document::from_markdown(text.as_str()).expect("document");
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection);
+        let lines = build_visual_lines(&projection);
         assert_eq!(
             lines.len(),
             2,
@@ -19098,7 +18816,7 @@ mod tests {
         ))
         .expect("component document");
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection);
+        let lines = build_visual_lines(&projection);
 
         let hero = lines
             .iter()
@@ -19129,7 +18847,7 @@ mod tests {
         let document = Document::from_markdown("# Hero\n\nBody\n\n## Section\n\nMore body")
             .expect("heading document");
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection);
+        let lines = build_visual_lines(&projection);
         let heading_ids = document
             .snapshot()
             .blocks()
@@ -19148,17 +18866,22 @@ mod tests {
         };
         let first_y = heading_y(heading_ids[0]).expect("first heading line");
         let second_y = heading_y(heading_ids[1]).expect("second heading line");
+        let active_heading =
+            |projection: &TextProjection, lines: &[VisualLineSpec], scroll_y, height| {
+                component_geometry(projection, lines, 760., 1., &visual_line_paint_order(lines))
+                    .active_heading(scroll_y, height)
+            };
         assert_eq!(
-            active_heading_node_for_viewport(&projection, &lines, 0., 120.),
+            active_heading(&projection, &lines, 0., 120.),
             Some(heading_ids[0]),
             "the first visible heading is active before it reaches the viewport top"
         );
         assert_eq!(
-            active_heading_node_for_viewport(&projection, &lines, first_y + 1., 120.),
+            active_heading(&projection, &lines, first_y + 1., 120.),
             Some(heading_ids[0])
         );
         assert_eq!(
-            active_heading_node_for_viewport(&projection, &lines, second_y + 1., 120.),
+            active_heading(&projection, &lines, second_y + 1., 120.),
             Some(heading_ids[1])
         );
 
@@ -19168,14 +18891,9 @@ mod tests {
         ))
         .expect("introductory document");
         let introduction_projection = TextProjection::from_snapshot(&introduction.snapshot());
-        let introduction_lines = build_visual_lines(&introduction, &introduction_projection);
+        let introduction_lines = build_visual_lines(&introduction_projection);
         assert_eq!(
-            active_heading_node_for_viewport(
-                &introduction_projection,
-                &introduction_lines,
-                0.,
-                80.
-            ),
+            active_heading(&introduction_projection, &introduction_lines, 0., 80.),
             None,
             "an off-screen heading must not be announced as active"
         );
@@ -19214,7 +18932,7 @@ mod tests {
         ))
         .expect("table document");
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection)
+        let lines = build_visual_lines(&projection)
             .into_iter()
             .filter(|line| line.table_cell.is_some())
             .collect::<Vec<_>>();
@@ -19581,7 +19299,7 @@ mod tests {
         ))
         .expect("table document");
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection)
+        let lines = build_visual_lines(&projection)
             .into_iter()
             .filter(|line| matches!(line.table_cell, Some((_, 1, _, _))))
             .collect::<Vec<_>>();
@@ -19787,7 +19505,7 @@ mod tests {
         ))
         .expect("wide table");
         let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection)
+        let lines = build_visual_lines(&projection)
             .into_iter()
             .filter(|line| line.table_cell.is_some())
             .collect::<Vec<_>>();
@@ -19804,7 +19522,7 @@ mod tests {
         let snapshot = document.snapshot();
         let image_id = snapshot.blocks().get(0).expect("image").id();
         let projection = TextProjection::from_snapshot(&snapshot);
-        let placeholder = build_visual_lines(&document, &projection);
+        let placeholder = build_visual_lines(&projection);
         assert_eq!(placeholder[0].style.line_height, 180.);
 
         let dimensions = HashMap::from([(image_id, ("wide.png".into(), (800, 400)))]);
@@ -19971,8 +19689,7 @@ mod tests {
                     .iter()
                     .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
                     .expect("Tab must reveal the selected cell, not leave the caret offscreen");
-                let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                    + shaped_x_for_index(&line.layout, cursor - line.range.start);
+                let x = line.x_for_offset(cursor);
                 let viewport = line.content_mask.unwrap().bounds;
                 assert!(
                     x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001),
@@ -20004,8 +19721,7 @@ mod tests {
                 "document-boundary caret must be vertically visible"
             );
             if line.content_mask.is_some() {
-                let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                    + shaped_x_for_index(&line.layout, expected.saturating_sub(line.range.start));
+                let x = line.x_for_offset(expected);
                 assert!(
                     x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001),
                     "document-boundary caret must be visible inside the table viewport"
@@ -20217,8 +19933,7 @@ mod tests {
                 .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
                 .expect("structural edit history must reveal the caret");
             let viewport = line.content_mask.unwrap().bounds;
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
             );
@@ -20391,8 +20106,7 @@ mod tests {
                 .content_mask
                 .expect("overflowing table viewport")
                 .bounds;
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
             );
@@ -20614,8 +20328,7 @@ mod tests {
                     .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
                     .expect("the current IME caret must be painted");
                 let viewport = line.content_mask.expect("table viewport").bounds;
-                let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                    + shaped_x_for_index(&line.layout, cursor - line.range.start);
+                let x = line.x_for_offset(cursor);
                 assert!(
                     x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
                 );
@@ -20680,8 +20393,7 @@ mod tests {
                     )
                 });
             let viewport = line.content_mask.expect("table viewport").bounds;
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001),
                 "IME caret {x:?} must remain inside resized viewport {viewport:?}"
@@ -20827,8 +20539,7 @@ mod tests {
                 .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
                 .expect("RTL caret line must be painted");
             let viewport = line.content_mask.expect("table viewport").bounds;
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
             );
@@ -20955,8 +20666,7 @@ mod tests {
                 .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
                 .expect("RTL preedit caret line must be painted");
             let viewport = line.content_mask.expect("table viewport").bounds;
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
             );
@@ -21079,8 +20789,7 @@ mod tests {
                 .find(|line| line.range.contains(&expected) || line.range.end == expected)
                 .expect("collapsed mixed-direction selection edge must be painted");
             let viewport = line.content_mask.expect("table viewport").bounds;
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, expected - line.range.start);
+            let x = line.x_for_offset(expected);
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
             );
@@ -21234,8 +20943,7 @@ mod tests {
                 .iter()
                 .find(|line| &line.range == range)
                 .expect("the newly appended empty cell must be painted");
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             let viewport = line.content_mask.unwrap().bounds;
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
@@ -21305,8 +21013,7 @@ mod tests {
                 .iter()
                 .find(|line| line.range.contains(&cursor) || line.range.end == cursor)
                 .expect("the active header must be painted inside its horizontal viewport");
-            let x = aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, cursor - line.range.start);
+            let x = line.x_for_offset(cursor);
             let viewport = line.content_mask.unwrap().bounds;
             assert!(
                 x >= viewport.left() - px(0.001) && x + px(1.5) <= viewport.right() + px(0.001)
@@ -21543,7 +21250,7 @@ mod tests {
             Document::from_markdown("before\n\nAnchor target\n\nafter").expect("original document");
         let original_snapshot = original.snapshot();
         let original_projection = TextProjection::from_snapshot(&original_snapshot);
-        let original_lines = build_visual_lines(&original, &original_projection);
+        let original_lines = build_visual_lines(&original_projection);
         let anchor_line = original_lines
             .iter()
             .find(|line| {
@@ -21565,7 +21272,7 @@ mod tests {
             .expect("reloaded document");
         let reloaded_snapshot = reloaded.snapshot();
         let reloaded_projection = TextProjection::from_snapshot(&reloaded_snapshot);
-        let reloaded_lines = build_visual_lines(&reloaded, &reloaded_projection);
+        let reloaded_lines = build_visual_lines(&reloaded_projection);
         let expected = reloaded_lines
             .iter()
             .find(|line| {
@@ -21634,7 +21341,7 @@ mod tests {
         let document = Document::from_markdown("before\n\n## Nearby heading").expect("document");
         let snapshot = document.snapshot();
         let projection = TextProjection::from_snapshot(&snapshot);
-        let mut lines = build_visual_lines(&document, &projection);
+        let mut lines = build_visual_lines(&projection);
         assert_eq!(lines.len(), 2);
         lines[0].y = 0.;
         lines[1].y = 57.;
@@ -21662,7 +21369,7 @@ mod tests {
         .expect("component document");
         let snapshot = document.snapshot();
         let projection = TextProjection::from_snapshot(&snapshot);
-        let lines = build_visual_lines(&document, &projection);
+        let lines = build_visual_lines(&projection);
         let bounds = semantic_bounds_for_lines(&projection, &lines, 0..lines.len());
         let tree = semantic_document_tree(snapshot.blocks(), &bounds);
         fn collect_roles(nodes: &[SemanticNodeSpec], roles: &mut Vec<Role>) {
@@ -21732,7 +21439,7 @@ mod tests {
         let tasks = Document::from_markdown("- [x] done\n- [ ] todo\n").expect("task list");
         let task_snapshot = tasks.snapshot();
         let task_projection = TextProjection::from_snapshot(&task_snapshot);
-        let task_lines = build_visual_lines(&tasks, &task_projection);
+        let task_lines = build_visual_lines(&task_projection);
         let task_bounds =
             semantic_bounds_for_lines(&task_projection, &task_lines, 0..task_lines.len());
         let task_tree = semantic_document_tree(task_snapshot.blocks(), &task_bounds);
@@ -21748,7 +21455,7 @@ mod tests {
         let plain = Document::from_markdown("- item\n").expect("plain list");
         let plain_snapshot = plain.snapshot();
         let plain_projection = TextProjection::from_snapshot(&plain_snapshot);
-        let plain_lines = build_visual_lines(&plain, &plain_projection);
+        let plain_lines = build_visual_lines(&plain_projection);
         let plain_bounds =
             semantic_bounds_for_lines(&plain_projection, &plain_lines, 0..plain_lines.len());
         let plain_tree = semantic_document_tree(plain_snapshot.blocks(), &plain_bounds);
@@ -21974,56 +21681,5 @@ mod tests {
                 }
             }
         });
-    }
-
-    #[test]
-    fn minimap_uses_editor_lines_and_retains_component_structure() {
-        let document = Document::from_markdown(concat!(
-            "# Repository guide\n\n",
-            "A paragraph with enough words to leave a recognizable prose silhouette.\n\n",
-            "- [x] inspect the geometry\n",
-            "- [ ] verify the miniature\n\n",
-            "```rust\n",
-            "pub fn render() -> bool { true }\n",
-            "```\n\n",
-            "| Layer | Owner |\n",
-            "| --- | --- |\n",
-            "| View | Tachyon |\n\n",
-            "> [!NOTE]\n",
-            "> The minimap follows rendered geometry.\n",
-        ))
-        .expect("minimap document");
-        let projection = TextProjection::from_snapshot(&document.snapshot());
-        let lines = build_visual_lines(&document, &projection);
-        let document_height = visual_document_height(&lines);
-        let mut minimap = Minimap::default();
-        minimap.rebuild_rendered(
-            lines
-                .iter()
-                .filter_map(|line| minimap_source_line(&projection, line, 760., 1.)),
-            document_height,
-            760.,
-            300.,
-        );
-
-        for expected in [
-            crate::MinimapPrimitiveKind::HeadingBadge,
-            crate::MinimapPrimitiveKind::TaskFrame,
-            crate::MinimapPrimitiveKind::CodeFrame,
-            crate::MinimapPrimitiveKind::TableFrame,
-            crate::MinimapPrimitiveKind::AlertFrame(MinimapAlertTone::Info),
-        ] {
-            assert!(
-                minimap
-                    .primitives()
-                    .iter()
-                    .any(|primitive| primitive.kind == expected),
-                "missing {expected:?}"
-            );
-        }
-        assert_eq!(
-            minimap.document_offset_for_pointer(150., 300.),
-            document_height / 2.
-        );
     }
 }

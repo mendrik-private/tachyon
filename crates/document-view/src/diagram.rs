@@ -1,13 +1,12 @@
 //! Source-backed, inert technical figures. Parsing, layout and glyph outlining
 //! happen during preparation, never during document paint or scroll.
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex, OnceLock},
-};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use document_core::BlockNode;
 use gpui::{Image, ImageFormat};
 use mermaid_rs_renderer::{DiagramKind, Graph, LayoutConfig, Theme};
+
+use crate::lru::{BoundedLru, memoize};
 
 const MAX_SOURCE: usize = 8192;
 const MAX_NODES: usize = 48;
@@ -70,19 +69,14 @@ pub(crate) enum DiagramError {
 }
 
 type Cached = Result<Arc<Figure>, DiagramError>;
-struct Entry {
-    source: String,
-    dark: bool,
-    kind: Kind,
-    result: Cached,
-}
-static CACHE: OnceLock<Mutex<VecDeque<Entry>>> = OnceLock::new();
+type Key = (String, bool, Kind);
+static CACHE: OnceLock<Mutex<BoundedLru<Key, Cached>>> = OnceLock::new();
 
 pub(crate) fn is_diagram(block: &BlockNode) -> bool {
     kind(block).is_some()
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Kind {
     Mermaid,
     Schema,
@@ -126,33 +120,23 @@ fn cached(source: &str, dark: bool, kind: Kind) -> Cached {
     if source.len() > MAX_SOURCE {
         return Err(DiagramError::TooComplex);
     }
-    let cache = CACHE.get_or_init(|| Mutex::new(VecDeque::new()));
-    {
-        let mut entries = cache.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(index) = entries
-            .iter()
-            .position(|e| e.source == source && e.dark == dark && e.kind == kind)
-        {
-            let entry = entries.remove(index).expect("index belongs to this cache");
-            let result = entry.result.clone();
-            entries.push_front(entry);
-            return result;
-        }
-    }
-    let result = match kind {
-        Kind::Mermaid => render(source, dark),
-        Kind::Schema => crate::schema::render(source, dark),
-    }
-    .map(Arc::new);
-    let mut entries = cache.lock().unwrap_or_else(|p| p.into_inner());
-    entries.push_front(Entry {
-        source: source.into(),
-        dark,
-        kind,
-        result: result.clone(),
-    });
-    entries.truncate(MAX_CACHE);
-    result
+    let cache = CACHE.get_or_init(|| Mutex::new(BoundedLru::new(MAX_CACHE)));
+    // Failures are cached too, so invalid sources are not retried every frame.
+    memoize(
+        cache,
+        Some((source.to_owned(), dark, kind)),
+        || {},
+        || {
+            Some(
+                match kind {
+                    Kind::Mermaid => render(source, dark),
+                    Kind::Schema => crate::schema::render(source, dark),
+                }
+                .map(Arc::new),
+            )
+        },
+    )
+    .expect("rendering always yields a result")
 }
 
 fn parse(source: &str) -> Result<Graph, DiagramError> {
@@ -301,15 +285,9 @@ fn fonts() -> Arc<usvg::fontdb::Database> {
     FONTS
         .get_or_init(|| {
             let mut db = usvg::fontdb::Database::new();
-            db.load_font_data(
-                include_bytes!("../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf").to_vec(),
-            );
-            db.load_font_data(
-                include_bytes!("../../../assets/fonts/NotoSans-Tachyon-Regular.ttf").to_vec(),
-            );
-            db.load_font_data(
-                include_bytes!("../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf").to_vec(),
-            );
+            db.load_font_data(crate::fonts::PUBLIC_SANS_EXTRA_LIGHT.to_vec());
+            db.load_font_data(crate::fonts::NOTO_SANS_REGULAR.to_vec());
+            db.load_font_data(crate::fonts::SPLINE_SANS_MONO_REGULAR.to_vec());
             db.set_sans_serif_family("Public Sans Tachyon");
             Arc::new(db)
         })

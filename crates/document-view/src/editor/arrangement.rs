@@ -1313,34 +1313,18 @@ fn measure_row_group_uncached(
                     result.height += 4.;
                 }
             } else {
-                // Remove only outer margins, as apply_group_spacing does;
-                // retain code/header insets and inter-item list spacing.
+                // Remove only outer margins, exactly as apply_group_spacing
+                // does; retain code/header insets and inter-item list spacing.
+                // Removal saturates: a list item has only 8px of trailing
+                // space, and a margin absent from the component is never taken.
                 if Some(index) == indexes.first() {
-                    result.height -= match block {
-                        _ if lines.first()?.rendered_code_preview() => DocumentStyle::EQUATION_GAP,
-                        BlockNode::Heading(_) => lines.first()?.style.space_above,
-                        BlockNode::CodeBlock(_) => 8.,
-                        _ => 0.,
-                    };
+                    let first = lines.first()?;
+                    result.height -= outer_margin_above(first, block).min(first.style.space_above);
                 }
                 if Some(index) == indexes.last() {
-                    let external = if lines.last()?.rendered_code_preview() {
-                        DocumentStyle::EQUATION_GAP
-                    } else if segment.context.figure_text.is_some()
-                        || super::quotes::has_no_outer_paragraph_margin(segment, block)
-                    {
-                        0.
-                    } else if segment.context.bibliography.is_some() {
-                        DocumentStyle::BIBLIOGRAPHY_GAP
-                    } else if matches!(block, BlockNode::Heading(_)) {
-                        7.
-                    } else {
-                        16.
-                    };
-                    // A list item has only 8px of trailing space. Match the
-                    // renderer's saturating removal; never subtract a margin
-                    // that was not present in the measured component.
-                    result.height -= external.min(lines.last()?.style.space_below);
+                    let last = lines.last()?;
+                    result.height -= outer_margin_below(last, segment, block, presentation)
+                        .min(last.style.space_below);
                 }
             }
             segment_count += 1;
@@ -1438,6 +1422,15 @@ pub(super) fn build_measured_visual_lines_for_segments(
     )
 }
 
+/// Positions complete lines on a slot's canvas tracks.
+pub(super) fn place_on_slot(lines: &mut [VisualLineSpec], slot: LayoutSlot, width: f32) {
+    for line in lines {
+        line.set_slot(Some(slot));
+        line.x_fraction = slot.left(width) / width;
+        line.width_fraction = slot.width(width) / width;
+    }
+}
+
 pub(super) fn build_visual_lines_with_extensions(
     projection: &TextProjection,
     image_dimensions: &NodeImageDimensions,
@@ -1487,19 +1480,22 @@ pub(super) fn build_visual_lines_with_extensions(
             ));
             continue;
         }
+        // Whether this segment opens or closes its slot's run of segments.
+        let (first_in_slot, last_in_slot) = slot.map_or((false, false), |slot| {
+            let shares_slot = |index: Option<usize>| {
+                index
+                    .and_then(|i| projection.segments().get(i))
+                    .and_then(|s| plan.slots.get(&s.node_id))
+                    == Some(&slot)
+            };
+            (
+                !shares_slot(segment_index.checked_sub(1)),
+                !shares_slot(Some(segment_index + 1)),
+            )
+        });
         if slot.is_some_and(|s| matches!(s.card_accent, crate::adaptive::CardAccent::Editorial(_)))
         {
             let slot = slot.unwrap();
-            let first = segment_index
-                .checked_sub(1)
-                .and_then(|i| projection.segments().get(i))
-                .and_then(|s| plan.slots.get(&s.node_id))
-                != Some(&slot);
-            let last = projection
-                .segments()
-                .get(segment_index + 1)
-                .and_then(|s| plan.slots.get(&s.node_id))
-                != Some(&slot);
             let mut node_lines = editorial::build_segment(
                 projection,
                 segment,
@@ -1509,15 +1505,11 @@ pub(super) fn build_visual_lines_with_extensions(
                     slot.width(width)
                         .min(plan.prose_measures.reference + 2. * CARD_PADDING)
                 },
-                first,
-                last,
+                first_in_slot,
+                last_in_slot,
                 measurement.filter(|_| plan.has_measured_geometry(segment.top_level_node_id)),
             );
-            for line in &mut node_lines {
-                line.set_slot(Some(slot));
-                line.x_fraction = slot.left(width) / width;
-                line.width_fraction = slot.width(width) / width;
-            }
+            place_on_slot(&mut node_lines, slot, width);
             lines.extend(node_lines);
             continue;
         }
@@ -1532,11 +1524,7 @@ pub(super) fn build_visual_lines_with_extensions(
                 slot.width(width),
                 measurement,
             );
-            for line in &mut node_lines {
-                line.set_slot(Some(slot));
-                line.x_fraction = slot.left(width) / width;
-                line.width_fraction = slot.width(width) / width;
-            }
+            place_on_slot(&mut node_lines, slot, width);
             lines.extend(node_lines);
             continue;
         }
@@ -1673,11 +1661,7 @@ pub(super) fn build_visual_lines_with_extensions(
         };
         let count = node_lines.len();
         for (index, line) in node_lines.iter_mut().enumerate() {
-            if plan
-                .lists
-                .get(&segment.top_level_node_id)
-                .is_some_and(|list| list.layout == ListLayout::Steps)
-            {
+            if steps {
                 // Keep the full number badge inside the document's clip and
                 // leave a little breathing room before the instruction.
                 line.inset += 8.;
@@ -1692,55 +1676,28 @@ pub(super) fn build_visual_lines_with_extensions(
                     projection.block(slot.group),
                     Some(BlockNode::Definition { .. })
                 ) {
-                    let first = segment_index
-                        .checked_sub(1)
-                        .and_then(|i| projection.segments().get(i))
-                        .and_then(|s| plan.slots.get(&s.node_id))
-                        != Some(&slot);
-                    let last = projection
-                        .segments()
-                        .get(segment_index + 1)
-                        .and_then(|s| plan.slots.get(&s.node_id))
-                        != Some(&slot);
                     // Remove outside paragraph margins only at the column
                     // edges. Rich descriptions retain internal block spacing,
                     // code headers, quote padding and semantic table geometry.
-                    if line.table_cell.is_none() {
-                        if index == 0 && first {
-                            let external = match block {
-                                _ if line.rendered_code_preview() => DocumentStyle::EQUATION_GAP,
-                                BlockNode::Heading(_) => 20.,
-                                BlockNode::CodeBlock(_) | BlockNode::Image(_) => 8.,
-                                _ => 0.,
-                            };
-                            line.style.space_above = (line.style.space_above - external).max(0.);
-                        }
-                        if index + 1 == count && last {
-                            let external = if line.rendered_code_preview() {
-                                DocumentStyle::EQUATION_GAP
-                            } else if matches!(block, BlockNode::Heading(_)) {
-                                7.
-                            } else {
-                                16.
-                            };
-                            line.style.space_below = (line.style.space_below - external).max(0.);
-                        }
+                    if index == 0 && first_in_slot {
+                        line.style.space_above -=
+                            outer_margin_above(line, block).min(line.style.space_above);
+                    }
+                    if index + 1 == count && last_in_slot && line.table_cell.is_none() {
+                        let external = if line.rendered_code_preview() {
+                            DocumentStyle::EQUATION_GAP
+                        } else if matches!(block, BlockNode::Heading(_)) {
+                            7.
+                        } else {
+                            16.
+                        };
+                        line.style.space_below -= external.min(line.style.space_below);
                     }
                 }
                 if slot.cards {
                     line.inset += slot.inset();
-                    let first = segment_index
-                        .checked_sub(1)
-                        .and_then(|i| projection.segments().get(i))
-                        .and_then(|s| plan.slots.get(&s.node_id))
-                        != Some(&slot);
-                    let last = projection
-                        .segments()
-                        .get(segment_index + 1)
-                        .and_then(|s| plan.slots.get(&s.node_id))
-                        != Some(&slot);
                     let heading = matches!(block, BlockNode::Heading(_));
-                    line.style.space_above = if index == 0 && first {
+                    line.style.space_above = if index == 0 && first_in_slot {
                         slot.inset()
                             + if slot.card_accent == crate::adaptive::CardAccent::Numbered {
                                 40.
@@ -1750,15 +1707,11 @@ pub(super) fn build_visual_lines_with_extensions(
                     } else {
                         0.
                     };
-                    if slot.card_accent == crate::adaptive::CardAccent::Numbered
-                        || (slot.group == segment.top_level_node_id
-                            && slot.card_accent == crate::adaptive::CardAccent::OpenLabeled
-                            && segment.context.list_depth == 1)
-                    {
+                    if markerless_card {
                         line.inset -= container_inset(segment);
                     }
                     line.style.space_below = if index + 1 == count {
-                        if last {
+                        if last_in_slot {
                             slot.inset()
                         } else if line.label_row.is_some() {
                             12.
@@ -1811,6 +1764,45 @@ pub(super) fn build_visual_lines_with_extensions(
     lines
 }
 
+/// The renderer's per-block outer margin above a component edge line; group
+/// spacing replaces it with a relationship gap. Code header/padding,
+/// quote/alert insets and table cell padding remain.
+fn outer_margin_above(line: &VisualLineSpec, block: &BlockNode) -> f32 {
+    match block {
+        _ if line.table_cell.is_some() => 0.,
+        _ if line.rendered_code_preview() => DocumentStyle::EQUATION_GAP,
+        BlockNode::Heading(_) if line.projected_start() == 0 => 8.,
+        BlockNode::Heading(_) => 20.,
+        BlockNode::CodeBlock(_) | BlockNode::Image(_) => 8.,
+        _ => 0.,
+    }
+}
+
+/// The per-block outer margin below a component edge line; see
+/// [`outer_margin_above`].
+fn outer_margin_below(
+    line: &VisualLineSpec,
+    segment: &crate::ProjectionSegment,
+    block: &BlockNode,
+    plan: &AdaptivePlan,
+) -> f32 {
+    if line.table_cell.is_some() {
+        0.
+    } else if line.rendered_code_preview() {
+        DocumentStyle::EQUATION_GAP
+    } else if super::quotes::has_no_outer_paragraph_margin(segment, block) {
+        0.
+    } else if segment.context.bibliography.is_some() {
+        DocumentStyle::BIBLIOGRAPHY_GAP
+    } else if matches!(block, BlockNode::Heading(_)) {
+        7.
+    } else if plan.lead == Some(segment.node_id) {
+        24.
+    } else {
+        16.
+    }
+}
+
 /// Separate outside whitespace from component insets. In particular, table
 /// spacing must move the whole row, not stretch just its first cell/background.
 fn apply_group_spacing(
@@ -1857,49 +1849,17 @@ fn apply_group_spacing(
             );
         }
         if slot.is_none_or(|slot| !slot.cards) {
-            // These were the renderer's old per-block external margins. Keep
-            // code header/padding, quote/alert insets and table cell padding.
             let first = &mut lines[start];
-            if first.table_cell.is_none() {
-                let first_segment = projection
-                    .segment_for_range(&first.projected_range())
-                    .unwrap();
-                let first_block = projection.block(first_segment.node_id).unwrap();
-                let external = match first_block {
-                    _ if first.rendered_code_preview() => DocumentStyle::EQUATION_GAP,
-                    BlockNode::Heading(_) => {
-                        if first.projected_start() == 0 {
-                            8.
-                        } else {
-                            20.
-                        }
-                    }
-                    BlockNode::CodeBlock(_) | BlockNode::Image(_) => 8.,
-                    _ => 0.,
-                };
-                first.style.space_above = (first.style.space_above - external).max(0.);
-            }
+            let first_block = projection.block(segment.node_id).unwrap();
+            first.style.space_above -=
+                outer_margin_above(first, first_block).min(first.style.space_above);
             let last = &mut lines[end - 1];
-            if last.table_cell.is_none() {
-                let last_segment = projection
-                    .segment_for_range(&last.projected_range())
-                    .unwrap();
-                let last_block = projection.block(last_segment.node_id).unwrap();
-                let external = if last.rendered_code_preview() {
-                    DocumentStyle::EQUATION_GAP
-                } else if super::quotes::has_no_outer_paragraph_margin(last_segment, last_block) {
-                    0.
-                } else if last_segment.context.bibliography.is_some() {
-                    DocumentStyle::BIBLIOGRAPHY_GAP
-                } else if matches!(last_block, BlockNode::Heading(_)) {
-                    7.
-                } else if plan.lead == Some(last_segment.node_id) {
-                    24.
-                } else {
-                    16.
-                };
-                last.style.space_below = (last.style.space_below - external).max(0.);
-            }
+            let last_segment = projection
+                .segment_for_range(&last.projected_range())
+                .unwrap();
+            let last_block = projection.block(last_segment.node_id).unwrap();
+            last.style.space_below -= outer_margin_below(last, last_segment, last_block, plan)
+                .min(last.style.space_below);
         }
         previous = Some(root);
         previous_slot = lines[end - 1].slot;
@@ -6955,6 +6915,52 @@ pub(super) mod tests {
                 "blank space outside the prose measure is not intrinsic content width"
             );
             assert_eq!(prose.height, wide.height);
+        });
+    }
+
+    #[gpui::test]
+    fn row_measurement_removes_the_same_outer_margins_as_group_spacing(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let document = Document::from_markdown(
+                "- **Deployment check**\n\n  The table belongs to this list item.\n\n  | Endpoint |\n  | --- |\n  | staging.example.test |\n",
+            )
+            .unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let roots = projection.roots().collect::<Vec<_>>();
+            let indexes = (0..projection.segments().len()).collect::<Vec<_>>();
+            let segments = HashMap::from([(roots[0].id(), indexes.clone())]);
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let resources = LayoutMeasurement::from(&measurement);
+            let plan = AdaptivePlan::build(&projection, 1000., None, false);
+            let measured =
+                measure_row_group(&projection, &roots, &segments, 1000., false, &resources, &plan)
+                    .unwrap();
+            let mut lines = indexes
+                .iter()
+                .flat_map(|&index| {
+                    build_visual_lines_for_segment(
+                        &projection,
+                        &projection.segments()[index],
+                        &HashMap::new(),
+                        1000.,
+                        &[],
+                        Some(&measurement),
+                        None,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let last = lines.last().unwrap();
+            assert!(last.table_cell.is_some() && last.style.space_below > 0.);
+            apply_group_spacing(&mut lines, &projection, &plan);
+            let painted = lines
+                .iter()
+                .map(|line| line.style.space_above + line.style.line_height + line.style.space_below)
+                .sum::<f32>();
+            // Cell padding is a component inset, not an outer margin.
+            assert_eq!(measured.height, painted);
         });
     }
 

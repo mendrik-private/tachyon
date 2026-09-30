@@ -818,7 +818,7 @@ mod tests {
         });
         settle(cx);
         editor.read_with(cx, |editor, _| {
-            assert!(editor.shaped_line_cache.borrow().entries.keys().any(|key| key.typography.1),
+            assert!(editor.shaped_line_cache.borrow().keys().any(|key| key.typography.1),
                 "retained hyphenated lines must keep their hyphens until replacement geometry arrives");
         });
         release.send(()).unwrap();

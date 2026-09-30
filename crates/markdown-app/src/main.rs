@@ -11,11 +11,11 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use document_core::{Document, Revision, SourceIdentity};
+use document_core::{Document, Revision};
 use document_view::{
     ButtonAccessibilityExt as _, DocumentSessionId, EditorEvent, EditorScrollAnchor,
-    EditorViewState, OutlineEntry, PreparedDocumentView, ResponsiveLayout, RichDocumentEditor,
-    SharedDocumentSession, TachyonPalette, init_editor, project_outline,
+    EditorViewState, OutlineEntry, PreparedDocumentView, RichDocumentEditor, SharedDocumentSession,
+    TachyonPalette, init_editor, project_outline,
 };
 use futures::{
     StreamExt as _,
@@ -41,9 +41,9 @@ use gpui_component::{
 use notify::Watcher as _;
 use persistence::{
     ExternalState, PersistenceError, RecoverableSaveError, RecoveryEntry, RecoveryJournal,
-    WorkspaceState, WorkspaceStateStore, atomic_save, atomic_save_with_outcome, atomic_write_new,
-    atomic_write_new_with_outcome, detect_external_state, read_source_with_identity,
-    save_with_recovery, source_identity,
+    SaveSnapshot, SourceIdentity, WorkspaceState, WorkspaceStateStore, WriteOutcome,
+    detect_external_state, existing_identity, read_source_with_identity, save_with_recovery,
+    source_identity, write_target,
 };
 
 mod title_bar;
@@ -526,9 +526,50 @@ struct ReloadCandidate {
     identity: SourceIdentity,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NoticeKind {
+    Info,
+    Success,
+    Warning,
+    Error,
+}
+
+/// A message for the window's document notification, classified where it
+/// is raised.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct Notice {
+    kind: NoticeKind,
+    message: String,
+}
+
+impl Notice {
+    fn info(message: impl Into<String>) -> Self {
+        Self::new(NoticeKind::Info, message)
+    }
+
+    fn success(message: impl Into<String>) -> Self {
+        Self::new(NoticeKind::Success, message)
+    }
+
+    fn warning(message: impl Into<String>) -> Self {
+        Self::new(NoticeKind::Warning, message)
+    }
+
+    fn error(message: impl Into<String>) -> Self {
+        Self::new(NoticeKind::Error, message)
+    }
+
+    fn new(kind: NoticeKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct DocumentNotice {
-    message: String,
+    notice: Notice,
     recovery_action: bool,
     conflict_actions: bool,
 }
@@ -642,21 +683,26 @@ fn paged_html_target(mut path: PathBuf) -> PathBuf {
 
 fn write_static_export(
     path: &std::path::Path,
-    revision: Revision,
     bytes: &[u8],
-) -> Result<SourceIdentity, PersistenceError> {
-    match source_identity(path) {
-        Ok(identity) => atomic_save(document_core::SaveSnapshot {
-            revision,
-            bytes: bytes.into(),
-            expected_identity: Some(identity),
-        }),
-        Err(PersistenceError::Io { source, .. })
-            if source.kind() == std::io::ErrorKind::NotFound =>
-        {
-            atomic_write_new(path, bytes)
-        }
-        Err(error) => Err(error),
+) -> Result<WriteOutcome, PersistenceError> {
+    write_target(path, existing_identity(path)?.as_ref(), bytes)
+}
+
+/// Reports a finished export of revision `exported` while the document is
+/// at revision `current`.
+fn export_notice(outcome: &WriteOutcome, exported: Revision, current: Revision) -> Notice {
+    let path = outcome.identity.path.display();
+    match (&outcome.durability_warning, current == exported) {
+        (None, true) => Notice::success(format!("Exported paged HTML to {path}")),
+        (None, false) => Notice::success(format!(
+            "Exported an earlier document revision to {path}; newer edits remain in Tachyon."
+        )),
+        (Some(warning), true) => Notice::error(format!(
+            "Exported paged HTML to {path}, but durability needs attention: {warning}"
+        )),
+        (Some(warning), false) => Notice::error(format!(
+            "Exported an earlier document revision to {path}, but durability needs attention: {warning}"
+        )),
     }
 }
 
@@ -1076,7 +1122,7 @@ struct MarkdownWindow {
     outline_requested: Option<Revision>,
     outline_request: u64,
     outline_cancel_epoch: Arc<AtomicU64>,
-    startup_error: Option<String>,
+    notice: Option<Notice>,
     presented_notice: Option<DocumentNotice>,
     startup_config: Option<performance::StartupConfig>,
     startup_started_at: SystemTime,
@@ -1270,18 +1316,14 @@ impl MarkdownWindow {
                 EditorEvent::OpenLocalDocument { path, fragment } => {
                     this.open_file_at(path.clone(), fragment.clone(), cx);
                 }
-                EditorEvent::LinkFailed(error) => this.startup_error = Some(error.clone()),
+                EditorEvent::LinkFailed(error) => this.notice = Some(Notice::error(error.clone())),
                 EditorEvent::LayoutDiagnostics(report) => {
                     performance::emit_layout_diagnostics(report);
                     return;
                 }
-                EditorEvent::RetryImage {
-                    source,
-                    document_directory,
-                } => {
-                    let resource = image_resource(source, document_directory.as_deref());
+                EditorEvent::RetryImage(resource) => {
                     this.image_cache.update(cx, |cache, _| {
-                        cache.retry_failed(&resource);
+                        cache.retry_failed(resource);
                     });
                 }
             }
@@ -1347,7 +1389,9 @@ impl MarkdownWindow {
             outline_requested: None,
             outline_request: 0,
             outline_cancel_epoch: Arc::new(AtomicU64::new(0)),
-            startup_error: initial_file.as_ref().map(|_| "Loading document…".into()),
+            notice: initial_file
+                .as_ref()
+                .map(|_| Notice::info("Loading document…")),
             presented_notice: None,
             startup_config: startup,
             startup_started_at,
@@ -1586,8 +1630,9 @@ impl MarkdownWindow {
 
     fn new_document(&mut self, cx: &mut gpui::Context<Self>) {
         if self.unsaved || self.save_in_flight {
-            self.startup_error =
-                Some("Save or discard the current changes before creating a new document.".into());
+            self.notice = Some(Notice::error(
+                "Save or discard the current changes before creating a new document.",
+            ));
             cx.notify();
             return;
         }
@@ -1616,12 +1661,39 @@ impl MarkdownWindow {
         self.recovery_entry = None;
         self.reload_in_flight = false;
         self.conflict = false;
-        self.startup_error = None;
+        self.notice = None;
         self.saved_revision = self.editor.read(cx).document().snapshot().revision();
         self.unsaved = false;
         self.refresh_outline(cx);
         self.queue_workspace_state(cx);
         cx.notify();
+    }
+
+    /// Folders a file chooser may start in, most relevant first: the
+    /// document's own folder, then the browsed folder.
+    fn document_directories(&self) -> impl Iterator<Item = PathBuf> + '_ {
+        self.source_path
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(PathBuf::from)
+            .into_iter()
+            .chain(self.navigation_root.iter().cloned())
+    }
+
+    fn new_path_directory(&self) -> PathBuf {
+        self.document_directories()
+            .next()
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_default()
+    }
+
+    /// The document's file stem, from its source path or untitled name.
+    fn document_stem(&self) -> Option<&str> {
+        self.source_path
+            .as_deref()
+            .and_then(std::path::Path::file_stem)
+            .and_then(|stem| stem.to_str())
+            .or_else(|| std::path::Path::new(&self.filename).file_stem()?.to_str())
     }
 
     fn prompt_open_file(&mut self, cx: &mut gpui::Context<Self>) {
@@ -1634,13 +1706,7 @@ impl MarkdownWindow {
             .last_open_directory
             .iter()
             .cloned()
-            .chain(
-                self.source_path
-                    .as_deref()
-                    .and_then(|path| path.parent())
-                    .map(PathBuf::from),
-            )
-            .chain(self.navigation_root.iter().cloned())
+            .chain(self.document_directories())
             .collect::<Vec<_>>();
         let directory = cx
             .background_executor()
@@ -1655,10 +1721,9 @@ impl MarkdownWindow {
                 this.file_chooser_open = false;
                 if !this.document_matches_ticket(&ticket, cx) {
                     if matches!(&result, Ok(Some(_))) {
-                        this.startup_error = Some(
-                            "The document changed while the file chooser was open; no file was opened."
-                                .into(),
-                        );
+                        this.notice = Some(Notice::error(
+                            "The document changed while the file chooser was open; no file was opened.",
+                        ));
                         cx.notify();
                     }
                     return;
@@ -1670,7 +1735,7 @@ impl MarkdownWindow {
                 }
                 Ok(None) => {}
                 Err(error) => {
-                    this.startup_error = Some(format!("Could not open the file chooser: {error}"));
+                    this.notice = Some(Notice::error(format!("Could not open the file chooser: {error}")));
                     cx.notify();
                 }
                 }
@@ -1698,8 +1763,9 @@ impl MarkdownWindow {
                 }
                 Ok(Ok(None)) => {}
                 Ok(Err(error)) => {
-                    this.startup_error =
-                        Some(format!("Could not open the folder chooser: {error}"));
+                    this.notice = Some(Notice::error(format!(
+                        "Could not open the folder chooser: {error}"
+                    )));
                     cx.notify();
                 }
                 Err(_) => {}
@@ -1713,14 +1779,7 @@ impl MarkdownWindow {
             return;
         }
         let ticket = self.current_document_ticket(cx);
-        let directory = self
-            .source_path
-            .as_deref()
-            .and_then(std::path::Path::parent)
-            .map(PathBuf::from)
-            .or_else(|| self.navigation_root.clone())
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_default();
+        let directory = self.new_path_directory();
         let suggested_name = if mode == SaveTargetMode::Copy {
             let stem = self
                 .source_path
@@ -1739,10 +1798,9 @@ impl MarkdownWindow {
                 if !this.document_matches_ticket(&ticket, cx) {
                     if matches!(&result, Ok(Ok(Some(_)))) {
                         this.close_after_save = false;
-                        this.startup_error = Some(
-                            "The document changed while the save chooser was open; nothing was written."
-                                .into(),
-                        );
+                        this.notice = Some(Notice::error(
+                            "The document changed while the save chooser was open; nothing was written.",
+                        ));
                         cx.notify();
                     }
                     return;
@@ -1756,7 +1814,7 @@ impl MarkdownWindow {
                 }
                 Ok(Err(error)) => {
                     this.close_after_save = false;
-                    this.startup_error = Some(format!("Could not open the save chooser: {error}"));
+                    this.notice = Some(Notice::error(format!("Could not open the save chooser: {error}")));
                     cx.notify();
                 }
                 Err(_) => {
@@ -1774,21 +1832,8 @@ impl MarkdownWindow {
         }
         self.export_in_flight = true;
         let ticket = self.current_document_ticket(cx);
-        let directory = self
-            .source_path
-            .as_deref()
-            .and_then(std::path::Path::parent)
-            .map(PathBuf::from)
-            .or_else(|| self.navigation_root.clone())
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_default();
-        let stem = self
-            .source_path
-            .as_deref()
-            .and_then(std::path::Path::file_stem)
-            .and_then(|stem| stem.to_str())
-            .or_else(|| std::path::Path::new(&self.filename).file_stem()?.to_str())
-            .unwrap_or("document");
+        let directory = self.new_path_directory();
+        let stem = self.document_stem().unwrap_or("document");
         let suggested_name = format!("{stem}.html");
         let receiver = cx.prompt_for_new_path(&directory, Some(&suggested_name));
         cx.spawn(async move |this, cx| {
@@ -1797,10 +1842,9 @@ impl MarkdownWindow {
                 if !this.document_matches_ticket(&ticket, cx) {
                     this.export_in_flight = false;
                     if matches!(&result, Ok(Ok(Some(_)))) {
-                        this.startup_error = Some(
-                            "The document changed while the export chooser was open; nothing was written."
-                                .into(),
-                        );
+                        this.notice = Some(Notice::error(
+                            "The document changed while the export chooser was open; nothing was written.",
+                        ));
                         cx.notify();
                     }
                     return;
@@ -1810,8 +1854,8 @@ impl MarkdownWindow {
                     Ok(Ok(None)) | Err(_) => this.export_in_flight = false,
                     Ok(Err(error)) => {
                         this.export_in_flight = false;
-                        this.startup_error =
-                            Some(format!("Could not open the export chooser: {error}"));
+                        this.notice =
+                            Some(Notice::error(format!("Could not open the export chooser: {error}")));
                         cx.notify();
                     }
                 }
@@ -1824,10 +1868,9 @@ impl MarkdownWindow {
         let target = paged_html_target(target);
         if self.source_path.as_ref() == Some(&target) {
             self.export_in_flight = false;
-            self.startup_error = Some(
-                "Choose a different path for the export so the Markdown source is preserved."
-                    .into(),
-            );
+            self.notice = Some(Notice::error(
+                "Choose a different path for the export so the Markdown source is preserved.",
+            ));
             cx.notify();
             return;
         }
@@ -1836,14 +1879,7 @@ impl MarkdownWindow {
         let snapshot = document.snapshot();
         let revision = snapshot.revision();
         let epoch = self.document_epoch;
-        let title = self
-            .source_path
-            .as_deref()
-            .and_then(std::path::Path::file_stem)
-            .and_then(|stem| stem.to_str())
-            .or_else(|| std::path::Path::new(&self.filename).file_stem()?.to_str())
-            .unwrap_or("Document")
-            .to_owned();
+        let title = self.document_stem().unwrap_or("Document").to_owned();
         let export = cx
             .background_executor()
             .spawn_dedicated(move |_| async move {
@@ -1851,9 +1887,7 @@ impl MarkdownWindow {
                     title,
                     ..document_core::StaticHtmlOptions::default()
                 })?;
-                write_static_export(&target, revision, html.as_bytes())
-                    .map(|identity| identity.path)
-                    .map_err(SaveTargetError::from)
+                write_static_export(&target, html.as_bytes()).map_err(SaveTargetError::from)
             });
         cx.spawn(async move |this, cx| {
             let result = export.await;
@@ -1865,32 +1899,13 @@ impl MarkdownWindow {
                     return;
                 }
                 match result {
-                    Ok(path) => {
-                        let message = if this.editor.read(cx).document().snapshot().revision()
-                            == revision
-                        {
-                            format!("Exported paged HTML to {}", path.display())
-                        } else {
-                            format!(
-                                "Exported an earlier document revision to {}; newer edits remain in Tachyon.",
-                                path.display()
-                            )
-                        };
-                        this.startup_error = None;
-                        let _ = this.window_handle.update(cx, |_, window, cx| {
-                            let palette = TachyonPalette::for_dark(cx.theme().is_dark());
-                            window.push_notification(
-                                Notification::success(message)
-                                    .placement(gpui::Anchor::BottomCenter)
-                                    .bg(rgb(palette.panel))
-                                    .border_color(rgb(palette.success))
-                                    .text_color(rgb(palette.success)),
-                                cx,
-                            );
-                        });
+                    Ok(outcome) => {
+                        let current = this.editor.read(cx).document().snapshot().revision();
+                        this.notice = Some(export_notice(&outcome, revision, current));
                     }
                     Err(error) => {
-                        this.startup_error = Some(format!("Paged HTML export failed: {error}"));
+                        this.notice =
+                            Some(Notice::error(format!("Paged HTML export failed: {error}")));
                     }
                 }
                 cx.notify();
@@ -1918,10 +1933,9 @@ impl MarkdownWindow {
             })
         {
             self.close_after_save = false;
-            self.startup_error = Some(
-                "This document is open in another window. Close the other view before changing its file path."
-                    .into(),
-            );
+            self.notice = Some(Notice::error(
+                "This document is open in another window. Close the other view before changing its file path.",
+            ));
             cx.notify();
             return;
         }
@@ -1932,9 +1946,9 @@ impl MarkdownWindow {
                 .contains_other(&target, &document)
         {
             self.close_after_save = false;
-            self.startup_error = Some(
-                "That file is already open in another window; choose a different path.".into(),
-            );
+            self.notice = Some(Notice::error(
+                "That file is already open in another window; choose a different path.",
+            ));
             cx.notify();
             return;
         }
@@ -1961,15 +1975,7 @@ impl MarkdownWindow {
                 } else {
                     recovery_key.clone()
                 };
-                let target_identity = match source_identity(&target) {
-                    Ok(identity) => Some(identity),
-                    Err(PersistenceError::Io { source, .. })
-                        if source.kind() == std::io::ErrorKind::NotFound =>
-                    {
-                        None
-                    }
-                    Err(error) => return Err(SaveTargetError::from(error)),
-                };
+                let target_identity = existing_identity(&target)?;
                 let entry = RecoveryEntry::new(
                     recovery_entry_key.clone(),
                     revision,
@@ -1981,18 +1987,7 @@ impl MarkdownWindow {
                     },
                 );
                 let mut recovery_warning = recovery.write(&entry).err();
-                let saved = match target_identity {
-                    Some(identity) => {
-                        let save_snapshot = document_core::SaveSnapshot {
-                            revision,
-                            bytes: markdown.as_bytes().into(),
-                            expected_identity: Some(identity),
-                        };
-                        atomic_save_with_outcome(save_snapshot)
-                    }
-                    None => atomic_write_new_with_outcome(&target, markdown.as_bytes()),
-                }
-                .map_err(SaveTargetError::from)?;
+                let saved = write_target(&target, target_identity.as_ref(), markdown.as_bytes())?;
                 let durability_warning = saved.durability_warning;
                 if let Some(warning) = durability_warning {
                     recovery_warning = Some(warning);
@@ -2033,12 +2028,12 @@ impl MarkdownWindow {
                 }
                 match result {
                     Ok((path, _identity, recovery_warning, _prepared)) if mode == SaveTargetMode::Copy => {
-                        this.startup_error = Some(match recovery_warning {
-                            Some(error) => format!(
+                        this.notice = Some(match recovery_warning {
+                            Some(error) => Notice::error(format!(
                                 "Saved a copy to {}, but durability or recovery cleanup needs attention: {error}",
                                 path.display()
-                            ),
-                            None => format!("Saved a copy to {}", path.display()),
+                            )),
+                            None => Notice::success(format!("Saved a copy to {}", path.display())),
                         });
                     }
                     Ok((path, identity, recovery_warning, prepared)) => {
@@ -2053,10 +2048,9 @@ impl MarkdownWindow {
                                 revision,
                             ) {
                                 this.close_after_save = false;
-                                this.startup_error = Some(
-                                    "The file was written, but another window opened that path before it could be attached."
-                                        .into(),
-                                );
+                                this.notice = Some(Notice::error(
+                                    "The file was written, but another window opened that path before it could be attached.",
+                                ));
                                 cx.notify();
                                 return;
                             }
@@ -2094,8 +2088,10 @@ impl MarkdownWindow {
                         this.unsaved = this.editor.read(cx).document().snapshot().revision()
                             != revision;
                         this.conflict = false;
-                        this.startup_error = recovery_warning.map(|error| {
-                            format!("Saved, but durability or recovery cleanup needs attention: {error}")
+                        this.notice = recovery_warning.map(|error| {
+                            Notice::error(format!(
+                                "Saved, but durability or recovery cleanup needs attention: {error}"
+                            ))
                         });
                         if !this.navigation_root_explicit
                             && let Some(parent) = path.parent().map(PathBuf::from)
@@ -2110,16 +2106,16 @@ impl MarkdownWindow {
                             this.schedule_recovery(cx);
                             this.close_after_save = false;
                             this.schedule_autosave(cx);
-                            this.startup_error = Some(
-                                "Saved, but newer edits remain in the document.".into(),
-                            );
+                            this.notice = Some(Notice::error(
+                                "Saved, but newer edits remain in the document.",
+                            ));
                         } else {
                             this.finish_pending_close(cx);
                         }
                     }
                     Err(error) => {
                         this.close_after_save = false;
-                        this.startup_error = Some(error.to_string());
+                        this.notice = Some(Notice::error(error.to_string()));
                     }
                 }
                 cx.notify();
@@ -2261,7 +2257,7 @@ impl MarkdownWindow {
                 window.unsaved = dirty;
                 if clear_conflict {
                     window.conflict = false;
-                    window.startup_error = None;
+                    window.notice = None;
                 }
                 if projection_changed {
                     window.refresh_outline(cx);
@@ -2337,7 +2333,7 @@ impl MarkdownWindow {
                     }
                 }
                 Err(error) => {
-                    this.startup_error = Some(error.to_string());
+                    this.notice = Some(Notice::error(error.to_string()));
                     cx.notify();
                 }
             });
@@ -2391,7 +2387,7 @@ impl MarkdownWindow {
             let _ = this.update(cx, |this, cx| {
                 this.workspace_state_in_flight = false;
                 if let Err(error) = result {
-                    this.startup_error = Some(error.to_string());
+                    this.notice = Some(Notice::error(error.to_string()));
                 }
                 if this.workspace_state_dirty {
                     this.schedule_workspace_state(cx);
@@ -2510,9 +2506,9 @@ impl MarkdownWindow {
                     && this.recovery_key == completion_key
                 {
                     if let Err(error) = result {
-                        this.startup_error = Some(format!(
+                        this.notice = Some(Notice::error(format!(
                             "Changes are still in memory, but recovery storage failed: {error}"
-                        ));
+                        )));
                     }
                     let current = this.editor.read(cx).document().snapshot().revision();
                     if current != revision {
@@ -2571,12 +2567,15 @@ impl MarkdownWindow {
                 }
             });
         let Ok(mut watcher) = watcher else {
-            self.startup_error = Some("Could not start the native file watcher".into());
+            self.notice = Some(Notice::error("Could not start the native file watcher"));
             cx.notify();
             return;
         };
         if let Err(error) = watcher.watch(&parent, notify::RecursiveMode::NonRecursive) {
-            self.startup_error = Some(format!("Could not watch {}: {error}", parent.display()));
+            self.notice = Some(Notice::error(format!(
+                "Could not watch {}: {error}",
+                parent.display()
+            )));
             cx.notify();
             return;
         }
@@ -2596,7 +2595,8 @@ impl MarkdownWindow {
                         match event {
                             Ok(Ok(_)) => this.inspect_external_change(cx),
                             Ok(Err(error)) => {
-                                this.startup_error = Some(format!("File watcher failed: {error}"));
+                                this.notice =
+                                    Some(Notice::error(format!("File watcher failed: {error}")));
                                 this.arm_external_watch(cx);
                             }
                             Err(_) => this.arm_external_watch(cx),
@@ -2646,25 +2646,23 @@ impl MarkdownWindow {
                     Ok(ExternalState::Unchanged) => this.arm_external_watch(cx),
                     Ok(ExternalState::Modified(_)) if this.unsaved => {
                         this.conflict = true;
-                        this.startup_error = Some(
-                            "File changed outside Tachyon. Choose Reload, Save copy, or Overwrite."
-                                .into(),
-                        );
+                        this.notice = Some(Notice::warning(
+                            "File changed outside Tachyon. Choose Reload, Save copy, or Overwrite.",
+                        ));
                         this.arm_external_watch(cx);
                         cx.notify();
                     }
                     Ok(ExternalState::Modified(_)) => this.queue_reload(false, cx),
                     Ok(ExternalState::Deleted) => {
                         this.conflict = true;
-                        this.startup_error = Some(
-                            "The source file was renamed or deleted. Save a copy to preserve this document."
-                                .into(),
-                        );
+                        this.notice = Some(Notice::warning(
+                            "The source file was renamed or deleted. Save a copy to preserve this document.",
+                        ));
                         this.arm_external_watch(cx);
                         cx.notify();
                     }
                     Err(error) => {
-                        this.startup_error = Some(error.to_string());
+                        this.notice = Some(Notice::error(error.to_string()));
                         this.arm_external_watch(cx);
                         cx.notify();
                     }
@@ -2746,7 +2744,7 @@ impl MarkdownWindow {
                         this.unsaved = false;
                         this.conflict = false;
                         this.autosave_generation = this.autosave_generation.wrapping_add(1);
-                        this.startup_error = None;
+                        this.notice = None;
                         this.broadcast_session_state(path.clone(), true, cx);
                     }
                     Ok((document, prepared, identity))
@@ -2762,13 +2760,12 @@ impl MarkdownWindow {
                             identity,
                         });
                         this.conflict = true;
-                        this.startup_error = Some(
-                            "The document changed while reload was running. Current edits were kept; choose Reload again to use the disk version."
-                                .into(),
-                        );
+                        this.notice = Some(Notice::error(
+                            "The document changed while reload was running. Current edits were kept; choose Reload again to use the disk version.",
+                        ));
                     }
                     Ok(_) => {}
-                    Err(error) => this.startup_error = Some(error.to_string()),
+                    Err(error) => this.notice = Some(Notice::error(error.to_string())),
                 }
                 this.reconcile_external_watch(cx);
                 cx.notify();
@@ -2789,10 +2786,9 @@ impl MarkdownWindow {
             || self.document_epoch != candidate.epoch
             || path != candidate.source_path
         {
-            self.startup_error = Some(
-                "The document changed after reload was prepared; the prepared disk version was discarded."
-                    .into(),
-            );
+            self.notice = Some(Notice::error(
+                "The document changed after reload was prepared; the prepared disk version was discarded.",
+            ));
             cx.notify();
             return;
         }
@@ -2813,7 +2809,7 @@ impl MarkdownWindow {
         self.unsaved = false;
         self.conflict = false;
         self.autosave_generation = self.autosave_generation.wrapping_add(1);
-        self.startup_error = None;
+        self.notice = None;
         self.refresh_outline(cx);
         self.broadcast_session_state(path, true, cx);
         self.reconcile_external_watch(cx);
@@ -2852,10 +2848,9 @@ impl MarkdownWindow {
                 {
                     this.recovery_entry = Some(entry);
                     this.reload_in_flight = false;
-                    this.startup_error = Some(
-                        "The document changed while recovery was loading; current edits were kept."
-                            .into(),
-                    );
+                    this.notice = Some(Notice::error(
+                        "The document changed while recovery was loading; current edits were kept.",
+                    ));
                     cx.notify();
                     return;
                 }
@@ -2891,15 +2886,13 @@ impl MarkdownWindow {
                         this.refresh_outline(cx);
                         this.schedule_workspace_state(cx);
                         this.conflict = this.source_path.is_some();
-                        this.startup_error = Some(if this.conflict {
+                        this.notice = Some(Notice::error(if this.conflict {
                             "Recovered draft loaded. Review it, then choose Overwrite, Save copy, or Reload."
-                                .into()
                         } else {
                             "Recovered untitled draft loaded. Review it, then choose Save As."
-                                .into()
-                        });
+                        }));
                     }
-                    Err(error) => this.startup_error = Some(error),
+                    Err(error) => this.notice = Some(Notice::error(error)),
                 }
                 cx.notify();
             });
@@ -2911,7 +2904,7 @@ impl MarkdownWindow {
         let Some(entry) = self.recovery_entry.take() else {
             return;
         };
-        self.startup_error = None;
+        self.notice = None;
         let recovery = self.recovery.clone();
         cx.background_executor()
             .spawn_dedicated(move |_| async move {
@@ -2945,15 +2938,15 @@ impl MarkdownWindow {
                 match result {
                     Ok(Some(unresolved)) => {
                         this.recovery_entry = Some(unresolved.entry);
-                        this.startup_error = Some(
-                            "An unsaved draft from the previous session is available.".into(),
-                        );
+                        this.notice = Some(Notice::warning(
+                            "An unsaved draft from the previous session is available.",
+                        ));
                     }
                     Ok(None) => {}
                     Err(error) => {
-                        this.startup_error = Some(format!(
+                        this.notice = Some(Notice::error(format!(
                             "The empty document opened, but its recovery record could not be read: {error}"
-                        ));
+                        )));
                     }
                 }
                 cx.notify();
@@ -2977,7 +2970,7 @@ impl MarkdownWindow {
             })
             .unwrap_or(false);
         if !found {
-            self.startup_error = Some(format!("Heading not found: #{fragment}"));
+            self.notice = Some(Notice::error(format!("Heading not found: #{fragment}")));
         }
         cx.notify();
     }
@@ -2999,8 +2992,9 @@ impl MarkdownWindow {
             return;
         }
         if self.unsaved {
-            self.startup_error =
-                Some("Save or resolve the current document before opening another file.".into());
+            self.notice = Some(Notice::error(
+                "Save or resolve the current document before opening another file.",
+            ));
             cx.notify();
             return;
         }
@@ -3037,10 +3031,9 @@ impl MarkdownWindow {
         if !self.document_matches_ticket(&ticket, cx) {
             if self.open_request == ticket.request {
                 self.reload_in_flight = false;
-                self.startup_error = Some(
-                    "The document changed while another file was opening; the current edits were kept."
-                        .into(),
-                );
+                self.notice = Some(Notice::error(
+                    "The document changed while another file was opening; the current edits were kept.",
+                ));
                 if self.startup_config.take().is_some()
                     && let Some(completion) = self.startup_completion.take()
                 {
@@ -3137,12 +3130,12 @@ impl MarkdownWindow {
                 self.conflict = false;
                 self.autosave_generation = self.autosave_generation.wrapping_add(1);
                 self.navigation_overlay = false;
-                self.startup_error = loaded.recovery_warning.or_else(|| {
+                self.notice = loaded.recovery_warning.map(Notice::error).or_else(|| {
                     self.recovery_entry.as_ref().map(|entry| {
-                        format!(
+                        Notice::warning(format!(
                             "Recovery available for revision {} from a previous session",
                             entry.revision
-                        )
+                        ))
                     })
                 });
                 self.reconcile_external_watch(cx);
@@ -3153,7 +3146,7 @@ impl MarkdownWindow {
             }
             Err(error) => {
                 self.pending_view_state = None;
-                self.startup_error = Some(error.to_string());
+                self.notice = Some(Notice::error(error.to_string()));
                 if self.startup_config.take().is_some()
                     && let Some(completion) = self.startup_completion.take()
                 {
@@ -3195,9 +3188,9 @@ impl MarkdownWindow {
                     match navigation_nodes {
                         Ok(nodes) => {
                             this.navigation_nodes = nodes;
-                            this.startup_error = None;
+                            this.notice = None;
                         }
-                        Err(error) => this.startup_error = Some(error),
+                        Err(error) => this.notice = Some(Notice::error(error)),
                     }
                     this.queue_workspace_state(cx);
                     cx.notify();
@@ -3249,7 +3242,7 @@ impl MarkdownWindow {
                             *current = Some(children);
                         }
                     }
-                    Err(error) => this.startup_error = Some(error),
+                    Err(error) => this.notice = Some(Notice::error(error)),
                 }
                 cx.notify();
             });
@@ -3295,7 +3288,7 @@ impl MarkdownWindow {
                         this.conflict = false;
                         this.queue_save(true, cx);
                     }
-                    Err(error) => this.startup_error = Some(error.to_string()),
+                    Err(error) => this.notice = Some(Notice::error(error.to_string())),
                 }
                 cx.notify();
             });
@@ -3396,24 +3389,25 @@ impl MarkdownWindow {
 
     fn reconcile_notice(
         &mut self,
-        message: Option<String>,
+        notice: Option<Notice>,
         window: &gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) {
-        let notice = message
+        let notice = notice
             .or_else(|| {
                 self.conflict.then(|| {
-                    "File changed outside Tachyon. Choose Reload, Save copy, or Overwrite."
-                        .to_owned()
+                    Notice::warning(
+                        "File changed outside Tachyon. Choose Reload, Save copy, or Overwrite.",
+                    )
                 })
             })
             .or_else(|| {
-                self.recovery_entry
-                    .is_some()
-                    .then(|| "An unsaved draft from the previous session is available.".to_owned())
+                self.recovery_entry.is_some().then(|| {
+                    Notice::warning("An unsaved draft from the previous session is available.")
+                })
             })
-            .map(|message| DocumentNotice {
-                message,
+            .map(|notice| DocumentNotice {
+                notice,
                 recovery_action: self.recovery_entry.is_some(),
                 conflict_actions: self.conflict,
             });
@@ -3438,34 +3432,26 @@ impl MarkdownWindow {
         owner: WeakEntity<Self>,
         palette: TachyonPalette,
     ) -> Notification {
-        let is_warning = notice.conflict_actions || notice.recovery_action;
-        let is_loading = notice.message == "Loading document…";
-        let is_success = notice.message.starts_with("Saved a copy to ")
-            && !notice.message.contains("needs attention");
-        let signal = if is_warning {
-            palette.warning
-        } else if is_loading {
-            palette.info
-        } else if is_success {
-            palette.success
+        // Pending recovery or conflict actions make any message a warning.
+        let kind = if notice.conflict_actions || notice.recovery_action {
+            NoticeKind::Warning
         } else {
-            palette.error
+            notice.notice.kind
         };
-        let mut notification = if is_warning {
-            Notification::warning(notice.message)
-        } else if is_loading {
-            Notification::info(notice.message)
-        } else if is_success {
-            Notification::success(notice.message)
-        } else {
-            Notification::error(notice.message)
-        }
-        .id::<DocumentNoticeNotification>()
-        .autohide(false)
-        .placement(gpui::Anchor::BottomCenter)
-        .bg(rgb(palette.panel))
-        .border_color(rgb(signal))
-        .text_color(rgb(palette.text));
+        let message = notice.notice.message;
+        let (signal, notification) = match kind {
+            NoticeKind::Info => (palette.info, Notification::info(message)),
+            NoticeKind::Success => (palette.success, Notification::success(message)),
+            NoticeKind::Warning => (palette.warning, Notification::warning(message)),
+            NoticeKind::Error => (palette.error, Notification::error(message)),
+        };
+        let mut notification = notification
+            .id::<DocumentNoticeNotification>()
+            .autohide(false)
+            .placement(gpui::Anchor::BottomCenter)
+            .bg(rgb(palette.panel))
+            .border_color(rgb(signal))
+            .text_color(rgb(palette.text));
 
         if notice.recovery_action || notice.conflict_actions {
             notification = notification.content(move |_, _, cx| {
@@ -3580,7 +3566,9 @@ impl MarkdownWindow {
                 .editor
                 .update(cx, |editor, cx| editor.commit_pending_composition(cx).err());
             if let Some(error) = error {
-                self.startup_error = Some(format!("Could not finish text composition: {error}"));
+                self.notice = Some(Notice::error(format!(
+                    "Could not finish text composition: {error}"
+                )));
                 cx.notify();
                 return;
             }
@@ -3599,7 +3587,7 @@ impl MarkdownWindow {
             .claim_save(&path, &saving_document)
         {
             if explicit {
-                self.startup_error = Some("This shared document is already being saved".into());
+                self.notice = Some(Notice::error("This shared document is already being saved"));
                 cx.notify();
             }
             return;
@@ -3619,10 +3607,10 @@ impl MarkdownWindow {
                 let prepared = snapshot
                     .prepare_source_rebase()
                     .map_err(SaveJobError::Document)?;
-                let save_snapshot = document_core::SaveSnapshot {
+                let save_snapshot = SaveSnapshot {
                     revision,
                     bytes: prepared.bytes().clone(),
-                    expected_identity: Some(identity),
+                    expected_identity: identity,
                 };
                 save_with_recovery(save_snapshot, &recovery)
                     .map(|outcome| {
@@ -3678,10 +3666,10 @@ impl MarkdownWindow {
                         }
                         this.unsaved = current != revision;
                         this.conflict = false;
-                        this.startup_error = cleanup_warning.map(|warning| {
-                            format!(
+                        this.notice = cleanup_warning.map(|warning| {
+                            Notice::error(format!(
                                 "Saved, but durability or recovery cleanup needs attention: {warning}"
-                            )
+                            ))
                         });
                         if this.unsaved {
                             this.close_after_save = false;
@@ -3695,7 +3683,7 @@ impl MarkdownWindow {
                     Err(error) => {
                         this.close_after_save = false;
                         this.conflict = error.is_external_change();
-                        this.startup_error = Some(error.to_string());
+                        this.notice = Some(Notice::error(error.to_string()));
                         this.reconcile_external_watch(cx);
                     }
                 }
@@ -3708,22 +3696,6 @@ impl MarkdownWindow {
 
 fn event_targets_path(event: &notify::Event, target: &std::path::Path) -> bool {
     event.paths.iter().any(|path| path == target)
-}
-
-fn image_resource(source: &str, directory: Option<&std::path::Path>) -> Resource {
-    if source.starts_with("http://") || source.starts_with("https://") {
-        Resource::Uri(source.to_owned().into())
-    } else {
-        let path = PathBuf::from(source);
-        Resource::Path(
-            if path.is_absolute() {
-                path
-            } else {
-                directory.map_or(path.clone(), |directory| directory.join(path))
-            }
-            .into(),
-        )
-    }
 }
 
 fn navigation_children(
@@ -3863,6 +3835,12 @@ fn document_completion_is_current(
         && current_source_path == ticket.source_path.as_deref()
 }
 
+/// Page insets follow the actual document pane, not the whole window.
+/// Reserve room for scrolling without wasting compact editing space.
+fn document_padding(document_pane_width: f32) -> f32 {
+    (document_pane_width * 0.02).clamp(12., 28.)
+}
+
 fn navigation_is_visible(wide: bool, collapsed: bool, overlay: bool) -> bool {
     if wide { !collapsed } else { overlay }
 }
@@ -3920,9 +3898,11 @@ impl Render for MarkdownWindow {
             } else {
                 0.
             };
-        let document_padding = ResponsiveLayout::document_padding(document_pane_width);
+        let document_padding = document_padding(document_pane_width);
         let runtime_error = self.editor.read(cx).last_error().map(ToOwned::to_owned);
-        let status = runtime_error.or_else(|| self.startup_error.clone());
+        let status = runtime_error
+            .map(Notice::error)
+            .or_else(|| self.notice.clone());
         self.reconcile_notice(status, window, cx);
         let active_path = self.source_path.clone();
         let active_heading = self.active_heading;
@@ -4828,14 +4808,12 @@ mod tests {
         let first = b"<!doctype html><title>First</title>";
         let second = b"<!doctype html><title>Second</title>";
 
-        let first_identity =
-            write_static_export(&target, Revision(3), first).expect("create static export");
-        assert_eq!(first_identity.path, target);
+        let first_outcome = write_static_export(&target, first).expect("create static export");
+        assert_eq!(first_outcome.identity.path, target);
         assert_eq!(std::fs::read(&target).expect("read first export"), first);
 
-        let second_identity =
-            write_static_export(&target, Revision(4), second).expect("replace static export");
-        assert_eq!(second_identity.path, target);
+        let second_outcome = write_static_export(&target, second).expect("replace static export");
+        assert_eq!(second_outcome.identity.path, target);
         assert_eq!(std::fs::read(&target).expect("read second export"), second);
         assert_eq!(
             std::fs::read_dir(&root)
@@ -4845,6 +4823,44 @@ mod tests {
         );
 
         std::fs::remove_dir_all(root).expect("clean export fixture");
+    }
+
+    #[test]
+    fn export_notices_report_durability_warnings() {
+        let path = PathBuf::from("/tmp/report.html");
+        let mut outcome = WriteOutcome {
+            identity: test_identity(path.clone()),
+            durability_warning: None,
+        };
+        assert_eq!(
+            export_notice(&outcome, Revision(3), Revision(3)),
+            Notice::success("Exported paged HTML to /tmp/report.html")
+        );
+        assert_eq!(
+            export_notice(&outcome, Revision(3), Revision(4)),
+            Notice::success(
+                "Exported an earlier document revision to /tmp/report.html; newer edits remain in Tachyon."
+            )
+        );
+
+        outcome.durability_warning = Some(PersistenceError::DurabilityUncertain {
+            path,
+            source: std::io::Error::other("sync failed"),
+        });
+        let notice = export_notice(&outcome, Revision(3), Revision(3));
+        assert_eq!(notice.kind, NoticeKind::Error);
+        assert!(
+            notice.message.starts_with(
+                "Exported paged HTML to /tmp/report.html, but durability needs attention: "
+            ) && notice.message.ends_with("sync failed"),
+            "{}",
+            notice.message
+        );
+        let notice = export_notice(&outcome, Revision(3), Revision(4));
+        assert_eq!(notice.kind, NoticeKind::Error);
+        assert!(notice.message.starts_with(
+            "Exported an earlier document revision to /tmp/report.html, but durability"
+        ));
     }
 
     #[test]
@@ -5325,5 +5341,17 @@ mod tests {
         });
         cx.run_until_parked();
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn document_padding_scales_with_the_available_pane() {
+        assert_eq!(document_padding(360.), 12.);
+        assert_eq!(document_padding(800.), 16.);
+        assert_eq!(document_padding(1200.), 24.);
+        assert_eq!(document_padding(2200.), 28.);
+        for width in [360., 480., 640., 800., 1000., 1440., 1920., 2560.] {
+            let content = width - 2. * document_padding(width);
+            assert!(content >= width * 0.93, "page gutters should remain modest");
+        }
     }
 }

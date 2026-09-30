@@ -57,8 +57,9 @@ pub(super) fn active_strip(
 ) -> Option<(NodeId, Option<u32>)> {
     let node = node?;
     let segment = projection.segment_for_node(node)?;
-    let first = lines.partition_point(|line| line.projected_start() < segment.projection_start());
-    let code = lines.get(first)?.code_line?;
+    let code = lines
+        .get(segment_line_span(lines, segment).start)?
+        .code_line?;
     Some((node, code.strip.then_some((code.width / zoom).to_bits())))
 }
 

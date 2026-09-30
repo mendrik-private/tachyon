@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    BlockNode, BlockSequence, CodeBlock, ColumnAlignment, ColumnSpec, DocumentError, Heading,
-    ImageNode, ListBlock, ListItem, NodeId, Paragraph, RichText, Table, TableCell, TableRow,
+    BlockNode, BlockSequence, ColumnAlignment, ColumnSpec, DocumentError, NodeId, Paragraph,
+    RichText, Table, TableCell, TableRow,
 };
 
 /// Lines of pasted TSV: `\r\n`, `\r` and `\n` each end one line. Interior
@@ -112,7 +112,7 @@ impl Table {
                 column: 0,
             });
         };
-        let duplicate = clone_row_with_ids(source, &mut allocate);
+        let duplicate = source.map_ids(&mut |_| allocate());
         let mut rows = self.rows.to_vec();
         rows.insert(index + 1, duplicate);
         self.rows = rows.into();
@@ -196,7 +196,7 @@ impl Table {
         let mut rows = self.rows.to_vec();
         for row in &mut rows {
             let mut cells = row.cells.to_vec();
-            let duplicate = clone_cell_with_ids(&cells[index], &mut allocate);
+            let duplicate = cells[index].map_ids(&mut |_| allocate());
             cells.insert(index + 1, duplicate);
             row.cells = cells.into();
         }
@@ -295,15 +295,33 @@ impl Table {
             return Ok(());
         }
         let required_columns = start_column + matrix.iter().map(Vec::len).max().unwrap_or(0);
-        while self.column_count() < required_columns {
-            self.insert_column(self.column_count(), &mut allocate)?;
+        let mut rows = self.rows.to_vec();
+        let added_columns = required_columns.saturating_sub(self.column_count());
+        if added_columns > 0 {
+            // Allocate column by column, as repeated column insertion would.
+            let mut added = rows
+                .iter()
+                .map(|_| Vec::with_capacity(added_columns))
+                .collect::<Vec<Vec<TableCell>>>();
+            for _ in 0..added_columns {
+                for cells in &mut added {
+                    cells.push(empty_cell(&mut allocate));
+                }
+            }
+            for (row, added) in rows.iter_mut().zip(added) {
+                let mut cells = row.cells.to_vec();
+                cells.extend(added);
+                row.cells = cells.into();
+            }
+            let mut columns = self.columns.to_vec();
+            columns.resize(required_columns, ColumnSpec::default());
+            self.columns = columns.into();
         }
         let required_rows = start_row + matrix.len();
-        while self.row_count() < required_rows {
-            self.insert_row(self.row_count(), &mut allocate)?;
+        while rows.len() < required_rows {
+            rows.push(empty_row(self.column_count(), &mut allocate));
         }
 
-        let mut rows = self.rows.to_vec();
         for (row_offset, values) in matrix.iter().enumerate() {
             let row = &mut rows[start_row + row_offset];
             let mut cells = row.cells.to_vec();
@@ -358,126 +376,4 @@ fn empty_cell_blocks(allocate: &mut impl FnMut() -> NodeId) -> BlockSequence {
         id: allocate(),
         content: RichText::default(),
     }))])
-}
-
-fn clone_row_with_ids(source: &TableRow, allocate: &mut impl FnMut() -> NodeId) -> TableRow {
-    TableRow {
-        id: allocate(),
-        cells: source
-            .cells
-            .iter()
-            .map(|cell| clone_cell_with_ids(cell, allocate))
-            .collect::<Vec<_>>()
-            .into(),
-    }
-}
-
-fn clone_cell_with_ids(source: &TableCell, allocate: &mut impl FnMut() -> NodeId) -> TableCell {
-    TableCell {
-        id: allocate(),
-        blocks: clone_blocks_with_ids(&source.blocks, allocate),
-    }
-}
-
-fn clone_blocks_with_ids(
-    source: &BlockSequence,
-    allocate: &mut impl FnMut() -> NodeId,
-) -> BlockSequence {
-    BlockSequence::new(
-        source
-            .iter()
-            .map(|block| Arc::new(clone_block_with_ids(block, allocate)))
-            .collect(),
-    )
-}
-
-fn clone_block_with_ids(block: &BlockNode, allocate: &mut impl FnMut() -> NodeId) -> BlockNode {
-    match block {
-        BlockNode::Paragraph(node) => BlockNode::Paragraph(Paragraph {
-            id: allocate(),
-            content: node.content.clone(),
-        }),
-        BlockNode::Heading(node) => BlockNode::Heading(Heading {
-            id: allocate(),
-            level: node.level,
-            content: node.content.clone(),
-        }),
-        BlockNode::List(node) => BlockNode::List(ListBlock {
-            id: allocate(),
-            kind: node.kind.clone(),
-            tight: node.tight,
-            items: node
-                .items
-                .iter()
-                .map(|item| ListItem {
-                    id: allocate(),
-                    checked: item.checked,
-                    blocks: clone_blocks_with_ids(&item.blocks, allocate),
-                })
-                .collect::<Vec<_>>()
-                .into(),
-        }),
-        BlockNode::BlockQuote { blocks, .. } => BlockNode::BlockQuote {
-            id: allocate(),
-            blocks: clone_blocks_with_ids(blocks, allocate),
-        },
-        BlockNode::Definition { kind, blocks, .. } => BlockNode::Definition {
-            id: allocate(),
-            kind: *kind,
-            blocks: clone_blocks_with_ids(blocks, allocate),
-        },
-        BlockNode::CodeBlock(node) => BlockNode::CodeBlock(CodeBlock {
-            id: allocate(),
-            language: node.language.clone(),
-            content: node.content.clone(),
-            syntax: node.syntax,
-        }),
-        BlockNode::Image(node) => BlockNode::Image(ImageNode {
-            id: allocate(),
-            source: node.source.clone(),
-            alt: node.alt.clone(),
-            title: node.title.clone(),
-            intrinsic_size: node.intrinsic_size,
-            link: node.link.clone(),
-        }),
-        BlockNode::Table(node) => BlockNode::Table(Table {
-            id: allocate(),
-            columns: node.columns.clone(),
-            rows: node
-                .rows
-                .iter()
-                .map(|row| clone_row_with_ids(row, allocate))
-                .collect::<Vec<_>>()
-                .into(),
-            header_rows: node.header_rows,
-            border: node.border,
-            preserved_metadata: node.preserved_metadata.clone(),
-        }),
-        BlockNode::Alert {
-            kind,
-            title,
-            blocks,
-            ..
-        } => BlockNode::Alert {
-            id: allocate(),
-            kind: kind.clone(),
-            title: title.clone(),
-            blocks: clone_blocks_with_ids(blocks, allocate),
-        },
-        BlockNode::FootnoteDefinition { label, blocks, .. } => BlockNode::FootnoteDefinition {
-            id: allocate(),
-            label: label.clone(),
-            blocks: clone_blocks_with_ids(blocks, allocate),
-        },
-        BlockNode::ThematicBreak { .. } => BlockNode::ThematicBreak { id: allocate() },
-        BlockNode::PreservedSource {
-            source,
-            description,
-            ..
-        } => BlockNode::PreservedSource {
-            id: allocate(),
-            source: source.clone(),
-            description: description.clone(),
-        },
-    }
 }

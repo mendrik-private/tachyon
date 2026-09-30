@@ -1,7 +1,7 @@
 use std::{hint::black_box, time::Instant};
 
 use document_core::{Document, EditCommand};
-use document_view::{LayoutIndex, PreparedDocumentView, TextProjection};
+use document_view::{PreparedDocumentView, TextProjection};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -16,9 +16,6 @@ struct Report {
     localized_edit_ms: Distribution,
     model_edit_ms: Distribution,
     view_edit_ms: Distribution,
-    layout_ms: Distribution,
-    cached_layout_ms: Distribution,
-    viewport_lookup_us: Distribution,
     environment: Environment,
 }
 
@@ -50,9 +47,6 @@ fn main() {
     let mut localized_edit = Vec::with_capacity(runs);
     let mut model_edit = Vec::with_capacity(runs);
     let mut view_edit = Vec::with_capacity(runs);
-    let mut layout = Vec::with_capacity(runs);
-    let mut cached_layout = Vec::with_capacity(runs);
-    let mut viewport = Vec::with_capacity(runs);
 
     for _ in 0..runs {
         let started = Instant::now();
@@ -98,30 +92,6 @@ fn main() {
         assert!(prepared.refresh_text_node(&result.snapshot, node_id));
         view_edit.push(view_started.elapsed().as_secs_f64() * 1_000.);
         localized_edit.push(started.elapsed().as_secs_f64() * 1_000.);
-
-        let started = Instant::now();
-        let mut index = LayoutIndex::default();
-        index
-            .rebuild(&snapshot, 760., 1, 1.)
-            .expect("generated heights are valid");
-        layout.push(started.elapsed().as_secs_f64() * 1_000.);
-
-        let started = Instant::now();
-        let mut cached_index = index.fresh_with_shared_cache();
-        cached_index
-            .rebuild(&snapshot, 760., 1, 1.)
-            .expect("cached heights are valid");
-        cached_layout.push(started.elapsed().as_secs_f64() * 1_000.);
-        index = cached_index;
-
-        let samples = 10_000;
-        let total_height = index.total_height().max(1.);
-        let started = Instant::now();
-        for sample in 0..samples {
-            let y = total_height * sample as f32 / samples as f32;
-            black_box(index.index_at_y(y));
-        }
-        viewport.push(started.elapsed().as_secs_f64() * 1_000_000. / samples as f64);
     }
 
     let report = Report {
@@ -135,9 +105,6 @@ fn main() {
         localized_edit_ms: distribution(localized_edit),
         model_edit_ms: distribution(model_edit),
         view_edit_ms: distribution(view_edit),
-        layout_ms: distribution(layout),
-        cached_layout_ms: distribution(cached_layout),
-        viewport_lookup_us: distribution(viewport),
         environment: Environment {
             rustc: command_output("rustc", &["-V"]),
             wayland_display: std::env::var("WAYLAND_DISPLAY").ok(),

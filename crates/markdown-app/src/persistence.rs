@@ -5,17 +5,17 @@ use std::{
     io::{self, Read as _, Write as _},
     path::{Path, PathBuf},
     sync::{
-        Mutex,
+        Arc, Mutex,
         atomic::{AtomicU64, Ordering},
     },
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use document_core::{NodeId, Revision, SaveSnapshot, SourceIdentity};
+use document_core::{NodeId, Revision};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
-static SAVE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+static WRITE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static RECOVERY_GATE: Mutex<()> = Mutex::new(());
 
 fn state_root() -> PathBuf {
@@ -50,6 +50,54 @@ pub enum RecoverableSaveError {
     },
 }
 
+/// The file state a document was loaded from or last written as.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceIdentity {
+    pub path: PathBuf,
+    pub length: u64,
+    pub modified: Option<SystemTime>,
+    pub content_hash: [u8; 32],
+    #[cfg(unix)]
+    pub device: u64,
+    #[cfg(unix)]
+    pub inode: u64,
+}
+
+impl SourceIdentity {
+    fn new(path: &Path, metadata: &fs::Metadata, bytes: &[u8]) -> Self {
+        #[cfg(unix)]
+        use std::os::unix::fs::MetadataExt as _;
+        Self {
+            path: path.to_path_buf(),
+            length: metadata.len(),
+            modified: metadata.modified().ok(),
+            content_hash: Sha256::digest(bytes).into(),
+            #[cfg(unix)]
+            device: metadata.dev(),
+            #[cfg(unix)]
+            inode: metadata.ino(),
+        }
+    }
+
+    /// The identity `path` has once `file`, which holds exactly `bytes`, is
+    /// published there. Publishing by rename or hard link keeps the inode,
+    /// length, and modification time, so no read of `path` is needed.
+    fn written(path: &Path, file: &File, bytes: &[u8]) -> Result<Self, PersistenceError> {
+        let metadata = file
+            .metadata()
+            .map_err(|error| PersistenceError::io(path, error))?;
+        Ok(Self::new(path, &metadata, bytes))
+    }
+}
+
+/// A save of `bytes` over the file last observed as `expected_identity`.
+#[derive(Clone, Debug)]
+pub struct SaveSnapshot {
+    pub revision: Revision,
+    pub bytes: Arc<[u8]>,
+    pub expected_identity: SourceIdentity,
+}
+
 #[derive(Debug)]
 pub struct SaveOutcome {
     pub identity: SourceIdentity,
@@ -71,6 +119,175 @@ impl PersistenceError {
     }
 }
 
+/// Permissions of a newly written file.
+#[derive(Clone, Debug)]
+pub(crate) enum FileMode {
+    /// Copies these permissions, normally those of the file being replaced.
+    Permissions(fs::Permissions),
+    /// Readable and writable by the owner only, for files holding document text.
+    Private,
+    /// The process default.
+    Default,
+}
+
+impl FileMode {
+    fn inherited_from(target: &Path) -> Self {
+        fs::metadata(target).map_or(Self::Default, |metadata| {
+            Self::Permissions(metadata.permissions())
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WriteStage {
+    CreateTemporary,
+    Write,
+    SyncTemporary,
+    Replace,
+    SyncDirectory,
+}
+
+type StageHook<'a> = &'a mut dyn FnMut(WriteStage, &Path) -> io::Result<()>;
+
+fn parent_directory(path: &Path) -> &Path {
+    path.parent().unwrap_or_else(|| Path::new("."))
+}
+
+/// Exclusively creates `path`, then writes and syncs `bytes`. A file created
+/// here is removed again if a later step fails.
+fn create_synced(
+    path: &Path,
+    bytes: &[u8],
+    mode: &FileMode,
+    before: StageHook<'_>,
+) -> Result<File, PersistenceError> {
+    before(WriteStage::CreateTemporary, path).map_err(|error| PersistenceError::io(path, error))?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    if matches!(mode, FileMode::Private) {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    let mut file = options
+        .open(path)
+        .map_err(|error| PersistenceError::io(path, error))?;
+    let written = (|| {
+        if let FileMode::Permissions(permissions) = mode {
+            file.set_permissions(permissions.clone())?;
+        }
+        before(WriteStage::Write, path)?;
+        file.write_all(bytes)?;
+        before(WriteStage::SyncTemporary, path)?;
+        file.sync_all()
+    })();
+    match written {
+        Ok(()) => Ok(file),
+        Err(error) => {
+            drop(file);
+            let _ = fs::remove_file(path);
+            Err(PersistenceError::io(path, error))
+        }
+    }
+}
+
+/// A fully written and synced file at a hidden, process-unique sibling of
+/// its target. The staged name is removed on drop unless it was published.
+struct StagedFile {
+    path: PathBuf,
+    file: File,
+    staged: bool,
+}
+
+impl StagedFile {
+    fn write(
+        target: &Path,
+        purpose: &str,
+        bytes: &[u8],
+        mode: &FileMode,
+        before: StageHook<'_>,
+    ) -> Result<Self, PersistenceError> {
+        let name = target
+            .file_name()
+            .unwrap_or_else(|| OsStr::new("document.md"));
+        let path = parent_directory(target).join(format!(
+            ".{}.tachyon-{purpose}-{}-{}",
+            name.to_string_lossy(),
+            std::process::id(),
+            WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let file = create_synced(&path, bytes, mode, before)?;
+        Ok(Self {
+            path,
+            file,
+            staged: true,
+        })
+    }
+
+    /// Atomically replaces `target` with the staged file.
+    fn replace(&mut self, target: &Path) -> Result<(), PersistenceError> {
+        fs::rename(&self.path, target).map_err(|error| PersistenceError::io(target, error))?;
+        self.staged = false;
+        Ok(())
+    }
+
+    /// Publishes the staged file at `target` through `link`, which must never
+    /// replace an existing file, then drops the staged name. The returned
+    /// warning reports a staged name that could not be removed.
+    fn link_new(
+        &mut self,
+        target: &Path,
+        link: impl FnOnce(&Path, &Path) -> io::Result<()>,
+    ) -> io::Result<Option<PersistenceError>> {
+        link(&self.path, target)?;
+        Ok(self.discard())
+    }
+
+    fn discard(&mut self) -> Option<PersistenceError> {
+        self.staged = false;
+        fs::remove_file(&self.path)
+            .err()
+            .map(|error| PersistenceError::io(&self.path, error))
+    }
+}
+
+impl Drop for StagedFile {
+    fn drop(&mut self) {
+        if self.staged {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn sync_directory(directory: &Path) -> io::Result<()> {
+    File::open(directory).and_then(|directory| directory.sync_all())
+}
+
+fn durability_warning(target: &Path, synced: io::Result<()>) -> Option<PersistenceError> {
+    synced
+        .err()
+        .map(|source| PersistenceError::DurabilityUncertain {
+            path: target.to_path_buf(),
+            source,
+        })
+}
+
+/// Atomically replaces `target`, creating its directory when needed. An error
+/// means `target` was left untouched; a returned warning means it was
+/// replaced but the directory entry may not be durable yet.
+pub(crate) fn replace_atomically(
+    target: &Path,
+    purpose: &str,
+    bytes: &[u8],
+    mode: &FileMode,
+) -> Result<Option<PersistenceError>, PersistenceError> {
+    let parent = parent_directory(target);
+    fs::create_dir_all(parent).map_err(|error| PersistenceError::io(parent, error))?;
+    let mut staged = StagedFile::write(target, purpose, bytes, mode, &mut |_, _| Ok(()))?;
+    staged.replace(target)?;
+    Ok(durability_warning(target, sync_directory(parent)))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExternalState {
     Unchanged,
@@ -80,6 +297,17 @@ pub enum ExternalState {
 
 pub fn source_identity(path: &Path) -> Result<SourceIdentity, PersistenceError> {
     read_source_bytes_with_identity(path).map(|(_, identity)| identity)
+}
+
+/// The identity of the file at `path`, or `None` when nothing exists there.
+pub(crate) fn existing_identity(path: &Path) -> Result<Option<SourceIdentity>, PersistenceError> {
+    match source_identity(path) {
+        Ok(identity) => Ok(Some(identity)),
+        Err(PersistenceError::Io { source, .. }) if source.kind() == io::ErrorKind::NotFound => {
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 pub fn read_source_with_identity(
@@ -143,17 +371,7 @@ fn read_source_bytes_with_identity_using(
     if !stable {
         return Err(PersistenceError::ExternalChange(path.to_path_buf()));
     }
-    let content_hash: [u8; 32] = Sha256::digest(&bytes).into();
-    let identity = SourceIdentity {
-        path: path.to_path_buf(),
-        length: after.len(),
-        modified: after.modified().ok(),
-        content_hash,
-        #[cfg(unix)]
-        device: after.dev(),
-        #[cfg(unix)]
-        inode: after.ino(),
-    };
+    let identity = SourceIdentity::new(path, &after, &bytes);
     Ok((bytes, identity))
 }
 
@@ -171,25 +389,6 @@ pub fn detect_external_state(
     }
 }
 
-pub fn atomic_save(snapshot: SaveSnapshot) -> Result<SourceIdentity, PersistenceError> {
-    atomic_save_with_outcome(snapshot).map(|outcome| outcome.identity)
-}
-
-pub(crate) fn atomic_save_with_outcome(
-    snapshot: SaveSnapshot,
-) -> Result<WriteOutcome, PersistenceError> {
-    atomic_save_with_hook(snapshot, |_, _| Ok(()))
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AtomicSaveStage {
-    CreateTemporary,
-    Write,
-    SyncTemporary,
-    Replace,
-    SyncDirectory,
-}
-
 fn require_expected_identity(
     path: &Path,
     expected: &SourceIdentity,
@@ -202,89 +401,70 @@ fn require_expected_identity(
     }
 }
 
+/// Writes `bytes` to `path`, whose state was just observed by
+/// [`existing_identity`]. An observed file is atomically replaced if it is
+/// still unchanged right before the replacement; a missing file is created
+/// without replacing anything that appeared meanwhile.
+pub(crate) fn write_target(
+    path: &Path,
+    observed: Option<&SourceIdentity>,
+    bytes: &[u8],
+) -> Result<WriteOutcome, PersistenceError> {
+    match observed {
+        Some(expected) => {
+            debug_assert!(expected.path.as_path() == path);
+            replace_verified(expected, bytes, &mut |_, _| Ok(()))
+        }
+        None => atomic_write_new(path, bytes),
+    }
+}
+
+fn atomic_save(snapshot: SaveSnapshot) -> Result<WriteOutcome, PersistenceError> {
+    atomic_save_with_hook(snapshot, |_, _| Ok(()))
+}
+
 fn atomic_save_with_hook(
     snapshot: SaveSnapshot,
-    mut before: impl FnMut(AtomicSaveStage, &Path) -> io::Result<()>,
+    mut before: impl FnMut(WriteStage, &Path) -> io::Result<()>,
 ) -> Result<WriteOutcome, PersistenceError> {
-    let path = snapshot
-        .expected_identity
-        .as_ref()
-        .map(|identity| identity.path.clone())
-        .ok_or_else(|| PersistenceError::Journal("save snapshot has no target path".into()))?;
-    if let Some(expected) = snapshot.expected_identity.as_ref() {
-        require_expected_identity(&path, expected)?;
-    }
+    let expected = &snapshot.expected_identity;
+    require_expected_identity(&expected.path, expected)?;
+    replace_verified(expected, &snapshot.bytes, &mut before)
+}
 
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    let filename = path
-        .file_name()
-        .unwrap_or_else(|| OsStr::new("document.md"));
-    let sequence = SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let temporary = parent.join(format!(
-        ".{}.tachyon-save-{}-{sequence}",
-        filename.to_string_lossy(),
-        std::process::id()
-    ));
-    let original_permissions = fs::metadata(&path)
-        .ok()
-        .map(|metadata| metadata.permissions());
-
-    let result = (|| {
-        before(AtomicSaveStage::CreateTemporary, &temporary)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        let mut output = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        if let Some(permissions) = original_permissions {
-            output
-                .set_permissions(permissions)
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-        }
-        before(AtomicSaveStage::Write, &temporary)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        output
-            .write_all(&snapshot.bytes)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        before(AtomicSaveStage::SyncTemporary, &temporary)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        output
-            .sync_all()
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        drop(output);
-        before(AtomicSaveStage::Replace, &path)
-            .map_err(|error| PersistenceError::io(&path, error))?;
-        if let Some(expected) = snapshot.expected_identity.as_ref() {
-            require_expected_identity(&path, expected)?;
-        }
-        fs::rename(&temporary, &path).map_err(|error| PersistenceError::io(&path, error))?;
-        let identity = source_identity(&path)?;
-        let sync_result = before(AtomicSaveStage::SyncDirectory, parent)
-            .and_then(|()| File::open(parent).and_then(|directory| directory.sync_all()));
-        let durability_warning =
-            sync_result
-                .err()
-                .map(|source| PersistenceError::DurabilityUncertain {
-                    path: path.clone(),
-                    source,
-                });
-        Ok(WriteOutcome {
-            identity,
-            durability_warning,
-        })
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result
+/// Replaces the file last observed as `expected`, keeping its permissions.
+/// The identity is checked again immediately before the rename so an
+/// external edit made while the replacement was staged is never overwritten.
+fn replace_verified(
+    expected: &SourceIdentity,
+    bytes: &[u8],
+    before: StageHook<'_>,
+) -> Result<WriteOutcome, PersistenceError> {
+    let path = expected.path.as_path();
+    let parent = parent_directory(path);
+    let mut staged = StagedFile::write(
+        path,
+        "save",
+        bytes,
+        &FileMode::inherited_from(path),
+        &mut *before,
+    )?;
+    let identity = SourceIdentity::written(path, &staged.file, bytes)?;
+    before(WriteStage::Replace, path).map_err(|error| PersistenceError::io(path, error))?;
+    require_expected_identity(path, expected)?;
+    staged.replace(path)?;
+    let synced = before(WriteStage::SyncDirectory, parent).and_then(|()| sync_directory(parent));
+    Ok(WriteOutcome {
+        identity,
+        durability_warning: durability_warning(path, synced),
+    })
 }
 
 pub fn save_with_recovery(
     snapshot: SaveSnapshot,
     journal: &RecoveryJournal,
 ) -> Result<SaveOutcome, RecoverableSaveError> {
-    save_with_recovery_using(snapshot, journal, atomic_save_with_outcome)
+    save_with_recovery_using(snapshot, journal, atomic_save)
 }
 
 fn save_with_recovery_using(
@@ -292,24 +472,13 @@ fn save_with_recovery_using(
     journal: &RecoveryJournal,
     save: impl FnOnce(SaveSnapshot) -> Result<WriteOutcome, PersistenceError>,
 ) -> Result<SaveOutcome, RecoverableSaveError> {
-    let Some(source_path) = snapshot
-        .expected_identity
-        .as_ref()
-        .map(|identity| identity.path.clone())
-    else {
-        return Err(RecoverableSaveError::Unrecovered {
-            save: PersistenceError::Journal("save snapshot has no target path".into()),
-            recovery: PersistenceError::Journal(
-                "recovery cannot be keyed without a target path".into(),
-            ),
-        });
-    };
+    let source_path = snapshot.expected_identity.path.clone();
     let revision = snapshot.revision;
     let entry = RecoveryEntry::new(
         source_path.clone(),
         revision,
         String::from_utf8_lossy(&snapshot.bytes).into_owned(),
-        snapshot.expected_identity.clone(),
+        Some(snapshot.expected_identity.clone()),
     );
     let recovery_error = journal.write(&entry).err();
 
@@ -339,14 +508,7 @@ fn save_with_recovery_using(
 /// Filesystems without hard links (vfat, exFAT, many FUSE and SMB mounts) fall
 /// back to an exclusive create of the target, which still never replaces an
 /// existing file but is not atomic against a crash mid-write.
-pub fn atomic_write_new(path: &Path, bytes: &[u8]) -> Result<SourceIdentity, PersistenceError> {
-    atomic_write_new_with_outcome(path, bytes).map(|outcome| outcome.identity)
-}
-
-pub(crate) fn atomic_write_new_with_outcome(
-    path: &Path,
-    bytes: &[u8],
-) -> Result<WriteOutcome, PersistenceError> {
+fn atomic_write_new(path: &Path, bytes: &[u8]) -> Result<WriteOutcome, PersistenceError> {
     atomic_write_new_using(path, bytes, |temporary, target| {
         fs::hard_link(temporary, target)
     })
@@ -360,75 +522,44 @@ fn hard_link_unsupported(error: &io::Error) -> bool {
     )
 }
 
-fn write_new_in_place(path: &Path, bytes: &[u8]) -> Result<(), PersistenceError> {
-    let mut output = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .map_err(|error| PersistenceError::io(path, error))?;
-    // The target was created here, so a partial write may be removed.
-    let written = output.write_all(bytes).and_then(|()| output.sync_all());
-    drop(output);
-    written.map_err(|error| {
-        let _ = fs::remove_file(path);
-        PersistenceError::io(path, error)
-    })
-}
-
 fn atomic_write_new_using(
     path: &Path,
     bytes: &[u8],
     link: impl FnOnce(&Path, &Path) -> io::Result<()>,
 ) -> Result<WriteOutcome, PersistenceError> {
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = parent_directory(path);
     fs::create_dir_all(parent).map_err(|error| PersistenceError::io(parent, error))?;
-    let filename = path
-        .file_name()
-        .unwrap_or_else(|| OsStr::new("document.md"));
-    let sequence = SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let temporary = parent.join(format!(
-        ".{}.tachyon-copy-{}-{sequence}",
-        filename.to_string_lossy(),
-        std::process::id()
-    ));
-    let result = (|| {
-        let mut output = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        output
-            .write_all(bytes)
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        output
-            .sync_all()
-            .map_err(|error| PersistenceError::io(&temporary, error))?;
-        drop(output);
-        match link(&temporary, path) {
-            Ok(()) => {}
-            Err(error) if hard_link_unsupported(&error) => write_new_in_place(path, bytes)?,
-            Err(error) => return Err(PersistenceError::io(path, error)),
+    let mut staged =
+        StagedFile::write(path, "copy", bytes, &FileMode::Default, &mut |_, _| Ok(()))?;
+    let linked_identity = SourceIdentity::written(path, &staged.file, bytes)?;
+    let (identity, cleanup_warning) = match staged.link_new(path, link) {
+        Ok(cleanup_warning) => (linked_identity, cleanup_warning),
+        Err(error) if hard_link_unsupported(&error) => {
+            let cleanup_warning = staged.discard();
+            let file = create_synced(path, bytes, &FileMode::Default, &mut |_, _| Ok(()))?;
+            (
+                SourceIdentity::written(path, &file, bytes)?,
+                cleanup_warning,
+            )
         }
-        let identity = source_identity(path)?;
-        let cleanup_warning = fs::remove_file(&temporary)
-            .err()
-            .map(|error| PersistenceError::io(&temporary, error));
-        let durability_warning = File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .err()
-            .map(|source| PersistenceError::DurabilityUncertain {
-                path: path.to_path_buf(),
-                source,
-            });
-        Ok(WriteOutcome {
-            identity,
-            durability_warning: durability_warning.or(cleanup_warning),
-        })
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result
+        Err(error) => return Err(PersistenceError::io(path, error)),
+    };
+    // Uncertain durability of the new file outranks a leftover staged name,
+    // which is then only logged.
+    let durability_warning = match (
+        durability_warning(path, sync_directory(parent)),
+        cleanup_warning,
+    ) {
+        (Some(durability), Some(cleanup)) => {
+            eprintln!("copy save could not remove its temporary file: {cleanup}");
+            Some(durability)
+        }
+        (durability, cleanup) => durability.or(cleanup),
+    };
+    Ok(WriteOutcome {
+        identity,
+        durability_warning,
+    })
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -496,38 +627,14 @@ impl RecoveryJournal {
     }
 
     fn write_unlocked(&self, target: &Path, entry: &RecoveryEntry) -> Result<(), PersistenceError> {
-        fs::create_dir_all(&self.directory)
-            .map_err(|error| PersistenceError::io(&self.directory, error))?;
-        let temporary = target.with_extension(format!(
-            "journal-{}-{}",
-            std::process::id(),
-            SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
-        ));
         let bytes = serde_json::to_vec(entry)
             .map_err(|error| PersistenceError::Journal(error.to_string()))?;
-        let result = (|| {
-            let mut options = OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt as _;
-                options.mode(0o600);
-            }
-            let mut file = options
-                .open(&temporary)
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-            file.write_all(&bytes)
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-            file.sync_all()
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-            drop(file);
-            fs::rename(&temporary, target).map_err(|error| PersistenceError::io(target, error))?;
-            sync_directory(&self.directory)
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temporary);
+        // The record is in place once replaced; callers have no channel for
+        // a durability warning, so it is logged.
+        if let Some(warning) = replace_atomically(target, "journal", &bytes, &FileMode::Private)? {
+            eprintln!("recovery journal: {warning}");
         }
-        result
+        Ok(())
     }
 
     #[cfg(test)]
@@ -660,7 +767,8 @@ impl RecoveryJournal {
 
     fn remove_record(&self, path: &Path) -> Result<(), PersistenceError> {
         match fs::remove_file(path) {
-            Ok(()) => sync_directory(&self.directory),
+            Ok(()) => sync_directory(&self.directory)
+                .map_err(|error| PersistenceError::io(&self.directory, error)),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(PersistenceError::io(path, error)),
         }
@@ -693,12 +801,6 @@ impl RecoveryJournal {
         }
         key
     }
-}
-
-fn sync_directory(directory: &Path) -> Result<(), PersistenceError> {
-    File::open(directory)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| PersistenceError::io(directory, error))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -776,37 +878,19 @@ impl WorkspaceStateStore {
         }
     }
 
+    /// Writes the state privately, since the scroll anchor hint holds
+    /// document text.
     pub fn write(&self, state: &WorkspaceState) -> Result<(), PersistenceError> {
-        let parent = self.path.parent().unwrap_or_else(|| Path::new("."));
-        fs::create_dir_all(parent).map_err(|error| PersistenceError::io(parent, error))?;
-        let temporary = self.path.with_extension(format!(
-            "json-{}-{}",
-            std::process::id(),
-            SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
-        ));
         let bytes = serde_json::to_vec(state)
             .map_err(|error| PersistenceError::Journal(error.to_string()))?;
-        let result = (|| {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&temporary)
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-            file.write_all(&bytes)
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-            file.sync_all()
-                .map_err(|error| PersistenceError::io(&temporary, error))?;
-            drop(file);
-            fs::rename(&temporary, &self.path)
-                .map_err(|error| PersistenceError::io(&self.path, error))?;
-            File::open(parent)
-                .and_then(|directory| directory.sync_all())
-                .map_err(|error| PersistenceError::io(parent, error))
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temporary);
+        // The state is in place once replaced; its caller only reports
+        // failures, so a durability warning is logged.
+        if let Some(warning) =
+            replace_atomically(&self.path, "workspace", &bytes, &FileMode::Private)?
+        {
+            eprintln!("workspace state: {warning}");
         }
-        result
+        Ok(())
     }
 }
 
@@ -818,7 +902,7 @@ mod tests {
         let directory = std::env::temp_dir().join(format!(
             "tachyon-{label}-{}-{}",
             std::process::id(),
-            SAVE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+            WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&directory).expect("temporary test directory");
         directory
@@ -834,7 +918,7 @@ mod tests {
         atomic_save(SaveSnapshot {
             revision: Revision(1),
             bytes: b"new".as_slice().into(),
-            expected_identity: Some(identity.clone()),
+            expected_identity: identity.clone(),
         })
         .expect("save");
         assert_eq!(fs::read_to_string(&path).expect("saved"), "new");
@@ -846,7 +930,7 @@ mod tests {
         let error = atomic_save(SaveSnapshot {
             revision: Revision(2),
             bytes: b"overwrite".as_slice().into(),
-            expected_identity: Some(identity),
+            expected_identity: identity,
         })
         .expect_err("stale identity must conflict");
         assert!(matches!(error, PersistenceError::ExternalChange(_)));
@@ -908,12 +992,12 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(4),
             bytes: b"unsaved draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
 
         let error = save_with_recovery_using(snapshot, &journal, |snapshot| {
             atomic_save_with_hook(snapshot, |stage, _| {
-                if stage == AtomicSaveStage::Write {
+                if stage == WriteStage::Write {
                     Err(io::Error::new(
                         io::ErrorKind::StorageFull,
                         "injected full filesystem",
@@ -954,11 +1038,11 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(8),
             bytes: b"local draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
 
         let error = atomic_save_with_hook(snapshot, |stage, target| {
-            if stage == AtomicSaveStage::Replace {
+            if stage == WriteStage::Replace {
                 fs::write(target, "external edit wins")?;
             }
             Ok(())
@@ -986,7 +1070,7 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(9),
             bytes: b"unsaved draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
         fs::set_permissions(&directory, fs::Permissions::from_mode(0o500))
             .expect("make directory read-only");
@@ -1022,7 +1106,7 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(11),
             bytes: b"latest draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
 
         let outcome = save_with_recovery_using(snapshot, &journal, |snapshot| {
@@ -1034,7 +1118,7 @@ mod tests {
                     .markdown,
                 "latest draft"
             );
-            atomic_save_with_outcome(snapshot)
+            atomic_save(snapshot)
         })
         .expect("save");
 
@@ -1055,12 +1139,12 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(12),
             bytes: b"committed draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
 
         let outcome = save_with_recovery_using(snapshot, &journal, |snapshot| {
             atomic_save_with_hook(snapshot, |stage, _| {
-                if stage == AtomicSaveStage::SyncDirectory {
+                if stage == WriteStage::SyncDirectory {
                     Err(io::Error::other("injected directory sync failure"))
                 } else {
                     Ok(())
@@ -1097,10 +1181,10 @@ mod tests {
     #[test]
     fn failures_before_replacement_keep_original_and_recovery_at_every_stage() {
         for failed_stage in [
-            AtomicSaveStage::CreateTemporary,
-            AtomicSaveStage::Write,
-            AtomicSaveStage::SyncTemporary,
-            AtomicSaveStage::Replace,
+            WriteStage::CreateTemporary,
+            WriteStage::Write,
+            WriteStage::SyncTemporary,
+            WriteStage::Replace,
         ] {
             let directory = temporary_directory("pre-replace-failure");
             let recovery_directory = temporary_directory("pre-replace-recovery");
@@ -1110,7 +1194,7 @@ mod tests {
             let snapshot = SaveSnapshot {
                 revision: Revision(13),
                 bytes: b"uncommitted draft".as_slice().into(),
-                expected_identity: Some(source_identity(&path).expect("identity")),
+                expected_identity: source_identity(&path).expect("identity"),
             };
 
             let result = save_with_recovery_using(snapshot, &journal, |snapshot| {
@@ -1161,11 +1245,11 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(14),
             bytes: b"durable draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
 
         let outcome = save_with_recovery_using(snapshot, &journal, |snapshot| {
-            let outcome = atomic_save_with_outcome(snapshot)?;
+            let outcome = atomic_save(snapshot)?;
             fs::set_permissions(&recovery_directory, fs::Permissions::from_mode(0o500))
                 .expect("block recovery cleanup");
             Ok(outcome)
@@ -1209,7 +1293,7 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(20),
             bytes: b"saved draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
 
         // An edit journals revision 21 while revision 20 is being saved.
@@ -1220,7 +1304,7 @@ mod tests {
                 "newer draft".into(),
                 None,
             ))?;
-            atomic_save_with_outcome(snapshot)
+            atomic_save(snapshot)
         })
         .expect("save");
         let newer = journal
@@ -1235,7 +1319,7 @@ mod tests {
         let snapshot = SaveSnapshot {
             revision: Revision(21),
             bytes: b"newer draft".as_slice().into(),
-            expected_identity: Some(source_identity(&path).expect("identity")),
+            expected_identity: source_identity(&path).expect("identity"),
         };
         save_with_recovery(snapshot, &journal).expect("save newer revision");
         assert_eq!(journal.load(&path).expect("journal cleared"), None);
@@ -1439,9 +1523,36 @@ mod tests {
     fn copy_save_never_replaces_an_existing_file() {
         let directory = temporary_directory("copy-save");
         let path = directory.join("copy.md");
-        atomic_write_new(&path, b"first").expect("create copy");
+        let outcome = atomic_write_new(&path, b"first").expect("create copy");
+        assert_eq!(outcome.identity, source_identity(&path).expect("identity"));
+        assert!(!has_copy_temporary(&directory));
         atomic_write_new(&path, b"second").expect_err("existing copy is protected");
         assert_eq!(fs::read_to_string(&path).expect("copy"), "first");
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[test]
+    fn target_writes_verify_the_observed_file_before_replacing_it() {
+        let directory = temporary_directory("write-target");
+        let path = directory.join("export.html");
+        assert_eq!(existing_identity(&path).expect("missing target"), None);
+        let created = write_target(&path, None, b"first").expect("create target");
+        let observed = existing_identity(&path)
+            .expect("observe target")
+            .expect("target exists");
+        assert_eq!(created.identity, observed);
+
+        let replaced = write_target(&path, Some(&observed), b"second").expect("replace target");
+        assert_eq!(
+            replaced.identity,
+            source_identity(&path).expect("replaced identity")
+        );
+        let error = write_target(&path, Some(&observed), b"stale")
+            .expect_err("a stale observation must not replace the target");
+        assert!(matches!(error, PersistenceError::ExternalChange(_)));
+        assert_eq!(fs::read_to_string(&path).expect("target"), "second");
+        write_target(&path, None, b"late").expect_err("creation never replaces a file");
+        assert_eq!(fs::read_to_string(&path).expect("target"), "second");
         fs::remove_dir_all(directory).expect("cleanup isolated test directory");
     }
 
@@ -1532,6 +1643,87 @@ mod tests {
             scroll_anchor_intra_line_offset: 7.5,
         };
         store.write(&state).expect("write state");
+        assert_eq!(store.load().expect("load state"), state);
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[cfg(unix)]
+    fn mode(path: &Path) -> u32 {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::metadata(path).expect("metadata").permissions().mode() & 0o777
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn journal_and_workspace_state_are_private() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let directory = temporary_directory("private-state");
+        let journal = RecoveryJournal::in_directory(directory.join("recovery"));
+        let source = directory.join("source.md");
+        journal
+            .write(&RecoveryEntry::new(
+                source.clone(),
+                Revision(1),
+                "draft".into(),
+                None,
+            ))
+            .expect("write journal");
+        assert_eq!(mode(&journal.path_for(&source)), 0o600);
+
+        let workspace = directory.join("workspace.json");
+        fs::write(&workspace, "{}").expect("older workspace state");
+        fs::set_permissions(&workspace, fs::Permissions::from_mode(0o644))
+            .expect("readable older state");
+        WorkspaceStateStore::at_path(workspace.clone())
+            .write(&WorkspaceState {
+                scroll_anchor_text_hint: "document text".into(),
+                ..WorkspaceState::default()
+            })
+            .expect("write state");
+        assert_eq!(mode(&workspace), 0o600);
+        fs::remove_dir_all(directory).expect("cleanup isolated test directory");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn journal_and_workspace_writes_commit_despite_directory_sync_failure() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let directory = temporary_directory("unsynced-state");
+        let journal = RecoveryJournal::in_directory(directory.clone());
+        let store = WorkspaceStateStore::at_path(directory.join("workspace.json"));
+        let source = directory.join("source.md");
+        let entry = RecoveryEntry::new(source.clone(), Revision(2), "draft".into(), None);
+        let state = WorkspaceState {
+            navigation_width: 300.,
+            ..WorkspaceState::default()
+        };
+        // Without read permission the directory cannot be opened to sync it,
+        // while entries can still be created and renamed inside it.
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o300))
+            .expect("make directory unreadable");
+        let sync_blocked = File::open(&directory).is_err();
+        let replaced = replace_atomically(
+            &directory.join("probe"),
+            "probe",
+            b"probe",
+            &FileMode::Default,
+        );
+        let journal_written = journal.write(&entry);
+        let state_written = store.write(&state);
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))
+            .expect("restore directory permissions");
+
+        if sync_blocked {
+            assert!(matches!(
+                replaced,
+                Ok(Some(PersistenceError::DurabilityUncertain { .. }))
+            ));
+        }
+        journal_written.expect("a replaced journal record is committed");
+        state_written.expect("replaced workspace state is committed");
+        assert_eq!(journal.load(&source).expect("load journal"), Some(entry));
         assert_eq!(store.load().expect("load state"), state);
         fs::remove_dir_all(directory).expect("cleanup isolated test directory");
     }

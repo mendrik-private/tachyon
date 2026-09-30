@@ -512,6 +512,5 @@ specialized recognizers for [quotes](../crates/document-view/src/quotes.rs),
 [metrics](../crates/document-view/src/metrics.rs),
 [signals](../crates/document-view/src/signals.rs) and
 [bibliography](../crates/document-view/src/bibliography.rs).
-The [coverage ledger](../performance/DESIGN-GRAMMAR-COVERAGE.md) tracks incomplete
-variants and validation; this cookbook describes implemented recognition paths,
-not a claim that every combination is release-qualified.
+This cookbook describes implemented recognition paths, not a claim that every
+combination is release-qualified.

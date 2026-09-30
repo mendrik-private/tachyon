@@ -10,17 +10,13 @@ impl RichDocumentEditor {
         if !segment.context.preserved_source {
             return None;
         }
-        self.visual_lines.iter().find_map(|line| {
-            (self
-                .projection
-                .segment_for_range(&line.projected_range())?
-                .node_id
-                == segment.node_id)
-                .then_some(line.html_preview.as_ref())
-                .flatten()
-                .filter(|preview| preview.can_convert)
-                .cloned()
-        })
+        self.visual_lines_for_node(segment.node_id)
+            .find_map(|line| {
+                line.html_preview
+                    .as_ref()
+                    .filter(|preview| preview.can_convert)
+            })
+            .cloned()
     }
 
     /// Logical source-order movement. Ordinary text-only movement stays with
@@ -194,28 +190,31 @@ impl RichDocumentEditor {
         match position {
             PreviewPosition::Document(position) => {
                 let offset = self.projection.offset_of(*position)?;
-                self.visual_lines
-                    .iter()
-                    .position(|line| line.projected_range().contains(&offset))
-                    .or_else(|| {
-                        self.visual_lines
-                            .iter()
-                            .position(|line| line.projected_end() == offset)
-                    })
+                visual_line_index_containing_or_ending_at(&self.visual_lines, offset)
             }
             PreviewPosition::Html {
                 node_id,
                 expected_source,
                 ..
-            } => self.visual_lines.iter().position(|line| {
-                line.html_preview
-                    .as_ref()
-                    .is_some_and(|preview| preview.source == *expected_source)
-                    && self
-                        .projection
-                        .segment_for_range(&line.projected_range())
-                        .is_some_and(|s| s.node_id == *node_id)
-            }),
+            } => {
+                let span = segment_line_span(
+                    &self.visual_lines,
+                    self.projection.segment_for_node(*node_id)?,
+                );
+                let first = span.start;
+                self.visual_lines[span]
+                    .iter()
+                    .position(|line| {
+                        line.html_preview
+                            .as_ref()
+                            .is_some_and(|preview| preview.source == *expected_source)
+                            && self
+                                .projection
+                                .segment_for_range(&line.projected_range())
+                                .is_some_and(|s| s.node_id == *node_id)
+                    })
+                    .map(|index| first + index)
+            }
         }
     }
 
@@ -267,17 +266,15 @@ impl RichDocumentEditor {
                 expected_source,
                 position,
             } => {
-                let Some(preview) = self.visual_lines.iter().find_map(|line| {
-                    (self
-                        .projection
-                        .segment_for_range(&line.projected_range())?
-                        .node_id
-                        == node_id)
-                        .then_some(line.html_preview.as_ref())
-                        .flatten()
-                        .filter(|preview| preview.source == expected_source && preview.can_convert)
-                        .cloned()
-                }) else {
+                let Some(preview) = self
+                    .visual_lines_for_node(node_id)
+                    .find_map(|line| {
+                        line.html_preview.as_ref().filter(|preview| {
+                            preview.source == expected_source && preview.can_convert
+                        })
+                    })
+                    .cloned()
+                else {
                     return;
                 };
                 let Some(byte) = preview.byte_for_position(position) else {
@@ -338,15 +335,7 @@ impl RichDocumentEditor {
                     self.painted_lines
                         .iter()
                         .find(|painted| painted.range == line.projected_range())
-                        .map(|painted| {
-                            aligned_text_left(painted.bounds, &painted.layout, painted.alignment)
-                                + shaped_x_for_index(
-                                    &painted.layout,
-                                    offset
-                                        .saturating_sub(painted.range.start)
-                                        .min(painted.range.len()),
-                                )
-                        })
+                        .map(|painted| painted.x_for_offset(offset))
                 })
             }
         };
@@ -406,12 +395,7 @@ impl RichDocumentEditor {
                 .iter()
                 .find(|line| line.range == target.projected_range())
             {
-                target.projected_start()
-                    + shaped_index_for_x(
-                        &painted.layout,
-                        x - aligned_text_left(painted.bounds, &painted.layout, painted.alignment),
-                    )
-                    .min(target.projected_range().len())
+                painted.offset_for_x(x)
             } else {
                 // Match the existing offscreen Markdown navigation fallback;
                 // the next paint supplies exact shaping after caret reveal.
@@ -443,15 +427,9 @@ fn horizontal_boundary(text: &str, byte: usize, direction: isize, word: bool) ->
             next_word_boundary(text, byte)
         }
     } else if direction < 0 {
-        text[..byte]
-            .grapheme_indices(true)
-            .next_back()
-            .map_or(0, |(i, _)| i)
+        previous_grapheme_boundary(text, byte)
     } else {
-        text[byte..]
-            .grapheme_indices(true)
-            .nth(1)
-            .map_or(text.len(), |(i, _)| byte + i)
+        next_grapheme_boundary(text, byte)
     }
 }
 

@@ -144,8 +144,8 @@ mod tests {
         );
         assert!(!opened.accessible_text.contains("hidden"));
         assert_eq!(
-            opened.text, closed.text,
-            "copy text must remain source-based"
+            opened.editable_text, closed.editable_text,
+            "conversion text must remain source-based"
         );
         assert_eq!(&*opened.source, source);
         let restored = render(source, 600).unwrap();

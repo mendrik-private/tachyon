@@ -1,9 +1,7 @@
 //! Measured, source-owned supporting figures with a full-measure continuation.
 use super::*;
 use crate::adaptive::prose::{FigureFlow, Flow, supporting_image as supporting};
-
-const MAX_ROOTS: usize = 16;
-const MAX_BYTES: usize = 64 * 1024;
+use prose_flow::{MAX_BYTES, MAX_ROOTS};
 
 fn slot(flow: &FigureFlow, item: usize) -> LayoutSlot {
     let (track_start, span) = match item {
@@ -42,24 +40,7 @@ fn prose(projection: &TextProjection, id: NodeId) -> Option<&crate::ProjectionSe
                     .runs()
                     .iter()
                     .all(|run| run.styles.contains(&InlineStyle::Italic)));
-    (segment.node_id == segment.top_level_node_id
-        && segment.context.figure_text.is_none()
-        && !caption
-        && segment.node_range == (0..p.content.len())
-        && p.content.len() <= MAX_BYTES
-        && !text.contains(['\n', '\r'])
-        && !measurement::contains_strong_rtl(text)
-        && !p.content.runs().iter().any(|run| {
-            run.styles.iter().any(|style| {
-                matches!(
-                    style,
-                    InlineStyle::Image { .. }
-                        | InlineStyle::PreservedHtml(_)
-                        | InlineStyle::Math { .. }
-                )
-            })
-        }))
-    .then_some(segment)
+    (!caption && prose_flow::flowable_paragraph(p, segment, text)).then_some(segment)
 }
 
 fn publish(plan: &mut AdaptivePlan, flow: Arc<FigureFlow>) {
@@ -461,28 +442,8 @@ pub(super) fn build(
     let mut output = Vec::new();
     for (range, item) in fragments {
         let slot = slot(flow, item);
-        let mut fragment = segment.clone();
-        fragment.node_range =
-            segment.node_range.start + range.start..segment.node_range.start + range.end;
-        fragment.set_projection_range(
-            segment.projection_start() + range.start..segment.projection_start() + range.end,
-        );
-        let mut lines = build_visual_lines_for_segment(
-            projection,
-            &fragment,
-            &HashMap::new(),
-            slot.width(width) + 8.,
-            &[],
-            fonts,
-            None,
-        );
-        for line in &mut lines {
-            line.set_slot(Some(slot));
-            line.x_fraction = slot.left(width) / width;
-            line.width_fraction = slot.width(width) / width;
-            line.style.space_above = 0.;
-            line.style.space_below = 0.;
-        }
+        let mut lines =
+            prose_flow::slotted_fragment(projection, segment, range.clone(), slot, width, fonts);
         if image {
             // Alt is one semantic image range, never visible caption text.
             lines.truncate(1);

@@ -6,7 +6,7 @@ Layout follow-up (September 8, 2026): [Editorial layout grammar plan](performanc
 
 Build a native Rust/GPUI application for **Linux Wayland**, with one continuously rendered, always-editable Markdown surface. Clicking places the caret; selecting text reveals formatting tools. Raw Markdown is never exposed.
 
-The first release includes local file navigation, an outline, adaptive document layouts, rich tables, lists, links, images, code examples, undo, and autosave. The September 6 redesign targets **scrolling above 60 fps through 10 MB**, with 120 Hz as a stretch target. Startup preparation may take longer. See [the adaptive layout plan and validation](performance/ADAPTIVE-LAYOUTS.md).
+The first release includes local file navigation, an outline, adaptive document layouts, rich tables, lists, links, images, code examples, undo, and autosave. The September 6 redesign targets **scrolling above 60 fps through 10 MB**, with 120 Hz as a stretch target. Startup preparation may take longer. See [the layout cookbook](docs/markdown-layouts.md).
 
 Confirmed decisions\:&#32;
 
@@ -133,7 +133,7 @@ The central interfaces are:
 - `DocumentPosition`: node ID, text offset, and affinity.
 - `Selection`: text range or rectangular table range.
 - `EditCommand -> TransactionResult`: document changes, transformed selection, inverse operations, and dirty node IDs.
-- `LayoutIndex`: node/fragment geometry, cumulative heights, and document-position mapping.
+- `PreparedDocumentView`: measured visual lines, component geometry, and document-position mapping.
 - `SaveSnapshot`: serialized revision plus its expected on-disk identity.
 
 The UI thread owns mutable editing state. Workers receive immutable snapshots and return revision-tagged results. Stale results are discarded. Ordinary typing updates the model directly; it does not serialize and reparse Markdown.

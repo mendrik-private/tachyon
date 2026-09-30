@@ -6,8 +6,7 @@ state. Its virtualized visible children carry structural roles rather than a
 flat list of labels: headings, paragraphs, links, lists and list items, code,
 images, tables, rows, column headers, cells, block quotes, alerts, notes, and
 thematic-break separators. File navigation is a tree, the outline is a tree,
-the Files/Outline divider is a slider, toolbar controls are buttons, and the
-minimap exposes scrollbar semantics.
+the Files/Outline divider is a slider, and toolbar controls are buttons.
 
 ## Recorded native check
 

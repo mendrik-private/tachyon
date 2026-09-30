@@ -202,19 +202,16 @@ impl RichDocumentEditor {
         &self,
         node: NodeId,
     ) -> impl Iterator<Item = &VisualLineSpec> {
-        let segment = self.projection.segment_for_node(node);
-        let first = segment.map_or(self.visual_lines.len(), |segment| {
-            self.visual_lines
-                .partition_point(|line| line.projected_start() < segment.projection_start())
-        });
-        let end = segment.map_or(0, crate::ProjectionSegment::projection_end);
-        self.visual_lines[first..]
-            .iter()
-            .take_while(move |line| line.projected_start() <= end)
-            .filter(move |line| {
-                segment_for_line(&self.projection, &line.projected_range())
-                    .is_some_and(|segment| segment.node_id == node)
-            })
+        let span = self
+            .projection
+            .segment_for_node(node)
+            .map_or(0..0, |segment| {
+                segment_line_span(&self.visual_lines, segment)
+            });
+        self.visual_lines[span].iter().filter(move |line| {
+            segment_for_line(&self.projection, &line.projected_range())
+                .is_some_and(|segment| segment.node_id == node)
+        })
     }
 
     pub(super) fn editing_text(&self) -> &str {
@@ -302,15 +299,7 @@ impl RichDocumentEditor {
                     let offset = self.projection.offset_of(position)?;
                     let line = painted_line_for_offset(&self.painted_lines, offset)?;
                     return Some(Bounds::new(
-                        point(
-                            aligned_text_left(line.bounds, &line.layout, line.alignment)
-                                + line.layout.x_for_index(
-                                    offset
-                                        .saturating_sub(line.range.start)
-                                        .min(line.range.len()),
-                                ),
-                            line.bounds.top(),
-                        ),
+                        point(line.x_for_offset(offset), line.bounds.top()),
                         size(px(1.5), line.bounds.size.height),
                     ));
                 }

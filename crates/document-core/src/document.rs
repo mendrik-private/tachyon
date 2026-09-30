@@ -4,11 +4,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+use rustc_hash::FxHashMap;
+
 use crate::{
     BlockNode, BlockSequence, BlockStyle, DocumentError, DocumentPosition, EditCommand,
-    FormatState, InlineFormat, InsertBlockKind, InverseOperation, NodeId, PositionError, Revision,
-    SaveSnapshot, Selection, SourceIdentity, SourceSpine, TYPING_GROUP_TIMEOUT_MS, Table,
-    TextSelection, TransactionResult, command::caret_after,
+    InlineFormat, InsertBlockKind, InverseOperation, NodeId, PositionError, Revision, Selection,
+    SourceSpine, TYPING_GROUP_TIMEOUT_MS, Table, TextSelection, TransactionResult,
+    command::caret_after, model::PathStep,
 };
 
 mod preview;
@@ -99,17 +101,33 @@ impl DocumentSnapshot {
 
     #[must_use]
     pub fn node(&self, id: NodeId) -> Option<&BlockNode> {
-        find_node(&self.0.blocks, id)
+        self.0.blocks.node(id)
     }
 
+    /// The outermost table cell whose blocks contain `node_id`.
     #[must_use]
     pub fn table_cell_containing(&self, node_id: NodeId) -> Option<(NodeId, usize, usize)> {
-        table_cell_containing(&self.0.blocks, node_id)
+        let mut found = None;
+        self.0.blocks.descend(node_id, &mut |step| {
+            if found.is_none()
+                && let PathStep::TableCell { table, row, column } = step
+            {
+                found = Some((table.id, row, column));
+            }
+        });
+        found
     }
 
+    /// The innermost list item whose blocks contain `node_id`.
     #[must_use]
     pub fn list_item_containing(&self, node_id: NodeId) -> Option<(NodeId, NodeId, usize)> {
-        list_item_containing(&self.0.blocks, node_id)
+        let mut found = None;
+        self.0.blocks.descend(node_id, &mut |step| {
+            if let PathStep::ListItem { list, index } = step {
+                found = Some((list.id, list.items[index].id, index));
+            }
+        });
+        found
     }
 
     pub fn serialize(&self) -> Result<String, DocumentError> {
@@ -179,35 +197,13 @@ impl DocumentSnapshot {
     pub fn prepare_source_rebase(&self) -> Result<SourceRebase, DocumentError> {
         let serialized = self.serialize()?;
         let imported = crate::markdown::import(Arc::from(serialized.as_str()))?;
-        let mut imported_ids = Vec::new();
-        let canonical = map_sequence_ids(imported.blocks(), &mut |id| {
-            imported_ids.push(id);
-            NodeId::new_unchecked(imported_ids.len() as u64)
-        });
-        let mut current_ids = Vec::new();
-        let current = map_sequence_ids(self.blocks(), &mut |id| {
-            current_ids.push(id);
-            NodeId::new_unchecked(current_ids.len() as u64)
-        });
-        let source = source_rebase::same_blocks(&canonical, &current).then(|| {
-            let ids = imported_ids.into_iter().zip(current_ids).collect();
-            imported.source_spine().remap(&ids, self.blocks())
-        });
+        let mut ids = FxHashMap::default();
+        let source = source_rebase::same_blocks(imported.blocks(), self.blocks(), &mut ids)
+            .then(|| imported.source_spine().remap(&ids, self.blocks()));
         Ok(SourceRebase {
             origin: self.clone(),
             bytes: serialized.into_bytes().into(),
             source,
-        })
-    }
-
-    pub fn save_snapshot(
-        &self,
-        expected_identity: Option<SourceIdentity>,
-    ) -> Result<SaveSnapshot, DocumentError> {
-        Ok(SaveSnapshot {
-            revision: self.revision(),
-            bytes: self.serialize()?.into_bytes().into(),
-            expected_identity,
         })
     }
 
@@ -219,87 +215,6 @@ impl DocumentSnapshot {
                 position.text_offset <= text.len() && text.is_char_boundary(position.text_offset)
             })
     }
-}
-
-fn table_cell_containing(
-    blocks: &BlockSequence,
-    node_id: NodeId,
-) -> Option<(NodeId, usize, usize)> {
-    for block in blocks {
-        match block.as_ref() {
-            BlockNode::Table(table) => {
-                for (row_index, row) in table.rows.iter().enumerate() {
-                    for (column_index, cell) in row.cells.iter().enumerate() {
-                        if cell.blocks.iter().any(|block| {
-                            block.id() == node_id || block_contains_node(block, node_id)
-                        }) {
-                            return Some((table.id, row_index, column_index));
-                        }
-                    }
-                }
-            }
-            BlockNode::List(list) => {
-                for item in list.items.iter() {
-                    if let Some(found) = table_cell_containing(&item.blocks, node_id) {
-                        return Some(found);
-                    }
-                }
-            }
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                if let Some(found) = table_cell_containing(blocks, node_id) {
-                    return Some(found);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-fn list_item_containing(
-    blocks: &BlockSequence,
-    node_id: NodeId,
-) -> Option<(NodeId, NodeId, usize)> {
-    for block in blocks {
-        match block.as_ref() {
-            BlockNode::List(list) => {
-                for (index, item) in list.items.iter().enumerate() {
-                    if item
-                        .blocks
-                        .iter()
-                        .any(|block| block.id() == node_id || block_contains_node(block, node_id))
-                    {
-                        if let Some(nested) = list_item_containing(&item.blocks, node_id) {
-                            return Some(nested);
-                        }
-                        return Some((list.id, item.id, index));
-                    }
-                }
-            }
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                if let Some(found) = list_item_containing(blocks, node_id) {
-                    return Some(found);
-                }
-            }
-            BlockNode::Table(table) => {
-                for row in table.rows.iter() {
-                    for cell in row.cells.iter() {
-                        if let Some(found) = list_item_containing(&cell.blocks, node_id) {
-                            return Some(found);
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    None
 }
 
 #[derive(Clone, Debug)]
@@ -650,28 +565,6 @@ impl Document {
         Ok(())
     }
 
-    /// Prepare composition in verified HTML text. Conversion remains
-    /// provisional: begin leaves the current snapshot untouched, updates use
-    /// the converted baseline, and cancellation/undo restore the original HTML.
-    pub fn begin_html_composition(
-        &mut self,
-        node_id: NodeId,
-        expected_source: &str,
-        anchor: crate::HtmlTextPosition,
-        head: crate::HtmlTextPosition,
-    ) -> Result<(), DocumentError> {
-        let endpoint = |position| crate::PreviewPosition::Html {
-            node_id,
-            expected_source: Arc::from(expected_source),
-            position,
-        };
-        self.begin_preview_composition(&crate::PreviewSelection {
-            revision: self.current.revision(),
-            anchor: endpoint(anchor),
-            head: endpoint(head),
-        })
-    }
-
     /// Prepare a source-verified preview selection for provisional IME edits.
     /// All conversions and replacement validation happen on private snapshots.
     /// Until update, neither the current source nor its revision changes. Each
@@ -758,29 +651,6 @@ impl Document {
         Ok(result.value)
     }
 
-    pub fn format_state(
-        &self,
-        node_id: NodeId,
-        range: std::ops::Range<usize>,
-        format: &InlineFormat,
-    ) -> Result<FormatState, DocumentError> {
-        let text = self
-            .current
-            .node(node_id)
-            .ok_or(PositionError::UnknownNode(node_id))?
-            .text()
-            .ok_or(PositionError::NotText(node_id))?;
-        text.validate_range(node_id, &range)?;
-        let (covered, total) = text.style_coverage(&range, &format.as_style());
-        Ok(if covered == 0 {
-            FormatState::Off
-        } else if covered == total {
-            FormatState::On
-        } else {
-            FormatState::Mixed
-        })
-    }
-
     fn allocate_revision(&mut self) -> Revision {
         self.revision_counter = self.revision_counter.next();
         self.revision_counter
@@ -821,7 +691,7 @@ fn retire_transient_caret(state: &mut SnapshotState) -> bool {
         || !state
             .blocks
             .iter()
-            .any(|block| block.id() != id && first_editable_in_block(block).is_some())
+            .any(|block| block.id() != id && block.first_editable_position().is_some())
     {
         return false;
     }
@@ -838,7 +708,7 @@ fn convert_html_to_markdown(
     node_id: NodeId,
     target: Option<(&str, crate::HtmlTextPosition, crate::HtmlTextPosition)>,
 ) -> Result<TextSelection, DocumentError> {
-    let Some(BlockNode::PreservedSource { source, .. }) = find_node(&state.blocks, node_id) else {
+    let Some(BlockNode::PreservedSource { source, .. }) = state.blocks.node(node_id) else {
         return Err(DocumentError::Html(
             "Only preserved HTML can be converted".into(),
         ));
@@ -853,8 +723,8 @@ fn convert_html_to_markdown(
             "This HTML needs its original structure; conversion is unavailable".into(),
         )
     })?;
-    let imported = crate::markdown::import(Arc::<str>::from(markdown))?;
-    let replacement = remap_sequence_ids(imported.blocks(), &mut state.next_node_id);
+    let replacement = crate::markdown::import_fragment(&markdown)?
+        .map_ids(&mut |_| allocate_from(&mut state.next_node_id));
     let selection = if let Some((_, anchor, head)) = target {
         let leaves = crate::html::conversion_text_blocks(&replacement);
         let position = |target: crate::HtmlTextPosition, affinity| {
@@ -882,7 +752,8 @@ fn convert_html_to_markdown(
         }
     } else {
         TextSelection::caret(
-            first_editable_position_in_sequence(&replacement)
+            replacement
+                .first_editable_position()
                 .ok_or_else(|| DocumentError::Html("No editable text in this fragment".into()))?,
         )
     };
@@ -912,12 +783,11 @@ fn replace_node_with_blocks(
     mutate_node(blocks, parent_id, &mut |parent| {
         match parent {
             BlockNode::List(list) => {
-                let mut items = list.items.to_vec();
-                let item = items
-                    .iter_mut()
-                    .find(|item| item.blocks.contains_node(node_id))
+                let index = list
+                    .item_containing(node_id)
                     .ok_or(PositionError::UnknownNode(node_id))?;
-                replace_node_with_blocks(&mut item.blocks, node_id, replacement)?;
+                let mut items = list.items.to_vec();
+                replace_node_with_blocks(&mut items[index].blocks, node_id, replacement)?;
                 list.items = items.into();
             }
             BlockNode::BlockQuote { blocks, .. }
@@ -927,23 +797,12 @@ fn replace_node_with_blocks(
                 replace_node_with_blocks(blocks, node_id, replacement)?;
             }
             BlockNode::Table(table) => {
-                let mut rows = table.rows.to_vec();
-                let row = rows
-                    .iter_mut()
-                    .find(|row| {
-                        row.cells
-                            .iter()
-                            .any(|cell| cell.blocks.contains_node(node_id))
-                    })
+                let (row, column) = table
+                    .cell_containing(node_id)
                     .ok_or(PositionError::UnknownNode(node_id))?;
-                let mut cells = row.cells.to_vec();
-                let cell = cells
-                    .iter_mut()
-                    .find(|cell| cell.blocks.contains_node(node_id))
-                    .ok_or(PositionError::UnknownNode(node_id))?;
-                replace_node_with_blocks(&mut cell.blocks, node_id, replacement)?;
-                row.cells = cells.into();
-                table.rows = rows.into();
+                update_cell(table, row, column, |blocks| {
+                    replace_node_with_blocks(blocks, node_id, replacement)
+                })?;
             }
             _ => return Err(PositionError::UnknownNode(node_id).into()),
         }
@@ -986,7 +845,9 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
             format,
         } => {
             let style = format.as_style();
-            let current = find_node(&state.blocks, node_id)
+            let current = state
+                .blocks
+                .node(node_id)
                 .ok_or(PositionError::UnknownNode(node_id))?
                 .text()
                 .ok_or(PositionError::NotText(node_id))?;
@@ -1136,13 +997,10 @@ fn apply_command(state: &mut SnapshotState, command: EditCommand) -> Result<bool
             };
             let index = state
                 .blocks
-                .iter()
-                .position(|block| {
-                    block.id() == selected_node || block_contains_node(block, selected_node)
-                })
+                .top_index_containing(selected_node)
                 .map_or(state.blocks.len(), |index| index + 1);
             let block = new_block(state, kind);
-            let position = first_editable_in_block(&block);
+            let position = block.first_editable_position();
             let mut blocks = state.blocks.to_vec();
             blocks.insert(index, Arc::new(block));
             state.blocks = BlockSequence::new(blocks);
@@ -1318,12 +1176,15 @@ fn indent_list_item(
     item_id: NodeId,
     next_id: &mut u64,
 ) -> Result<Option<bool>, DocumentError> {
-    let mut sequence = blocks.to_vec();
-    for block_index in 0..sequence.len() {
-        if !block_contains_node(sequence[block_index].as_ref(), item_id) {
-            continue;
-        }
-        if let BlockNode::List(list) = Arc::make_mut(&mut sequence[block_index]) {
+    let Some(block_index) = blocks.top_index_containing(item_id) else {
+        return Ok(None);
+    };
+    let mut block = Arc::clone(blocks.get(block_index).expect("indexed block"));
+    if block.id() == item_id {
+        return Ok(None);
+    }
+    let found = match Arc::make_mut(&mut block) {
+        BlockNode::List(list) => {
             let mut items = list.items.to_vec();
             if let Some(item_index) = items.iter().position(|item| item.id == item_id) {
                 if item_index == 0 {
@@ -1348,54 +1209,50 @@ fn indent_list_item(
                 }
                 parent.blocks = BlockSequence::new(parent_blocks);
                 list.items = items.into();
-                *blocks = BlockSequence::new(sequence);
-                return Ok(Some(true));
-            }
-
-            for item in &mut items {
-                if let Some(changed) = indent_list_item(&mut item.blocks, item_id, next_id)? {
-                    list.items = items.into();
-                    *blocks = BlockSequence::new(sequence);
-                    return Ok(Some(changed));
-                }
-            }
-            list.items = items.into();
-        }
-
-        let found = match Arc::make_mut(&mut sequence[block_index]) {
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                indent_list_item(blocks, item_id, next_id)?
-            }
-            BlockNode::Table(table) => {
-                let mut found = None;
-                let mut rows = table.rows.to_vec();
-                'rows: for row in &mut rows {
-                    let mut cells = row.cells.to_vec();
-                    for cell in &mut cells {
-                        if let Some(changed) = indent_list_item(&mut cell.blocks, item_id, next_id)?
-                        {
-                            found = Some(changed);
-                            row.cells = cells.into();
-                            break 'rows;
-                        }
-                    }
-                }
-                if found.is_some() {
-                    table.rows = rows.into();
-                }
+                Some(true)
+            } else if let Some(item_index) = list.item_containing(item_id) {
+                let found = indent_list_item(&mut items[item_index].blocks, item_id, next_id)?;
+                list.items = items.into();
                 found
+            } else {
+                None
             }
-            _ => None,
-        };
-        if found.is_some() {
-            *blocks = BlockSequence::new(sequence);
-            return Ok(found);
         }
+        BlockNode::BlockQuote { blocks, .. }
+        | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
+        | BlockNode::FootnoteDefinition { blocks, .. } => {
+            indent_list_item(blocks, item_id, next_id)?
+        }
+        BlockNode::Table(table) => match table.cell_containing(item_id) {
+            Some((row, column)) => update_cell(table, row, column, |blocks| {
+                indent_list_item(blocks, item_id, next_id)
+            })?,
+            None => None,
+        },
+        _ => None,
+    };
+    if found.is_some() {
+        *blocks = blocks
+            .replacing(block_index, block)
+            .expect("the index came from this sequence");
     }
-    Ok(None)
+    Ok(found)
+}
+
+/// Apply `update` to one cell's blocks; other rows keep their cell storage.
+fn update_cell<T>(
+    table: &mut Table,
+    row: usize,
+    column: usize,
+    update: impl FnOnce(&mut BlockSequence) -> T,
+) -> T {
+    let mut rows = table.rows.to_vec();
+    let mut cells = rows[row].cells.to_vec();
+    let result = update(&mut cells[column].blocks);
+    rows[row].cells = cells.into();
+    table.rows = rows.into();
+    result
 }
 
 enum OutdentResult {
@@ -1441,12 +1298,15 @@ fn outdent_in_sequence(
     escape_direct: bool,
     next_id: &mut u64,
 ) -> Result<OutdentResult, DocumentError> {
-    let mut sequence = blocks.to_vec();
-    for block_index in 0..sequence.len() {
-        if !block_contains_node(sequence[block_index].as_ref(), item_id) {
-            continue;
-        }
-        if let BlockNode::List(list) = Arc::make_mut(&mut sequence[block_index]) {
+    let Some(block_index) = blocks.top_index_containing(item_id) else {
+        return Ok(OutdentResult::NotFound);
+    };
+    let mut block = Arc::clone(blocks.get(block_index).expect("indexed block"));
+    if block.id() == item_id {
+        return Ok(OutdentResult::NotFound);
+    }
+    let result = match Arc::make_mut(&mut block) {
+        BlockNode::List(list) => {
             let mut items = list.items.to_vec();
             if let Some(item_index) = items.iter().position(|item| item.id == item_id) {
                 let following = items.split_off(item_index + 1);
@@ -1456,6 +1316,8 @@ fn outdent_in_sequence(
                 let list_id = list.id;
                 let kind = list.kind.clone();
                 let tight = list.tight;
+                let mut sequence = blocks.to_vec();
+                sequence[block_index] = block;
                 if escape_direct {
                     let mut replacement = Vec::with_capacity(item.blocks.len() + 2);
                     if !preceding_empty {
@@ -1516,62 +1378,42 @@ fn outdent_in_sequence(
                 *blocks = BlockSequence::new(sequence);
                 return Ok(OutdentResult::Bubble(item));
             }
-
-            for parent_index in 0..items.len() {
-                match outdent_in_sequence(&mut items[parent_index].blocks, item_id, false, next_id)?
-                {
-                    OutdentResult::Bubble(item) => {
-                        items.insert(parent_index + 1, item);
-                        list.items = items.into();
-                        *blocks = BlockSequence::new(sequence);
-                        return Ok(OutdentResult::Handled);
-                    }
-                    OutdentResult::Handled => {
-                        list.items = items.into();
-                        *blocks = BlockSequence::new(sequence);
-                        return Ok(OutdentResult::Handled);
-                    }
-                    OutdentResult::NotFound => {}
+            let Some(parent_index) = list.item_containing(item_id) else {
+                return Ok(OutdentResult::NotFound);
+            };
+            match outdent_in_sequence(&mut items[parent_index].blocks, item_id, false, next_id)? {
+                OutdentResult::Bubble(item) => {
+                    items.insert(parent_index + 1, item);
+                    list.items = items.into();
+                    OutdentResult::Handled
                 }
+                OutdentResult::Handled => {
+                    list.items = items.into();
+                    OutdentResult::Handled
+                }
+                OutdentResult::NotFound => OutdentResult::NotFound,
             }
-            list.items = items.into();
         }
-
-        let result = match Arc::make_mut(&mut sequence[block_index]) {
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                outdent_in_sequence(blocks, item_id, true, next_id)?
-            }
-            BlockNode::Table(table) => {
-                let mut result = OutdentResult::NotFound;
-                let mut rows = table.rows.to_vec();
-                'rows: for row in &mut rows {
-                    let mut cells = row.cells.to_vec();
-                    for cell in &mut cells {
-                        let candidate =
-                            outdent_in_sequence(&mut cell.blocks, item_id, true, next_id)?;
-                        if !matches!(candidate, OutdentResult::NotFound) {
-                            result = candidate;
-                            row.cells = cells.into();
-                            break 'rows;
-                        }
-                    }
-                }
-                if !matches!(result, OutdentResult::NotFound) {
-                    table.rows = rows.into();
-                }
-                result
-            }
-            _ => OutdentResult::NotFound,
-        };
-        if !matches!(result, OutdentResult::NotFound) {
-            *blocks = BlockSequence::new(sequence);
-            return Ok(result);
+        BlockNode::BlockQuote { blocks, .. }
+        | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
+        | BlockNode::FootnoteDefinition { blocks, .. } => {
+            outdent_in_sequence(blocks, item_id, true, next_id)?
         }
+        BlockNode::Table(table) => match table.cell_containing(item_id) {
+            Some((row, column)) => update_cell(table, row, column, |blocks| {
+                outdent_in_sequence(blocks, item_id, true, next_id)
+            })?,
+            None => OutdentResult::NotFound,
+        },
+        _ => OutdentResult::NotFound,
+    };
+    if !matches!(result, OutdentResult::NotFound) {
+        *blocks = blocks
+            .replacing(block_index, block)
+            .expect("the index came from this sequence");
     }
-    Ok(OutdentResult::NotFound)
+    Ok(result)
 }
 
 fn mutate_table(
@@ -1689,65 +1531,6 @@ fn new_block(state: &mut SnapshotState, kind: InsertBlockKind) -> BlockNode {
         InsertBlockKind::ThematicBreak => BlockNode::ThematicBreak {
             id: allocate_node_id(state),
         },
-    }
-}
-
-fn first_editable_in_block(block: &BlockNode) -> Option<DocumentPosition> {
-    if block.text().is_some() {
-        return Some(DocumentPosition::new(
-            block.id(),
-            0,
-            crate::Affinity::Downstream,
-        ));
-    }
-    match block {
-        BlockNode::List(list) => list.items.iter().find_map(|item| {
-            item.blocks
-                .iter()
-                .find_map(|block| first_editable_in_block(block))
-        }),
-        BlockNode::BlockQuote { blocks, .. }
-        | BlockNode::Alert { blocks, .. }
-        | BlockNode::Definition { blocks, .. }
-        | BlockNode::FootnoteDefinition { blocks, .. } => blocks
-            .iter()
-            .find_map(|block| first_editable_in_block(block)),
-        BlockNode::Table(table) => table.rows.iter().find_map(|row| {
-            row.cells.iter().find_map(|cell| {
-                cell.blocks
-                    .iter()
-                    .find_map(|block| first_editable_in_block(block))
-            })
-        }),
-        _ => None,
-    }
-}
-
-fn block_contains_node(block: &BlockNode, node_id: NodeId) -> bool {
-    match block {
-        BlockNode::List(list) => list.items.iter().any(|item| {
-            item.id == node_id
-                || item
-                    .blocks
-                    .iter()
-                    .any(|block| block.id() == node_id || block_contains_node(block, node_id))
-        }),
-        BlockNode::BlockQuote { blocks, .. }
-        | BlockNode::Alert { blocks, .. }
-        | BlockNode::Definition { blocks, .. }
-        | BlockNode::FootnoteDefinition { blocks, .. } => blocks
-            .iter()
-            .any(|block| block.id() == node_id || block_contains_node(block, node_id)),
-        BlockNode::Table(table) => table.rows.iter().any(|row| {
-            row.id == node_id
-                || row.cells.iter().any(|cell| {
-                    cell.id == node_id
-                        || cell.blocks.iter().any(|block| {
-                            block.id() == node_id || block_contains_node(block, node_id)
-                        })
-                })
-        }),
-        _ => false,
     }
 }
 
@@ -1890,15 +1673,15 @@ fn replace_tree_selection(
 }
 
 fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, DocumentError> {
-    let imported = crate::markdown::import(Arc::<str>::from(markdown))?;
+    let imported = crate::markdown::import_fragment(markdown)?;
     let Selection::Text(selection) = state.selection.clone() else {
         return Err(DocumentError::TableSelectionForTextCommand);
     };
-    if imported.blocks().is_empty() {
+    if imported.is_empty() {
         return replace_text_selection(state, selection, String::new(), false);
     }
-    if imported.blocks().len() == 1
-        && let Some(BlockNode::Paragraph(paragraph)) = imported.blocks().get(0).map(AsRef::as_ref)
+    if imported.len() == 1
+        && let Some(BlockNode::Paragraph(paragraph)) = imported.get(0).map(AsRef::as_ref)
     {
         let into_heading = crate::tree_selection::TreeRange::resolve(&state.blocks, &selection)
             .is_ok_and(|range| matches!(range.start_block.as_ref(), BlockNode::Heading(_)));
@@ -1922,14 +1705,13 @@ fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, Doc
     let suffix = end_text.slice(range.end.text_offset..end_text.len());
     let has_prefix = !prefix.is_empty();
     let mut inserted = imported
-        .blocks()
         .iter()
-        .map(|block| remap_block_ids(block, &mut state.next_node_id))
+        .map(|block| Arc::new(block.map_ids(&mut |_| allocate_from(&mut state.next_node_id))))
         .collect::<Vec<_>>();
     let caret = inserted
         .iter()
         .rev()
-        .find_map(|block| last_editable_in_block(block));
+        .find_map(|block| block.last_editable_position());
     let mut replacement = Vec::with_capacity(inserted.len() + 2);
     if has_prefix {
         replacement.push(Arc::new(block_with_text(
@@ -1963,7 +1745,7 @@ fn paste_markdown(state: &mut SnapshotState, markdown: &str) -> Result<bool, Doc
         replacement
             .iter()
             .rev()
-            .find_map(|block| last_editable_in_block(block))
+            .find_map(|block| block.last_editable_position())
     });
     let blocks = range.splice(&state.blocks, &replacement, &end, &mut state.next_node_id)?;
     state.blocks = blocks;
@@ -2008,165 +1790,6 @@ fn block_with_text(
     }
 }
 
-fn remap_sequence_ids(blocks: &BlockSequence, next_id: &mut u64) -> BlockSequence {
-    map_sequence_ids(blocks, &mut |_| allocate_from(next_id))
-}
-
-fn remap_block_ids(block: &BlockNode, next_id: &mut u64) -> Arc<BlockNode> {
-    map_block_ids(block, &mut |_| allocate_from(next_id))
-}
-
-fn map_sequence_ids(
-    blocks: &BlockSequence,
-    map: &mut impl FnMut(NodeId) -> NodeId,
-) -> BlockSequence {
-    BlockSequence::new(
-        blocks
-            .iter()
-            .map(|block| map_block_ids(block, map))
-            .collect(),
-    )
-}
-
-fn map_block_ids(block: &BlockNode, map: &mut impl FnMut(NodeId) -> NodeId) -> Arc<BlockNode> {
-    let block = match block {
-        BlockNode::Paragraph(paragraph) => BlockNode::Paragraph(crate::Paragraph {
-            id: map(block.id()),
-            content: paragraph.content.clone(),
-        }),
-        BlockNode::Heading(heading) => BlockNode::Heading(crate::Heading {
-            id: map(block.id()),
-            level: heading.level,
-            content: heading.content.clone(),
-        }),
-        BlockNode::CodeBlock(code) => BlockNode::CodeBlock(crate::CodeBlock {
-            id: map(block.id()),
-            language: code.language.clone(),
-            syntax: code.syntax,
-            content: code.content.clone(),
-        }),
-        BlockNode::Image(image) => BlockNode::Image(crate::ImageNode {
-            id: map(block.id()),
-            source: image.source.clone(),
-            alt: image.alt.clone(),
-            title: image.title.clone(),
-            intrinsic_size: image.intrinsic_size,
-            link: image.link.clone(),
-        }),
-        BlockNode::List(list) => BlockNode::List(crate::ListBlock {
-            id: map(block.id()),
-            kind: list.kind.clone(),
-            tight: list.tight,
-            items: list
-                .items
-                .iter()
-                .map(|item| crate::ListItem {
-                    id: map(item.id),
-                    checked: item.checked,
-                    blocks: map_sequence_ids(&item.blocks, map),
-                })
-                .collect::<Vec<_>>()
-                .into(),
-        }),
-        BlockNode::BlockQuote { blocks, .. } => BlockNode::BlockQuote {
-            id: map(block.id()),
-            blocks: map_sequence_ids(blocks, map),
-        },
-        BlockNode::Definition { kind, blocks, .. } => BlockNode::Definition {
-            id: map(block.id()),
-            kind: *kind,
-            blocks: map_sequence_ids(blocks, map),
-        },
-        BlockNode::Table(table) => BlockNode::Table(crate::Table {
-            id: map(block.id()),
-            columns: table.columns.clone(),
-            rows: table
-                .rows
-                .iter()
-                .map(|row| crate::TableRow {
-                    id: map(row.id),
-                    cells: row
-                        .cells
-                        .iter()
-                        .map(|cell| crate::TableCell {
-                            id: map(cell.id),
-                            blocks: map_sequence_ids(&cell.blocks, map),
-                        })
-                        .collect::<Vec<_>>()
-                        .into(),
-                })
-                .collect::<Vec<_>>()
-                .into(),
-            header_rows: table.header_rows,
-            border: table.border,
-            preserved_metadata: table.preserved_metadata.clone(),
-        }),
-        BlockNode::Alert {
-            kind,
-            title,
-            blocks,
-            ..
-        } => BlockNode::Alert {
-            id: map(block.id()),
-            kind: kind.clone(),
-            title: title.clone(),
-            blocks: map_sequence_ids(blocks, map),
-        },
-        BlockNode::FootnoteDefinition { label, blocks, .. } => BlockNode::FootnoteDefinition {
-            id: map(block.id()),
-            label: label.clone(),
-            blocks: map_sequence_ids(blocks, map),
-        },
-        BlockNode::ThematicBreak { .. } => BlockNode::ThematicBreak {
-            id: map(block.id()),
-        },
-        BlockNode::PreservedSource {
-            source,
-            description,
-            ..
-        } => BlockNode::PreservedSource {
-            id: map(block.id()),
-            source: source.clone(),
-            description: description.clone(),
-        },
-    };
-    Arc::new(block)
-}
-
-fn last_editable_in_block(block: &BlockNode) -> Option<DocumentPosition> {
-    if let Some(text) = block.text() {
-        return Some(DocumentPosition::new(
-            block.id(),
-            text.len(),
-            crate::Affinity::Downstream,
-        ));
-    }
-    match block {
-        BlockNode::List(list) => list.items.iter().rev().find_map(|item| {
-            item.blocks
-                .iter()
-                .rev()
-                .find_map(|block| last_editable_in_block(block))
-        }),
-        BlockNode::BlockQuote { blocks, .. }
-        | BlockNode::Alert { blocks, .. }
-        | BlockNode::Definition { blocks, .. }
-        | BlockNode::FootnoteDefinition { blocks, .. } => blocks
-            .iter()
-            .rev()
-            .find_map(|block| last_editable_in_block(block)),
-        BlockNode::Table(table) => table.rows.iter().rev().find_map(|row| {
-            row.cells.iter().rev().find_map(|cell| {
-                cell.blocks
-                    .iter()
-                    .rev()
-                    .find_map(|block| last_editable_in_block(block))
-            })
-        }),
-        _ => None,
-    }
-}
-
 fn split_selection(state: &mut SnapshotState) -> Result<bool, DocumentError> {
     let Selection::Text(mut selection) = state.selection.clone() else {
         return Err(DocumentError::TableSelectionForTextCommand);
@@ -2180,10 +1803,7 @@ fn split_selection(state: &mut SnapshotState) -> Result<bool, DocumentError> {
     }
     let node_id = selection.head.node_id;
     let offset = selection.head.text_offset;
-    if matches!(
-        find_node(&state.blocks, node_id),
-        Some(BlockNode::CodeBlock(_))
-    ) {
+    if matches!(state.blocks.node(node_id), Some(BlockNode::CodeBlock(_))) {
         return apply_command(
             state,
             EditCommand::ReplaceText {
@@ -2225,37 +1845,34 @@ fn split_in_sequence(
     offset: usize,
     next_id: &mut u64,
 ) -> Result<Option<DocumentPosition>, DocumentError> {
-    let mut next = blocks.to_vec();
-    for index in 0..next.len() {
-        if next[index].id() == node_id {
-            let new_id = allocate_from(next_id);
-            let (left, right) = split_block(next[index].as_ref(), new_id, offset)?;
-            next[index] = Arc::new(left);
-            next.insert(index + 1, Arc::new(right));
-            *blocks = BlockSequence::new(next);
-            return Ok(Some(DocumentPosition::new(
-                new_id,
-                0,
-                crate::Affinity::Downstream,
-            )));
-        }
-
-        if !block_contains_node(next[index].as_ref(), node_id) {
-            continue;
-        }
-
-        let list_split = if let BlockNode::List(list) = Arc::make_mut(&mut next[index]) {
-            split_in_list(list, node_id, offset, next_id)?
-        } else {
-            None
-        };
-        if let Some(list_split) = list_split {
+    let Some(index) = blocks.top_index_containing(node_id) else {
+        return Ok(None);
+    };
+    let current = blocks.get(index).expect("indexed block");
+    if current.id() == node_id {
+        let new_id = allocate_from(next_id);
+        let (left, right) = split_block(current, new_id, offset)?;
+        let mut next = blocks.to_vec();
+        next[index] = Arc::new(left);
+        next.insert(index + 1, Arc::new(right));
+        *blocks = BlockSequence::new(next);
+        return Ok(Some(DocumentPosition::new(
+            new_id,
+            0,
+            crate::Affinity::Downstream,
+        )));
+    }
+    let mut block = Arc::clone(current);
+    let found = match Arc::make_mut(&mut block) {
+        BlockNode::List(list) => {
+            let Some(list_split) = split_in_list(list, node_id, offset, next_id)? else {
+                return Ok(None);
+            };
             if let Some(escaped) = list_split.escaped {
-                let list_empty =
-                    matches!(next[index].as_ref(), BlockNode::List(list) if list.items.is_empty());
+                let list_empty = list.items.is_empty();
                 let mut replacement = Vec::with_capacity(escaped.blocks.len() + 2);
                 if !list_empty {
-                    replacement.push(Arc::clone(&next[index]));
+                    replacement.push(block);
                 }
                 replacement.extend(escaped.blocks);
                 replacement.extend(
@@ -2263,47 +1880,33 @@ fn split_in_sequence(
                         .following
                         .map(|following| Arc::new(BlockNode::List(following))),
                 );
+                let mut next = blocks.to_vec();
                 next.splice(index..=index, replacement);
+                *blocks = BlockSequence::new(next);
+                return Ok(Some(list_split.position));
             }
-            *blocks = BlockSequence::new(next);
-            return Ok(Some(list_split.position));
+            Some(list_split.position)
         }
-
-        let found = match Arc::make_mut(&mut next[index]) {
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                split_in_sequence(blocks, node_id, offset, next_id)?
-            }
-            BlockNode::Table(table) => {
-                let mut found = None;
-                let mut rows = table.rows.to_vec();
-                'rows: for row in &mut rows {
-                    let mut cells = row.cells.to_vec();
-                    for cell in &mut cells {
-                        if let Some(position) =
-                            split_in_sequence(&mut cell.blocks, node_id, offset, next_id)?
-                        {
-                            found = Some(position);
-                            row.cells = cells.into();
-                            break 'rows;
-                        }
-                    }
-                }
-                if found.is_some() {
-                    table.rows = rows.into();
-                }
-                found
-            }
-            _ => None,
-        };
-        if found.is_some() {
-            *blocks = BlockSequence::new(next);
-            return Ok(found);
+        BlockNode::BlockQuote { blocks, .. }
+        | BlockNode::Alert { blocks, .. }
+        | BlockNode::Definition { blocks, .. }
+        | BlockNode::FootnoteDefinition { blocks, .. } => {
+            split_in_sequence(blocks, node_id, offset, next_id)?
         }
+        BlockNode::Table(table) => match table.cell_containing(node_id) {
+            Some((row, column)) => update_cell(table, row, column, |blocks| {
+                split_in_sequence(blocks, node_id, offset, next_id)
+            })?,
+            None => None,
+        },
+        _ => None,
+    };
+    if found.is_some() {
+        *blocks = blocks
+            .replacing(index, block)
+            .expect("the index came from this sequence");
     }
-    Ok(None)
+    Ok(found)
 }
 
 fn split_in_list(
@@ -2312,79 +1915,71 @@ fn split_in_list(
     offset: usize,
     next_id: &mut u64,
 ) -> Result<Option<ListSplit>, DocumentError> {
+    let Some(item_index) = list.item_containing(node_id) else {
+        return Ok(None);
+    };
     let mut items = list.items.to_vec();
-    for item_index in 0..items.len() {
-        let block_index = {
-            items[item_index]
-                .blocks
-                .iter()
-                .position(|block| block.id() == node_id)
-        };
-        if let Some(block_index) = block_index {
-            let target = items[item_index]
-                .blocks
-                .get(block_index)
-                .expect("block index resolved above");
-            let target_text = target.text().ok_or(PositionError::NotText(node_id))?;
-            target_text.validate_range(node_id, &(offset..offset))?;
-            if target_text.is_empty() && offset == 0 {
-                let following = items.split_off(item_index + 1);
-                let escaped = items.pop().expect("item index resolved above");
-                let following = (!following.is_empty()).then(|| crate::ListBlock {
-                    id: if items.is_empty() {
-                        list.id
-                    } else {
-                        allocate_from(next_id)
-                    },
-                    kind: continued_list_kind(&list.kind, item_index + 1),
-                    tight: list.tight,
-                    items: following.into(),
-                });
-                list.items = items.into();
-                return Ok(Some(ListSplit {
-                    position: DocumentPosition::new(node_id, 0, crate::Affinity::Downstream),
-                    escaped: Some(EscapedListItem {
-                        blocks: escaped.blocks.to_vec(),
-                        following,
-                    }),
-                }));
-            }
-
-            let right_id = allocate_from(next_id);
-            let item_id = allocate_from(next_id);
-            let (left, right) = split_block(target, right_id, offset)?;
-            let original_blocks = items[item_index].blocks.to_vec();
-            let mut first_blocks = original_blocks[..block_index].to_vec();
-            first_blocks.push(Arc::new(left));
-            let mut second_blocks = vec![Arc::new(right)];
-            second_blocks.extend_from_slice(&original_blocks[block_index + 1..]);
-            items[item_index].blocks = BlockSequence::new(first_blocks);
-            items.insert(
-                item_index + 1,
-                crate::ListItem {
-                    id: item_id,
-                    checked: matches!(list.kind, crate::ListKind::Task).then_some(false),
-                    blocks: BlockSequence::new(second_blocks),
-                },
-            );
+    let Some(block_index) = items[item_index].blocks.top_index_of(node_id) else {
+        let position = split_in_sequence(&mut items[item_index].blocks, node_id, offset, next_id)?;
+        if position.is_some() {
             list.items = items.into();
-            return Ok(Some(ListSplit {
-                position: DocumentPosition::new(right_id, 0, crate::Affinity::Downstream),
-                escaped: None,
-            }));
         }
-
-        if let Some(position) =
-            split_in_sequence(&mut items[item_index].blocks, node_id, offset, next_id)?
-        {
-            list.items = items.into();
-            return Ok(Some(ListSplit {
-                position,
-                escaped: None,
-            }));
-        }
+        return Ok(position.map(|position| ListSplit {
+            position,
+            escaped: None,
+        }));
+    };
+    let target = items[item_index]
+        .blocks
+        .get(block_index)
+        .expect("block index resolved above");
+    let target_text = target.text().ok_or(PositionError::NotText(node_id))?;
+    target_text.validate_range(node_id, &(offset..offset))?;
+    if target_text.is_empty() && offset == 0 {
+        let following = items.split_off(item_index + 1);
+        let escaped = items.pop().expect("item index resolved above");
+        let following = (!following.is_empty()).then(|| crate::ListBlock {
+            id: if items.is_empty() {
+                list.id
+            } else {
+                allocate_from(next_id)
+            },
+            kind: continued_list_kind(&list.kind, item_index + 1),
+            tight: list.tight,
+            items: following.into(),
+        });
+        list.items = items.into();
+        return Ok(Some(ListSplit {
+            position: DocumentPosition::new(node_id, 0, crate::Affinity::Downstream),
+            escaped: Some(EscapedListItem {
+                blocks: escaped.blocks.to_vec(),
+                following,
+            }),
+        }));
     }
-    Ok(None)
+
+    let right_id = allocate_from(next_id);
+    let item_id = allocate_from(next_id);
+    let (left, right) = split_block(target, right_id, offset)?;
+    let original_blocks = items[item_index].blocks.to_vec();
+    let mut first_blocks = original_blocks[..block_index].to_vec();
+    first_blocks.push(Arc::new(left));
+    let mut second_blocks = vec![Arc::new(right)];
+    second_blocks.extend_from_slice(&original_blocks[block_index + 1..]);
+    items[item_index].blocks = BlockSequence::new(first_blocks);
+    items.insert(
+        item_index + 1,
+        crate::ListItem {
+            id: item_id,
+            checked: matches!(list.kind, crate::ListKind::Task).then_some(false),
+            blocks: BlockSequence::new(second_blocks),
+        },
+    );
+    list.items = items.into();
+    Ok(Some(ListSplit {
+        position: DocumentPosition::new(right_id, 0, crate::Affinity::Downstream),
+        escaped: None,
+    }))
 }
 
 fn split_block(
@@ -2467,8 +2062,10 @@ fn toggle_inline_selection(
     let mut covered = 0;
     let mut total = 0;
     for (relative, node_id) in node_ids[start_index..=end_index].iter().enumerate() {
-        let node =
-            find_node(&state.blocks, *node_id).ok_or(PositionError::UnknownNode(*node_id))?;
+        let node = state
+            .blocks
+            .node(*node_id)
+            .ok_or(PositionError::UnknownNode(*node_id))?;
         let rich_text = node.text().ok_or(PositionError::NotText(*node_id))?;
         let start = if relative == 0 { start_offset } else { 0 };
         let end = if start_index + relative == end_index {
@@ -2531,8 +2128,10 @@ fn set_link_selection(
         };
     let mut ranges = Vec::new();
     for (relative, node_id) in node_ids[start_index..=end_index].iter().enumerate() {
-        let node =
-            find_node(&state.blocks, *node_id).ok_or(PositionError::UnknownNode(*node_id))?;
+        let node = state
+            .blocks
+            .node(*node_id)
+            .ok_or(PositionError::UnknownNode(*node_id))?;
         let rich_text = node.text().ok_or(PositionError::NotText(*node_id))?;
         let start = if relative == 0 { start_offset } else { 0 };
         let end = if start_index + relative == end_index {
@@ -2638,7 +2237,7 @@ fn reconcile_selection(
             }
             _ => {}
         }
-        if let Some(BlockNode::Table(table)) = find_node(&state.blocks, selection.table_id) {
+        if let Some(BlockNode::Table(table)) = state.blocks.node(selection.table_id) {
             let last_row = table.row_count().saturating_sub(1);
             let last_column = table.column_count().saturating_sub(1);
             selection.anchor_row = selection.anchor_row.min(last_row);
@@ -2659,7 +2258,7 @@ fn reconcile_selection(
         }),
         Selection::Table(selection) => Selection::Text(TextSelection::caret(
             deleted_table_caret(before, &state.blocks, &selection)
-                .or_else(|| first_editable_position_in_sequence(&state.blocks))
+                .or_else(|| state.blocks.first_editable_position())
                 .unwrap_or(DocumentPosition::new(
                     NodeId::new_unchecked(1),
                     0,
@@ -2702,11 +2301,11 @@ fn deleted_table_caret(
         .get(selection.anchor_row)?
         .cells
         .get(selection.anchor_column)?;
-    let previous = first_editable_position_in_sequence(&cell.blocks)?;
+    let previous = cell.blocks.first_editable_position()?;
     // Reuse the text-selection neighbor policy: the next surviving leaf,
     // then the previous leaf's end, before considering a document-wide host.
     let repaired = repair_position(before, blocks, previous);
-    find_node(blocks, repaired.node_id)?.text()?;
+    blocks.node(repaired.node_id)?.text()?;
     Some(repaired)
 }
 
@@ -2735,12 +2334,12 @@ fn repair_position(
     blocks: &BlockSequence,
     position: DocumentPosition,
 ) -> DocumentPosition {
-    if let Some(text) = find_node(blocks, position.node_id).and_then(BlockNode::text) {
+    if let Some(text) = blocks.node(position.node_id).and_then(BlockNode::text) {
         return clamp_position(position, text);
     }
 
     if let Some((table_id, row, column)) = before.table_cell_containing(position.node_id)
-        && let Some(BlockNode::Table(table)) = find_node(blocks, table_id)
+        && let Some(BlockNode::Table(table)) = blocks.node(table_id)
         && let Some(cell) = table
             .rows
             .get(row.min(table.row_count().saturating_sub(1)))
@@ -2748,7 +2347,7 @@ fn repair_position(
                 row.cells
                     .get(column.min(table.column_count().saturating_sub(1)))
             })
-        && let Some(replacement) = first_editable_position_in_sequence(&cell.blocks)
+        && let Some(replacement) = cell.blocks.first_editable_position()
     {
         return replacement;
     }
@@ -2756,21 +2355,22 @@ fn repair_position(
     let mut before_ids = Vec::new();
     collect_editable_node_ids(before.blocks(), &mut before_ids);
     if let Some(index) = before_ids.iter().position(|id| *id == position.node_id) {
-        if let Some(replacement) = before_ids[index + 1..]
-            .iter()
-            .find_map(|id| find_node(blocks, *id).and_then(first_editable_in_block))
-        {
+        if let Some(replacement) = before_ids[index + 1..].iter().find_map(|id| {
+            blocks
+                .node(*id)
+                .and_then(BlockNode::first_editable_position)
+        }) {
             return replacement;
         }
         if let Some(replacement) = before_ids[..index]
             .iter()
             .rev()
-            .find_map(|id| find_node(blocks, *id).and_then(last_editable_in_block))
+            .find_map(|id| blocks.node(*id).and_then(BlockNode::last_editable_position))
         {
             return replacement;
         }
     }
-    first_editable_position_in_sequence(blocks).unwrap_or(position)
+    blocks.first_editable_position().unwrap_or(position)
 }
 
 fn clamp_position(position: DocumentPosition, text: &crate::RichText) -> DocumentPosition {
@@ -2779,12 +2379,6 @@ fn clamp_position(position: DocumentPosition, text: &crate::RichText) -> Documen
         offset = offset.saturating_sub(1);
     }
     DocumentPosition::new(position.node_id, offset, position.affinity)
-}
-
-fn first_editable_position_in_sequence(blocks: &BlockSequence) -> Option<DocumentPosition> {
-    blocks
-        .iter()
-        .find_map(|block| first_editable_in_block(block))
 }
 
 fn validate_selection(
@@ -2801,7 +2395,8 @@ fn validate_selection_in_blocks(
     match selection {
         Selection::Text(selection) => {
             for position in [selection.anchor, selection.head] {
-                let node = find_node(blocks, position.node_id)
+                let node = blocks
+                    .node(position.node_id)
                     .ok_or(PositionError::UnknownNode(position.node_id))?;
                 let text = node
                     .text()
@@ -2813,7 +2408,7 @@ fn validate_selection_in_blocks(
             }
         }
         Selection::Table(rectangle) => {
-            let Some(BlockNode::Table(table)) = find_node(blocks, rectangle.table_id) else {
+            let Some(BlockNode::Table(table)) = blocks.node(rectangle.table_id) else {
                 return Err(DocumentError::NotTable(rectangle.table_id));
             };
             let (rows, columns) = rectangle.normalized();
@@ -2894,30 +2489,6 @@ fn validate_sequence(
     Ok(())
 }
 
-fn find_node(blocks: &BlockSequence, id: NodeId) -> Option<&BlockNode> {
-    let index = blocks.top_index_containing(id)?;
-    let block = blocks.get(index)?.as_ref();
-    if block.id() == id {
-        return Some(block);
-    }
-    match block {
-        BlockNode::List(list) => list
-            .items
-            .iter()
-            .find_map(|item| find_node(&item.blocks, id)),
-        BlockNode::BlockQuote { blocks, .. }
-        | BlockNode::Alert { blocks, .. }
-        | BlockNode::Definition { blocks, .. }
-        | BlockNode::FootnoteDefinition { blocks, .. } => find_node(blocks, id),
-        BlockNode::Table(table) => table
-            .rows
-            .iter()
-            .flat_map(|row| row.cells.iter())
-            .find_map(|cell| find_node(&cell.blocks, id)),
-        _ => None,
-    }
-}
-
 fn mutate_node(
     blocks: &mut BlockSequence,
     id: NodeId,
@@ -2948,36 +2519,30 @@ fn mutate_descendant(
 ) -> Result<bool, DocumentError> {
     match block {
         BlockNode::List(list) => {
+            let Some(index) = list.item_containing(id) else {
+                return Ok(false);
+            };
             let mut items = list.items.to_vec();
-            for item in &mut items {
-                if mutate_node_optional(&mut item.blocks, id, operation)? {
-                    list.items = items.into();
-                    return Ok(true);
-                }
+            let found = mutate_node_optional(&mut items[index].blocks, id, operation)?;
+            if found {
+                list.items = items.into();
             }
+            Ok(found)
         }
         BlockNode::BlockQuote { blocks, .. }
         | BlockNode::Alert { blocks, .. }
         | BlockNode::Definition { blocks, .. }
         | BlockNode::FootnoteDefinition { blocks, .. } => {
-            return mutate_node_optional(blocks, id, operation);
+            mutate_node_optional(blocks, id, operation)
         }
-        BlockNode::Table(table) => {
-            let mut rows = table.rows.to_vec();
-            for row in &mut rows {
-                let mut cells = row.cells.to_vec();
-                for cell in &mut cells {
-                    if mutate_node_optional(&mut cell.blocks, id, operation)? {
-                        row.cells = cells.into();
-                        table.rows = rows.into();
-                        return Ok(true);
-                    }
-                }
-            }
-        }
-        _ => {}
+        BlockNode::Table(table) => match table.cell_containing(id) {
+            Some((row, column)) => update_cell(table, row, column, |blocks| {
+                mutate_node_optional(blocks, id, operation)
+            }),
+            None => Ok(false),
+        },
+        _ => Ok(false),
     }
-    Ok(false)
 }
 
 fn mutate_node_optional(
@@ -3032,11 +2597,8 @@ fn mutate_list_item_in_block(
                 list.items = items.into();
                 return Ok(true);
             }
-            if let Some(item) = items
-                .iter_mut()
-                .find(|item| item.blocks.contains_node(item_id))
-            {
-                mutate_list_item(&mut item.blocks, item_id)?;
+            if let Some(index) = list.item_containing(item_id) {
+                mutate_list_item(&mut items[index].blocks, item_id)?;
                 list.items = items.into();
                 return Ok(true);
             }
@@ -3051,18 +2613,11 @@ fn mutate_list_item_in_block(
             }
         }
         BlockNode::Table(table) => {
-            let mut rows = table.rows.to_vec();
-            for row in &mut rows {
-                let mut cells = row.cells.to_vec();
-                if let Some(cell) = cells
-                    .iter_mut()
-                    .find(|cell| cell.blocks.contains_node(item_id))
-                {
-                    mutate_list_item(&mut cell.blocks, item_id)?;
-                    row.cells = cells.into();
-                    table.rows = rows.into();
-                    return Ok(true);
-                }
+            if let Some((row, column)) = table.cell_containing(item_id) {
+                update_cell(table, row, column, |blocks| {
+                    mutate_list_item(blocks, item_id)
+                })?;
+                return Ok(true);
             }
         }
         _ => {}
@@ -3139,17 +2694,40 @@ fn collect_changed_sequence(
     }
 }
 
-/// The previous sibling with `id`, trying the aligned index before a scan.
-fn aligned_by_id<T>(
-    previous: &[T],
-    index: usize,
-    id: NodeId,
-    id_of: impl Fn(&T) -> NodeId,
-) -> Option<&T> {
-    previous
-        .get(index)
-        .filter(|candidate| id_of(candidate) == id)
-        .or_else(|| previous.iter().find(|candidate| id_of(candidate) == id))
+/// Previous siblings by ID: the aligned index first, then a map built at most
+/// once per sibling list, so matching every current sibling stays linear.
+struct PreviousSiblings<'a, T> {
+    previous: &'a [T],
+    id_of: fn(&T) -> NodeId,
+    by_id: Option<FxHashMap<NodeId, &'a T>>,
+}
+
+impl<'a, T> PreviousSiblings<'a, T> {
+    fn new(previous: &'a [T], id_of: fn(&T) -> NodeId) -> Self {
+        Self {
+            previous,
+            id_of,
+            by_id: None,
+        }
+    }
+
+    fn get(&mut self, index: usize, id: NodeId) -> Option<&'a T> {
+        let (previous, id_of) = (self.previous, self.id_of);
+        if let Some(candidate) = previous.get(index)
+            && id_of(candidate) == id
+        {
+            return Some(candidate);
+        }
+        self.by_id
+            .get_or_insert_with(|| {
+                previous
+                    .iter()
+                    .map(|candidate| (id_of(candidate), candidate))
+                    .collect()
+            })
+            .get(&id)
+            .copied()
+    }
 }
 
 fn collect_changed_block(
@@ -3166,8 +2744,9 @@ fn collect_changed_block(
             if Arc::ptr_eq(&old.items, &new.items) {
                 return;
             }
+            let mut old_items = PreviousSiblings::new(&old.items, |item| item.id);
             for (index, item) in new.items.iter().enumerate() {
-                if let Some(old_item) = aligned_by_id(&old.items, index, item.id, |item| item.id) {
+                if let Some(old_item) = old_items.get(index, item.id) {
                     collect_changed_sequence(&old_item.blocks, &item.blocks, changed);
                 } else {
                     collect_node_ids(&item.blocks, &mut |id| {
@@ -3187,9 +2766,9 @@ fn collect_changed_block(
             if Arc::ptr_eq(&old.rows, &new.rows) {
                 return;
             }
+            let mut old_rows = PreviousSiblings::new(&old.rows, |row| row.id);
             for (row_index, row) in new.rows.iter().enumerate() {
-                let Some(old_row) = aligned_by_id(&old.rows, row_index, row.id, |row| row.id)
-                else {
+                let Some(old_row) = old_rows.get(row_index, row.id) else {
                     for cell in row.cells.iter() {
                         changed.insert(cell.id);
                         collect_node_ids(&cell.blocks, &mut |id| {
@@ -3201,10 +2780,9 @@ fn collect_changed_block(
                 if Arc::ptr_eq(&old_row.cells, &row.cells) {
                     continue;
                 }
+                let mut old_cells = PreviousSiblings::new(&old_row.cells, |cell| cell.id);
                 for (cell_index, cell) in row.cells.iter().enumerate() {
-                    if let Some(old_cell) =
-                        aligned_by_id(&old_row.cells, cell_index, cell.id, |cell| cell.id)
-                    {
+                    if let Some(old_cell) = old_cells.get(cell_index, cell.id) {
                         collect_changed_sequence(&old_cell.blocks, &cell.blocks, changed);
                     } else {
                         changed.insert(cell.id);
@@ -4747,7 +4325,8 @@ mod tests {
         let mut ids = Vec::new();
         collect_node_ids(blocks, &mut |id| ids.push(id));
         ids.into_iter().find(|id| {
-            find_node(blocks, *id)
+            blocks
+                .node(*id)
                 .and_then(BlockNode::text)
                 .is_some_and(|content| content.as_string() == text)
         })
@@ -5082,6 +4661,48 @@ mod tests {
         assert_eq!(pasted_column("a\r\n\r\nc\n"), ["a", "", "c"]);
         assert_eq!(pasted_column("a\rb"), ["a", "b"]);
         assert_eq!(pasted_column("a\tb\n"), ["a|b"]);
+    }
+
+    #[test]
+    fn containing_cell_is_outermost_and_containing_item_is_innermost() {
+        let document = Document::from_markdown(
+            "- Outer\n\n  <table><tr><td><ul><li>Inner</li></ul></td></tr></table>\n",
+        )
+        .unwrap();
+        let snapshot = document.snapshot();
+        let BlockNode::List(outer_list) = snapshot.blocks().get(0).unwrap().as_ref() else {
+            panic!("outer list")
+        };
+        let outer_item = &outer_list.items[0];
+        let Some(BlockNode::Table(table)) = outer_item.blocks.get(1).map(AsRef::as_ref) else {
+            panic!("table inside the outer item: {:?}", outer_item.blocks)
+        };
+        let cell = &table.rows[0].cells[0];
+        let Some(BlockNode::List(inner_list)) = cell.blocks.get(0).map(AsRef::as_ref) else {
+            panic!("list inside the cell")
+        };
+        let inner_item = &inner_list.items[0];
+        let inner = leaf_with_text(snapshot.blocks(), "Inner").unwrap();
+        let outer = leaf_with_text(snapshot.blocks(), "Outer").unwrap();
+
+        let in_cell = Some((table.id, 0, 0));
+        let in_outer_item = Some((outer_list.id, outer_item.id, 0));
+        assert_eq!(snapshot.table_cell_containing(inner), in_cell);
+        assert_eq!(
+            snapshot.list_item_containing(inner),
+            Some((inner_list.id, inner_item.id, 0))
+        );
+        assert_eq!(snapshot.table_cell_containing(outer), None);
+        assert_eq!(snapshot.list_item_containing(outer), in_outer_item);
+        // An item, row or cell is not inside itself, only inside its ancestors.
+        assert_eq!(snapshot.table_cell_containing(inner_item.id), in_cell);
+        assert_eq!(snapshot.list_item_containing(inner_item.id), in_outer_item);
+        assert_eq!(snapshot.table_cell_containing(cell.id), None);
+        assert_eq!(snapshot.list_item_containing(cell.id), in_outer_item);
+        assert_eq!(snapshot.table_cell_containing(table.id), None);
+        assert_eq!(snapshot.list_item_containing(outer_item.id), None);
+        assert!(snapshot.node(inner_item.id).is_none());
+        assert_eq!(snapshot.node(inner).map(BlockNode::id), Some(inner));
     }
 
     #[test]

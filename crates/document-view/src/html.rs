@@ -1,8 +1,8 @@
 //! Bounded, inert Blitz layout/paint. The DOM is temporary rendering state;
 //! canonical HTML bytes and editor identity remain in document-core.
 use std::{
-    collections::{BTreeMap, VecDeque},
-    sync::{Arc, Mutex, OnceLock},
+    collections::BTreeMap,
+    sync::{Arc, Mutex, OnceLock, PoisonError},
 };
 
 use anyrender::ImageRenderer;
@@ -18,6 +18,7 @@ use gpui::{Image, ImageFormat};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::TachyonPalette;
+use crate::lru::BoundedLru;
 
 mod accessibility;
 mod fonts;
@@ -29,7 +30,6 @@ pub(crate) struct HtmlPreview {
     pub image: Arc<Image>,
     pub width: f32,
     pub height: f32,
-    pub text: String,
     /// Readable source-order text from the resolved, currently visible DOM.
     /// Unlike copy/conversion text, this excludes closed and CSS-hidden bodies.
     pub accessible_text: String,
@@ -451,16 +451,20 @@ enum HtmlError {
     Encoding(String),
 }
 
-struct Entry {
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct Key {
     source: Arc<str>,
     width: u32,
     overrides: DisclosureOverrides,
     images: images::ImageKey,
     dark: bool,
-    result: Result<Arc<HtmlPreview>, HtmlError>,
 }
 
-static CACHE: OnceLock<Mutex<VecDeque<Entry>>> = OnceLock::new();
+type Cached = Result<Arc<HtmlPreview>, HtmlError>;
+static CACHE: OnceLock<Mutex<BoundedLru<Key, Cached>>> = OnceLock::new();
+/// Each block retains a light and a dark raster.
+const CACHE_ENTRIES: usize = 16;
+const CACHE_BYTES: usize = 16 * 1024 * 1024;
 const MAX_PIXELS: u32 = 4 * 1024 * 1024;
 const RASTER_SCALE: u32 = 2;
 
@@ -497,58 +501,49 @@ pub(crate) fn block_preview_with_images(
     } else {
         images::key(&inert_html_fragment(source)?, resources).ok()?
     };
-    let cache = CACHE.get_or_init(|| Mutex::new(VecDeque::new()));
-    {
-        let mut entries = cache.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(index) = entries.iter().position(|entry| {
-            entry.width == width
-                && entry.source == *source
-                && entry.overrides == *overrides
-                && entry.images == image_key
-                && entry.dark == dark
-        }) {
-            let entry = entries.remove(index)?;
-            let result = entry.result.clone().ok();
-            entries.push_front(entry);
-            return result;
-        }
-    }
-    let result = render_with_images(source, width, overrides, resources, dark).map(Arc::new);
-    let mut entries = cache.lock().unwrap_or_else(|p| p.into_inner());
-    entries.push_front(Entry {
+    let cache =
+        CACHE.get_or_init(|| Mutex::new(BoundedLru::with_budget(CACHE_ENTRIES, CACHE_BYTES)));
+    let key = Key {
         source: source.clone(),
         width,
         overrides: overrides.clone(),
         images: image_key,
         dark,
-        result: result.clone(),
-    });
-    // Each block retains a light and a dark raster.
-    entries.truncate(16);
-    while entries
-        .iter()
-        .map(|entry| {
-            entry.result.as_ref().map_or(0, |preview| {
-                preview.image.bytes.len()
-                    + preview.accessible_text.len()
-                    + std::mem::size_of_val(preview.caret_stops.as_slice())
-                    + preview
-                        .anchors
-                        .iter()
-                        .map(|anchor| {
-                            std::mem::size_of::<HtmlAnchor>()
-                                + anchor.name.len()
-                                + std::mem::size_of_val(anchor.closed_ancestors.as_slice())
-                        })
-                        .sum::<usize>()
-            })
-        })
-        .sum::<usize>()
-        > 16 * 1024 * 1024
-    {
-        entries.pop_back();
+    };
+    let cached = cache
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&key);
+    if let Some(result) = cached {
+        return result.ok();
     }
+    let result = render_with_images(source, width, overrides, resources, dark).map(Arc::new);
+    let bytes = result
+        .as_ref()
+        .map_or(0, |preview| preview.retained_bytes());
+    cache
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert_weighted(key, result.clone(), bytes);
     result.ok()
+}
+
+impl HtmlPreview {
+    /// The payload the preview cache budgets for.
+    fn retained_bytes(&self) -> usize {
+        self.image.bytes.len()
+            + self.accessible_text.len()
+            + std::mem::size_of_val(self.caret_stops.as_slice())
+            + self
+                .anchors
+                .iter()
+                .map(|anchor| {
+                    std::mem::size_of::<HtmlAnchor>()
+                        + anchor.name.len()
+                        + std::mem::size_of_val(anchor.closed_ancestors.as_slice())
+                })
+                .sum::<usize>()
+    }
 }
 
 #[cfg(test)]
@@ -866,7 +861,6 @@ fn render_at_width(
         image: Arc::new(Image::from_bytes(ImageFormat::Png, png)),
         width: width as f32,
         height,
-        text: fragment.text().to_owned(),
         accessible_text: accessibility::visible_text(&doc),
         can_convert,
         text_hits,
@@ -1462,7 +1456,7 @@ mod tests {
                 .open
         );
         assert_eq!(&*opened.source, source);
-        assert_eq!(opened.text, closed.text);
+        assert_eq!(opened.editable_text, closed.editable_text);
         let hidden = render(
             "<div style='display:none'><p id='hidden'>Hidden</p></div><p>Visible</p>",
             360,
@@ -1797,7 +1791,7 @@ mod tests {
             "Blitz must reflow at the exact available width"
         );
         assert_eq!(wide.width, 640.);
-        assert!(wide.text.contains("A styled HTML fragment"));
+        assert!(wide.accessible_text.contains("A styled HTML fragment"));
         assert_eq!(&wide.image.bytes[..8], b"\x89PNG\r\n\x1a\n");
         let decoder = png::Decoder::new(std::io::Cursor::new(&wide.image.bytes));
         let mut reader = decoder.read_info().unwrap();
@@ -1827,14 +1821,17 @@ mod tests {
         );
         assert!(initial.disclosures.iter().all(|d| d.label == "Details"));
         assert!(
-            !initial.text.contains("Details"),
+            !inert_html_fragment(source)
+                .unwrap()
+                .text()
+                .contains("Details"),
             "UI labels must not enter copied text"
         );
         let outer = render_with_disclosures(source, 640, &[(0, true)].into()).unwrap();
         let both = render_with_disclosures(source, 640, &[(0, true), (1, true)].into()).unwrap();
         assert!(initial.height < outer.height && outer.height < both.height);
         assert_eq!(both.source.as_ref(), source);
-        assert_eq!(both.text, initial.text);
+        assert_eq!(both.editable_text, initial.editable_text);
         assert_eq!(both.disclosures.len(), 3);
         let empty = render("<details></details>", 400).unwrap();
         assert_eq!(empty.disclosures.len(), 1);
@@ -1918,7 +1915,6 @@ mod tests {
             );
             assert!(open.height > closed.height);
             assert_eq!(open.source.as_ref(), source);
-            assert_eq!(open.text, closed.text);
         }
     }
 

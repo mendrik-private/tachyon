@@ -399,8 +399,8 @@ impl AdaptivePlan {
             .enumerate()
             .map(|(i, id)| (*id, i))
             .collect();
-        plan.groups = std::sync::Arc::new(GroupAnalysis::build(&roots));
-        plan.editorials = editorial::analyze(&roots);
+        plan.groups = std::sync::Arc::new(GroupAnalysis::build(&roots, projection.figure_roles()));
+        plan.editorials = projection.editorial_members().clone();
         plan.retain_editorials(projection, previous, keep_arrangements);
         // Refuse advanced geometry on an invalid ownership partition. The
         // existing renderer remains a complete source-order stack fallback.

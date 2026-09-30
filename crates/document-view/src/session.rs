@@ -104,19 +104,6 @@ impl SharedDocumentSession {
         self.0.document.borrow_mut().begin_composition(range)
     }
 
-    pub fn begin_html_composition(
-        &self,
-        node_id: document_core::NodeId,
-        source: &str,
-        anchor: document_core::HtmlTextPosition,
-        head: document_core::HtmlTextPosition,
-    ) -> Result<(), DocumentError> {
-        self.0
-            .document
-            .borrow_mut()
-            .begin_html_composition(node_id, source, anchor, head)
-    }
-
     pub fn begin_preview_composition(
         &self,
         selection: &document_core::PreviewSelection,

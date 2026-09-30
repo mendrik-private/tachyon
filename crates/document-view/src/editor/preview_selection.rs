@@ -360,8 +360,7 @@ mod tests {
             .unwrap();
         let line = painted_line_for_offset(&editor.painted_lines, offset).unwrap();
         let point = point(
-            aligned_text_left(line.bounds, &line.layout, line.alignment)
-                + shaped_x_for_index(&line.layout, offset - line.range.start),
+            line.x_for_offset(offset),
             line.bounds.top() + line.bounds.size.height * 0.5,
         );
         assert_eq!(

@@ -85,8 +85,8 @@ A geometry-only text-check shortcut was evaluated and removed: three short
 before/after pairs and a 60-second pair did not establish a reliable end-to-end
 benefit. The rejected candidate passed its own scan-count regression, but that
 was insufficient evidence to retain it. No production adapter optimization is
-left from that experiment. See `performance/CURRENT-LAYOUT-PERFORMANCE.md` and
-`performance/RETAINED-ACCESSIBILITY-PLAN.md` for measurements and the intended
+left from that experiment. See `performance/CURRENT-LAYOUT-PERFORMANCE.md` (commit 9977ce8) and
+`performance/RETAINED-ACCESSIBILITY-PLAN.md` (commit 9977ce8) for measurements and the intended
 framework/application boundary. Full native/performance coverage remains open.
 
 The retained-tree implementation instead separates the immutable
@@ -149,7 +149,7 @@ still hides TextRun nodes, leaving authored document-root positions unchanged.
 boundaries. Final private AT-SPI captures expose all expected 3,337 and 33,268
 direct roots at 1 MiB and 10 MiB, hash representative nodes across the whole
 document, preserve exact source, and pass the steady frame gate. See
-`performance/RETAINED-ACCESSIBILITY-CHECKPOINT.md`.
+`performance/RETAINED-ACCESSIBILITY-CHECKPOINT.md` (commit 9977ce8).
 
 For an incremental edit, old and new marked canonical runs are now diffed
 directly. This avoids rebuilding the same full document string through

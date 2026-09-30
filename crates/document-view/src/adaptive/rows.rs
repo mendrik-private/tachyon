@@ -204,12 +204,17 @@ fn contiguous_peer_count(units: &[Unit], index: usize) -> usize {
     end - start
 }
 
-fn remap_roots(range: &Range<usize>, old: &[NodeId], new: &[NodeId]) -> Option<Range<usize>> {
-    let ids = old.get(range.clone())?;
-    let first = *ids.first()?;
-    let start = new.iter().position(|id| *id == first)?;
+/// The current ordinals of an old plan's root range, when the same roots are
+/// still contiguous and in order.
+fn remap_roots(
+    range: &Range<usize>,
+    old: &AdaptivePlan,
+    new: &AdaptivePlan,
+) -> Option<Range<usize>> {
+    let ids = old.root_ids.get(range.clone())?;
+    let start = new.root_ordinal(*ids.first()?)?;
     let end = start.checked_add(ids.len())?;
-    (new.get(start..end)? == ids).then_some(start..end)
+    (new.root_ids.get(start..end)? == ids).then_some(start..end)
 }
 
 /// Prefix roots paint above the row's columns. A caret in that shared heading
@@ -246,7 +251,7 @@ fn constrain_editing_row(
     else {
         return false;
     };
-    let Some(ordinal) = old.root_ids.iter().position(|id| *id == root) else {
+    let Some(ordinal) = old.root_ordinal(root) else {
         return false;
     };
     let Some(old_row) = old
@@ -257,7 +262,7 @@ fn constrain_editing_row(
     else {
         return false;
     };
-    let Some(roots) = remap_roots(&old_row.roots, &old.root_ids, &plan.root_ids) else {
+    let Some(roots) = remap_roots(&old_row.roots, old, plan) else {
         return false;
     };
     let overlaps = |range: &Range<usize>| range.start < roots.end && roots.start < range.end;
@@ -285,7 +290,7 @@ fn constrain_editing_row(
     let parts = old_row
         .parts
         .iter()
-        .map(|part| remap_roots(part, &old.root_ids, &plan.root_ids))
+        .map(|part| remap_roots(part, old, plan))
         .collect::<Option<Vec<_>>>();
     let bounds = window
         .iter()
@@ -430,11 +435,11 @@ pub(crate) fn measure_rows(
                     return None;
                 }
                 let mut row = row.clone();
-                row.roots = remap_roots(&row.roots, &old.root_ids, &plan.root_ids)?;
+                row.roots = remap_roots(&row.roots, old, plan)?;
                 row.parts = row
                     .parts
                     .iter()
-                    .map(|part| remap_roots(part, &old.root_ids, &plan.root_ids))
+                    .map(|part| remap_roots(part, old, plan))
                     .collect::<Option<Vec<_>>>()?;
                 Some(row)
             })
@@ -447,7 +452,7 @@ pub(crate) fn measure_rows(
             .covered
             .iter()
             .filter_map(|range| {
-                let current = remap_roots(range, &old.root_ids, &plan.root_ids)?;
+                let current = remap_roots(range, old, plan)?;
                 current
                     .clone()
                     .all(|i| plan.unchanged_root(old, plan.root_ids[i]))
@@ -479,12 +484,7 @@ pub(crate) fn measure_rows(
             old.measured_rows
                 .covered
                 .iter()
-                .filter_map(|range| {
-                    let start = plan.root_ordinal(*old.root_ids.get(range.start)?)?;
-                    let end = start.checked_add(range.len())?;
-                    (old.root_ids.get(range.clone())? == plan.root_ids.get(start..end)?)
-                        .then_some((start, end))
-                })
+                .filter_map(|range| remap_roots(range, old, plan).map(|r| (r.start, r.end)))
                 .collect::<std::collections::HashSet<_>>()
         })
         .unwrap_or_default();
@@ -1276,10 +1276,7 @@ fn offscreen_rows(
                 row.parts = before
                     .parts
                     .iter()
-                    .map(|part| {
-                        let start = plan.root_ordinal(*old.root_ids.get(part.start)?)?;
-                        Some(start..start + part.len())
-                    })
+                    .map(|part| remap_roots(part, old, plan))
                     .collect::<Option<Vec<_>>>()?;
                 row.roots = range;
                 row.groups = index..end;
@@ -2711,12 +2708,18 @@ mod tests {
     #[test]
     fn retained_row_ranges_follow_identity_and_reject_changed_membership() {
         let ids = (1..=8).map(NodeId::new_unchecked).collect::<Vec<_>>();
-        assert_eq!(remap_roots(&(1..4), &ids[..5], &ids[..6]), Some(1..4));
-        let shifted = [ids[6], ids[7], ids[0], ids[1], ids[2], ids[3], ids[4]];
-        assert_eq!(remap_roots(&(1..4), &ids[..5], &shifted), Some(3..6));
-        let interrupted = [ids[0], ids[1], ids[7], ids[2], ids[3], ids[4]];
-        assert_eq!(remap_roots(&(1..4), &ids[..5], &interrupted), None);
-        assert_eq!(remap_roots(&(1..4), &ids[..5], &ids[..3]), None);
+        let plan = |roots: &[NodeId]| AdaptivePlan {
+            root_ids: roots.to_vec(),
+            root_ordinals: roots.iter().enumerate().map(|(i, id)| (*id, i)).collect(),
+            ..AdaptivePlan::default()
+        };
+        let old = plan(&ids[..5]);
+        assert_eq!(remap_roots(&(1..4), &old, &plan(&ids[..6])), Some(1..4));
+        let shifted = plan(&[ids[6], ids[7], ids[0], ids[1], ids[2], ids[3], ids[4]]);
+        assert_eq!(remap_roots(&(1..4), &old, &shifted), Some(3..6));
+        let interrupted = plan(&[ids[0], ids[1], ids[7], ids[2], ids[3], ids[4]]);
+        assert_eq!(remap_roots(&(1..4), &old, &interrupted), None);
+        assert_eq!(remap_roots(&(1..4), &old, &plan(&ids[..3])), None);
     }
 
     #[test]

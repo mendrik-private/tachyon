@@ -132,9 +132,9 @@ pub struct HtmlConversionLeaf {
 #[must_use]
 pub fn editable_html_leaves(source: &str) -> Option<Vec<HtmlConversionLeaf>> {
     let markdown = editable_html_markdown(source)?;
-    let imported = crate::markdown::import(std::sync::Arc::<str>::from(markdown)).ok()?;
+    let imported = crate::markdown::import_fragment(&markdown).ok()?;
     Some(
-        conversion_text_blocks(imported.blocks())
+        conversion_text_blocks(&imported)
             .into_iter()
             .filter_map(|block| {
                 Some(HtmlConversionLeaf {
@@ -254,19 +254,50 @@ pub(crate) fn clipboard_html_document(source: &str) -> Option<String> {
     Some(html_fragment_with_budget(source, true, source.len().saturating_add(1))?.html)
 }
 
+const INERT_SOURCE_LIMIT: usize = 32 * 1024;
+const INERT_NODE_BUDGET: usize = 512;
+
 fn bounded_html_fragment(source: &str, clipboard: bool) -> Option<InertHtmlFragment> {
-    if source.len() > 32 * 1024 {
+    if source.len() > INERT_SOURCE_LIMIT {
         return None;
     }
-    html_fragment_with_budget(source, clipboard, 512)
+    html_fragment_with_budget(source, clipboard, INERT_NODE_BUDGET)
 }
 
 fn html_fragment_with_budget(
     source: &str,
     clipboard: bool,
-    mut budget: usize,
+    budget: usize,
 ) -> Option<InertHtmlFragment> {
     let dom = parse_document(RcDom::default(), ParseOpts::default()).one(source);
+    inert_fragment_of(&dom, clipboard, budget)
+}
+
+/// One html5ever parse of an imported HTML block, shared by the table,
+/// glossary and inert-fragment readers.
+pub(crate) struct ParsedHtml<'a> {
+    source: &'a str,
+    dom: RcDom,
+}
+
+impl<'a> ParsedHtml<'a> {
+    pub(crate) fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            dom: parse_document(RcDom::default(), ParseOpts::default()).one(source),
+        }
+    }
+
+    /// The same fragment [`inert_html_fragment`] returns for this source.
+    pub(crate) fn inert_fragment(&self) -> Option<InertHtmlFragment> {
+        if self.source.len() > INERT_SOURCE_LIMIT {
+            return None;
+        }
+        inert_fragment_of(&self.dom, false, INERT_NODE_BUDGET)
+    }
+}
+
+fn inert_fragment_of(dom: &RcDom, clipboard: bool, mut budget: usize) -> Option<InertHtmlFragment> {
     let mut fragment = InertHtmlFragment {
         html: String::new(),
         text: String::new(),
@@ -304,14 +335,19 @@ pub fn editable_html_markdown(source: &str) -> Option<String> {
     (!markdown.trim().is_empty() && !markdown.contains("<!-- Unsupported")).then_some(markdown)
 }
 
-fn html_escape(value: &str, output: &mut String) {
-    for ch in value.chars() {
-        match ch {
+/// Escape text for HTML element content or a double-quoted attribute value.
+/// `line_breaks` also encodes CR and LF: raw blank lines would end a Markdown
+/// HTML block, and HTML parsing would normalize CRLF.
+pub(crate) fn push_escaped_html(output: &mut String, value: &str, line_breaks: bool) {
+    for character in value.chars() {
+        match character {
             '&' => output.push_str("&amp;"),
             '<' => output.push_str("&lt;"),
             '>' => output.push_str("&gt;"),
             '"' => output.push_str("&quot;"),
-            _ => output.push(ch),
+            '\r' if line_breaks => output.push_str("&#13;"),
+            '\n' if line_breaks => output.push_str("&#10;"),
+            _ => output.push(character),
         }
     }
 }
@@ -329,7 +365,7 @@ fn inert_node(
     *budget -= 1;
     match &handle.data {
         NodeData::Text { contents } => {
-            html_escape(&contents.borrow(), &mut fragment.html);
+            push_escaped_html(&mut fragment.html, &contents.borrow(), false);
             fragment.text.push_str(&contents.borrow());
         }
         NodeData::Element { name, attrs, .. } => {
@@ -427,7 +463,7 @@ fn inert_node(
                         Ok(_) | Err(crate::LinkError::NoDirectory)
                     ) {
                         fragment.html.push_str(" href=\"");
-                        html_escape(&target, &mut fragment.html);
+                        push_escaped_html(&mut fragment.html, &target, false);
                         fragment.html.push('"');
                     }
                 } else {
@@ -467,7 +503,7 @@ fn inert_node(
                 if clipboard {
                     if local || web {
                         fragment.html.push_str(" src=\"");
-                        html_escape(&source, &mut fragment.html);
+                        push_escaped_html(&mut fragment.html, &source, false);
                         fragment.html.push('"');
                     }
                 } else {
@@ -476,7 +512,7 @@ fn inert_node(
                     fragment.html.push('"');
                 }
                 fragment.html.push_str(" alt=\"");
-                html_escape(&alt, &mut fragment.html);
+                push_escaped_html(&mut fragment.html, &alt, false);
                 fragment.html.push('"');
                 fragment.text.push_str(&alt);
                 fragment.images.push(InertHtmlImage { source, alt });
@@ -510,7 +546,7 @@ fn inert_node(
                     } else {
                         " data-tachyon-anchor=\""
                     });
-                    html_escape(&attr.value, &mut fragment.html);
+                    push_escaped_html(&mut fragment.html, &attr.value, false);
                     fragment.html.push('"');
                     continue;
                 }
@@ -538,7 +574,7 @@ fn inert_node(
                     fragment.html.push(' ');
                     fragment.html.push_str(key);
                     fragment.html.push_str("=\"");
-                    html_escape(&attr.value, &mut fragment.html);
+                    push_escaped_html(&mut fragment.html, &attr.value, false);
                     fragment.html.push('"');
                 }
             }
@@ -898,11 +934,10 @@ pub(crate) struct HtmlTableData {
 /// paragraphs. Native import is conservative: unfamiliar wrappers, attributes
 /// or children remain in the lossless inert-HTML path.
 pub(crate) fn html_definition_data(
-    source: &str,
+    html: &ParsedHtml<'_>,
 ) -> Option<Vec<(crate::DefinitionKind, Vec<String>)>> {
-    inert_html_fragment(source)?;
-    let dom = parse_document(RcDom::default(), ParseOpts::default()).one(source);
-    let body = descendants_named(&dom.document, "body")
+    html.inert_fragment()?;
+    let body = descendants_named(&html.dom.document, "body")
         .into_iter()
         .next()?;
     let meaningful = |child: &&Handle| {
@@ -979,8 +1014,8 @@ pub(crate) fn html_definition_data(
     Some(groups)
 }
 
-pub(crate) fn html_table_data(source: &str) -> Option<HtmlTableData> {
-    let dom = parse_document(RcDom::default(), ParseOpts::default()).one(source);
+pub(crate) fn html_table_data(html: &ParsedHtml<'_>) -> Option<HtmlTableData> {
+    let dom = &html.dom;
     if descendants_named(&dom.document, "head").iter().any(|head| {
         head.children
             .borrow()
@@ -1560,7 +1595,38 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
-    use crate::{BlockNode, Document, EditCommand, InlineStyle};
+    use crate::{BlockNode, Document, DocumentError, EditCommand, InlineStyle, NodeId};
+
+    trait HtmlComposition {
+        fn begin_html_composition(
+            &mut self,
+            node_id: NodeId,
+            expected_source: &str,
+            anchor: HtmlTextPosition,
+            head: HtmlTextPosition,
+        ) -> Result<(), DocumentError>;
+    }
+
+    impl HtmlComposition for Document {
+        fn begin_html_composition(
+            &mut self,
+            node_id: NodeId,
+            expected_source: &str,
+            anchor: HtmlTextPosition,
+            head: HtmlTextPosition,
+        ) -> Result<(), DocumentError> {
+            let endpoint = |position| crate::PreviewPosition::Html {
+                node_id,
+                expected_source: Arc::from(expected_source),
+                position,
+            };
+            self.begin_preview_composition(&crate::PreviewSelection {
+                revision: self.snapshot().revision(),
+                anchor: endpoint(anchor),
+                head: endpoint(head),
+            })
+        }
+    }
 
     #[test]
     fn first_edit_of_a_cell_fragment_is_local_atomic_and_composition_safe() {
@@ -1667,7 +1733,10 @@ mod tests {
             let source = format!(
                 "<table><tr><th {attributes}>Group</th><th>Other</th></tr><tr><td>First</td><td>Second</td></tr></table>\n"
             );
-            assert!(html_table_data(&source).is_none(), "{attributes}");
+            assert!(
+                html_table_data(&ParsedHtml::new(&source)).is_none(),
+                "{attributes}"
+            );
             assert!(editable_html_markdown(&source).is_none(), "{attributes}");
             assert!(editable_html_text_nodes(&source).is_none(), "{attributes}");
             let mut document =
@@ -1696,8 +1765,10 @@ mod tests {
             );
         }
         assert!(
-            html_table_data("<table><tr><td colspan='1' rowspan='1'>Ordinary</td></tr></table>")
-                .is_some()
+            html_table_data(&ParsedHtml::new(
+                "<table><tr><td colspan='1' rowspan='1'>Ordinary</td></tr></table>"
+            ))
+            .is_some()
         );
     }
 
@@ -1715,7 +1786,7 @@ mod tests {
     #[test]
     fn only_standalone_html_tables_enter_the_typed_table_adapter() {
         let table = "<table><tr><th>Key</th><th>Value</th></tr><tr><td>Mode</td><td>Local</td></tr></table>";
-        assert!(html_table_data(table).is_some());
+        assert!(html_table_data(&ParsedHtml::new(table)).is_some());
         for source in [
             format!("<div><p>Before marker</p>{table}<p>After marker</p></div>"),
             format!("<html><head><title>Authored title</title></head><body>{table}</body></html>"),
@@ -1724,7 +1795,7 @@ mod tests {
             format!("{table}\n<p>After marker</p>"),
         ] {
             assert!(
-                html_table_data(&source).is_none(),
+                html_table_data(&ParsedHtml::new(&source)).is_none(),
                 "adapter would discard surrounding content: {source}"
             );
             let document = Document::from_markdown(source.clone()).unwrap();
@@ -1867,7 +1938,7 @@ mod tests {
             let list = format!("<ol {attributes}><li>First</li><li>Second</li></ol>");
             assert!(editable_html_markdown(&list).is_none(), "{attributes}");
             let source = format!("<table><tr><td>{list}</td></tr></table>");
-            assert!(html_table_data(&source).is_none());
+            assert!(html_table_data(&ParsedHtml::new(&source)).is_none());
             let document = Document::from_markdown(source.as_str()).unwrap();
             assert!(matches!(
                 document.snapshot().blocks().get(0).unwrap().as_ref(),

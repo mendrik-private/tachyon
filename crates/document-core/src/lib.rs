@@ -17,10 +17,10 @@ mod table;
 mod text;
 mod tree_selection;
 
-pub use clipboard::{ClipboardPayload, RICH_CLIPBOARD_MIME, RichClipboard};
+pub use clipboard::{ClipboardPayload, RichClipboard};
 pub use command::{
-    BlockStyle, EditCommand, FormatState, HtmlTextEdit, InlineFormat, InsertBlockKind,
-    InverseOperation, PreviewPosition, PreviewSelection, TransactionResult,
+    BlockStyle, EditCommand, HtmlTextEdit, InlineFormat, InsertBlockKind, InverseOperation,
+    PreviewPosition, PreviewSelection, TransactionResult,
 };
 pub use document::{Document, DocumentSnapshot, RevisionTagged, SourceRebase};
 pub use error::{DocumentError, PositionError};
@@ -37,7 +37,7 @@ pub use model::{
     ListBlock, ListItem, ListKind, NodeId, Paragraph, RectangularSelection, Revision, Selection,
     Table, TableBorder, TableCell, TableRow, TextSelection,
 };
-pub use source::{LineEnding, SaveSnapshot, SourceIdentity, SourceSpine};
+pub use source::{LineEnding, SourceSpine};
 pub use text::{InlineRun, InlineStyle, RichText, TextRange};
 
 /// The pause that terminates a continuous typing undo group.

@@ -9,8 +9,11 @@ use std::ops::Range;
 /// Only source that the parser consumes without rendering is a definition.
 /// Visible inline/code/HTML spans prevent syntax-looking examples from becoming
 /// active reference records when their enclosing container is removed.
-pub(super) fn records<'a>(source: &str, root: &'a AstNode<'a>) -> Vec<(Range<usize>, String)> {
-    let starts = super::line_starts(source);
+pub(super) fn records<'a>(
+    source: &str,
+    starts: &[usize],
+    root: &'a AstNode<'a>,
+) -> Vec<(Range<usize>, String)> {
     let paragraphs = root
         .descendants()
         .filter_map(|node| {
@@ -32,7 +35,7 @@ pub(super) fn records<'a>(source: &str, root: &'a AstNode<'a>) -> Vec<(Range<usi
                     | NodeValue::Math(_)
                     | NodeValue::FrontMatter(_)
             ) {
-                super::source_range(data.sourcepos, &starts, source).and_then(|(a, b)| {
+                super::source_range(data.sourcepos, starts, source).and_then(|(a, b)| {
                     // Comrak leaves inline positions at the old paragraph origin
                     // after removing leading definitions. Do not trust mismatched
                     // text spans; paragraph-prefix parsing below checks context.

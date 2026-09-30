@@ -397,6 +397,155 @@ impl BlockNode {
             Self::PreservedSource { description, .. } => description.clone(),
         }
     }
+
+    /// The start of the first text node in document order.
+    #[must_use]
+    pub(crate) fn first_editable_position(&self) -> Option<DocumentPosition> {
+        if self.text().is_some() {
+            return Some(DocumentPosition::new(self.id(), 0, Affinity::Downstream));
+        }
+        match self {
+            Self::List(list) => list
+                .items
+                .iter()
+                .find_map(|item| item.blocks.first_editable_position()),
+            Self::BlockQuote { blocks, .. }
+            | Self::Alert { blocks, .. }
+            | Self::Definition { blocks, .. }
+            | Self::FootnoteDefinition { blocks, .. } => blocks.first_editable_position(),
+            Self::Table(table) => table
+                .rows
+                .iter()
+                .flat_map(|row| row.cells.iter())
+                .find_map(|cell| cell.blocks.first_editable_position()),
+            _ => None,
+        }
+    }
+
+    /// The end of the last text node in document order.
+    #[must_use]
+    pub(crate) fn last_editable_position(&self) -> Option<DocumentPosition> {
+        if let Some(text) = self.text() {
+            return Some(DocumentPosition::new(
+                self.id(),
+                text.len(),
+                Affinity::Downstream,
+            ));
+        }
+        let last_in = |blocks: &BlockSequence| {
+            blocks
+                .iter()
+                .rev()
+                .find_map(|block| block.last_editable_position())
+        };
+        match self {
+            Self::List(list) => list
+                .items
+                .iter()
+                .rev()
+                .find_map(|item| last_in(&item.blocks)),
+            Self::BlockQuote { blocks, .. }
+            | Self::Alert { blocks, .. }
+            | Self::Definition { blocks, .. }
+            | Self::FootnoteDefinition { blocks, .. } => last_in(blocks),
+            Self::Table(table) => table
+                .rows
+                .iter()
+                .rev()
+                .flat_map(|row| row.cells.iter().rev())
+                .find_map(|cell| last_in(&cell.blocks)),
+            _ => None,
+        }
+    }
+
+    /// See [`BlockSequence::map_ids`].
+    #[must_use]
+    pub(crate) fn map_ids(&self, map: &mut impl FnMut(NodeId) -> NodeId) -> Self {
+        match self {
+            Self::Paragraph(paragraph) => Self::Paragraph(Paragraph {
+                id: map(paragraph.id),
+                content: paragraph.content.clone(),
+            }),
+            Self::Heading(heading) => Self::Heading(Heading {
+                id: map(heading.id),
+                level: heading.level,
+                content: heading.content.clone(),
+            }),
+            Self::CodeBlock(code) => Self::CodeBlock(CodeBlock {
+                id: map(code.id),
+                language: code.language.clone(),
+                syntax: code.syntax,
+                content: code.content.clone(),
+            }),
+            Self::Image(image) => Self::Image(ImageNode {
+                id: map(image.id),
+                ..image.clone()
+            }),
+            Self::List(list) => Self::List(ListBlock {
+                id: map(list.id),
+                kind: list.kind.clone(),
+                tight: list.tight,
+                items: list
+                    .items
+                    .iter()
+                    .map(|item| ListItem {
+                        id: map(item.id),
+                        checked: item.checked,
+                        blocks: item.blocks.map_ids(map),
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            }),
+            Self::BlockQuote { id, blocks } => Self::BlockQuote {
+                id: map(*id),
+                blocks: blocks.map_ids(map),
+            },
+            Self::Definition { id, kind, blocks } => Self::Definition {
+                id: map(*id),
+                kind: *kind,
+                blocks: blocks.map_ids(map),
+            },
+            Self::Table(table) => Self::Table(Table {
+                id: map(table.id),
+                columns: table.columns.clone(),
+                rows: table
+                    .rows
+                    .iter()
+                    .map(|row| row.map_ids(map))
+                    .collect::<Vec<_>>()
+                    .into(),
+                header_rows: table.header_rows,
+                border: table.border,
+                preserved_metadata: table.preserved_metadata.clone(),
+            }),
+            Self::Alert {
+                id,
+                kind,
+                title,
+                blocks,
+            } => Self::Alert {
+                id: map(*id),
+                kind: kind.clone(),
+                title: title.clone(),
+                blocks: blocks.map_ids(map),
+            },
+            Self::FootnoteDefinition { id, label, blocks } => Self::FootnoteDefinition {
+                id: map(*id),
+                label: label.clone(),
+                blocks: blocks.map_ids(map),
+            },
+            Self::ThematicBreak { id } => Self::ThematicBreak { id: map(*id) },
+            Self::PreservedSource {
+                id,
+                source,
+                description,
+            } => Self::PreservedSource {
+                id: map(*id),
+                source: source.clone(),
+                description: description.clone(),
+            },
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -555,6 +704,130 @@ impl BlockSequence {
     /// Uses the sequence's persistent descendant index, not a tree scan.
     pub fn contains_node(&self, node_id: NodeId) -> bool {
         self.top_index_containing(node_id).is_some()
+    }
+
+    /// Follow the descendant indexes to block `id`, reporting every level
+    /// entered. A list item or table cell whose subtree contains `id` is
+    /// reported even when `id` names a nested item, row or cell, not a block.
+    pub(crate) fn descend<'a>(
+        &'a self,
+        id: NodeId,
+        step: &mut impl FnMut(PathStep<'a>),
+    ) -> Option<&'a Arc<BlockNode>> {
+        let index = self.top_index_containing(id)?;
+        step(PathStep::Block(index));
+        let block = self.get(index)?;
+        if block.id() == id {
+            return Some(block);
+        }
+        match block.as_ref() {
+            BlockNode::Definition { blocks, .. }
+            | BlockNode::BlockQuote { blocks, .. }
+            | BlockNode::Alert { blocks, .. }
+            | BlockNode::FootnoteDefinition { blocks, .. } => blocks.descend(id, step),
+            BlockNode::List(list) => {
+                let index = list.item_containing(id)?;
+                step(PathStep::ListItem { list, index });
+                list.items[index].blocks.descend(id, step)
+            }
+            BlockNode::Table(table) => {
+                let (row, column) = table.cell_containing(id)?;
+                step(PathStep::TableCell { table, row, column });
+                table.rows[row].cells[column].blocks.descend(id, step)
+            }
+            _ => None,
+        }
+    }
+
+    /// The block `id` in this sequence or any descendant sequence.
+    #[must_use]
+    pub(crate) fn node(&self, id: NodeId) -> Option<&BlockNode> {
+        self.descend(id, &mut |_| {}).map(AsRef::as_ref)
+    }
+
+    /// The start of the first text node in document order.
+    #[must_use]
+    pub fn first_editable_position(&self) -> Option<DocumentPosition> {
+        self.iter()
+            .find_map(|block| block.first_editable_position())
+    }
+
+    /// Copy with every node ID, including list items, rows and cells, replaced
+    /// by `map` in pre-order.
+    #[must_use]
+    pub(crate) fn map_ids(&self, map: &mut impl FnMut(NodeId) -> NodeId) -> Self {
+        Self::new(
+            self.iter()
+                .map(|block| Arc::new(block.map_ids(map)))
+                .collect(),
+        )
+    }
+}
+
+/// One level of a [`BlockSequence::descend`] path.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum PathStep<'a> {
+    /// Index within the enclosing block sequence.
+    Block(usize),
+    ListItem {
+        list: &'a ListBlock,
+        index: usize,
+    },
+    TableCell {
+        table: &'a Table,
+        row: usize,
+        column: usize,
+    },
+}
+
+impl ListBlock {
+    /// The item whose blocks contain `id`; an item's own ID is not inside it.
+    #[must_use]
+    pub(crate) fn item_containing(&self, id: NodeId) -> Option<usize> {
+        self.items
+            .iter()
+            .position(|item| item.blocks.contains_node(id))
+    }
+}
+
+impl Table {
+    /// The cell whose blocks contain `id`; a row or cell's own ID is not
+    /// inside it.
+    #[must_use]
+    pub(crate) fn cell_containing(&self, id: NodeId) -> Option<(usize, usize)> {
+        self.rows.iter().enumerate().find_map(|(row_index, row)| {
+            row.cells
+                .iter()
+                .position(|cell| cell.blocks.contains_node(id))
+                .map(|column| (row_index, column))
+        })
+    }
+}
+
+impl TableRow {
+    /// See [`BlockSequence::map_ids`].
+    #[must_use]
+    pub(crate) fn map_ids(&self, map: &mut impl FnMut(NodeId) -> NodeId) -> Self {
+        Self {
+            id: map(self.id),
+            cells: self
+                .cells
+                .iter()
+                .map(|cell| cell.map_ids(map))
+                .collect::<Vec<_>>()
+                .into(),
+        }
+    }
+}
+
+impl TableCell {
+    /// See [`BlockSequence::map_ids`].
+    #[must_use]
+    pub(crate) fn map_ids(&self, map: &mut impl FnMut(NodeId) -> NodeId) -> Self {
+        Self {
+            id: map(self.id),
+            blocks: self.blocks.map_ids(map),
+        }
     }
 }
 

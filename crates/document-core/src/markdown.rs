@@ -1,11 +1,11 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, ops::ControlFlow, sync::Arc};
 
 mod html_source;
 mod reference_source;
 mod source_reuse;
 
 use comrak::{
-    Anchorizer, Arena, Options,
+    Arena, Options,
     nodes::{AlertType, AstNode, ListType, NodeValue, Sourcepos, TableAlignment},
     parse_document,
 };
@@ -23,101 +23,125 @@ use crate::{
 
 pub(crate) fn import(source: Arc<str>) -> Result<DocumentSnapshot, DocumentError> {
     let arena = Arena::new();
-    let options = markdown_options();
-    let root = parse_document(&arena, &source, &options);
-    let mut importer = Importer {
-        next_id: 1,
-        list_item_positions: Vec::new(),
-        note_paragraph_positions: Vec::new(),
-        table_cell_positions: Vec::new(),
-        leaf_positions: Vec::new(),
-        original_source: true,
-    };
-    let children = root.children().collect::<Vec<_>>();
-    let mut blocks = Vec::with_capacity(children.len());
-    let mut positions = Vec::with_capacity(children.len());
-    let mut index = 0;
-    while index < children.len() {
-        let child = children[index];
-        if let Some(metadata) = recognized_table_metadata(child)
-            && let Some(table_node) = children.get(index + 1).copied()
-        {
-            let value = table_node.data.borrow().value.clone();
-            let table = match value {
-                NodeValue::Table(table_data)
-                    if metadata.widths.len() == table_data.alignments.len() =>
-                {
-                    Some(importer.table(table_node, &table_data.alignments)?)
-                }
-                NodeValue::HtmlBlock(html) => crate::html::html_table_data(&html.literal)
-                    .filter(|data| metadata.widths.len() == data.alignments.len())
-                    .map(|data| importer.html_table(data))
-                    .transpose()?,
-                _ => None,
-            };
-            if let Some(mut table) = table {
-                metadata.apply(&mut table);
-                let block = BlockNode::Table(table);
-                let mut source_position = table_node.data.borrow().sourcepos;
-                source_position.start = child.data.borrow().sourcepos.start;
-                positions.push((block.id(), source_position));
-                blocks.push(Arc::new(block));
-                index += 2;
-                continue;
-            }
-        }
-        if let Some(block) = importer.block(child)? {
-            positions.push((block.id(), child.data.borrow().sourcepos));
-            blocks.push(Arc::new(block));
-        }
-        index += 1;
-    }
-    // Comrak resolves footnotes semantically and may expose their definition
-    // nodes after later source blocks. SourceSpine requires source order so
-    // every prefix has exactly one owner and unrelated edits cannot duplicate
-    // an out-of-order definition from a later block's prefix.
-    let mut imported = blocks.into_iter().zip(positions).collect::<Vec<_>>();
-    imported.sort_by_key(|(_, (_, position))| {
-        (
-            position.start.line,
-            position.start.column,
-            position.end.line,
-            position.end.column,
-        )
-    });
-    let (mut blocks, positions): (Vec<_>, Vec<_>) = imported.into_iter().unzip();
-    let mut transient_caret = None;
-    let first_position = if let Some(position) = first_editable_position(&blocks) {
-        position
-    } else {
-        let id = importer.allocate();
-        let caret = Arc::new(BlockNode::Paragraph(Paragraph {
-            id,
-            content: RichText::default(),
-        }));
-        blocks.push(caret.clone());
-        transient_caret = Some(caret);
-        DocumentPosition::new(id, 0, Affinity::Downstream)
-    };
-    let blocks = BlockSequence::new(blocks);
-    let references = reference_source::records(&source, root);
+    let root = parse_document(&arena, &source, &markdown_options());
+    let tree = ImportedTree::new(root, true)?;
+    let line_starts = line_starts(&source);
+    let references = reference_source::records(&source, &line_starts, root);
     let spine = build_spine(
         source,
-        &positions,
-        &blocks,
-        &importer.list_item_positions,
-        &importer.note_paragraph_positions,
-        &importer.table_cell_positions,
-        &importer.leaf_positions,
+        &line_starts,
+        &tree.positions,
+        &tree.blocks,
+        &tree.importer,
     )
     .with_references(references);
     Ok(snapshot_from_import(
-        blocks,
-        Selection::Text(TextSelection::caret(first_position)),
+        tree.blocks,
+        Selection::Text(TextSelection::caret(tree.first_position)),
         spine,
-        importer.next_id,
-        transient_caret,
+        tree.importer.next_id,
+        tree.transient_caret,
     ))
+}
+
+/// Blocks of a Markdown fragment whose source ranges are not kept: callers
+/// read or re-identify the blocks, so no source spine is built.
+pub(crate) fn import_fragment(source: &str) -> Result<BlockSequence, DocumentError> {
+    let arena = Arena::new();
+    let root = parse_document(&arena, source, &markdown_options());
+    Ok(ImportedTree::new(root, false)?.blocks)
+}
+
+struct ImportedTree {
+    blocks: BlockSequence,
+    /// Source position of each top-level block, in `blocks` order.
+    positions: Vec<(NodeId, Sourcepos)>,
+    first_position: DocumentPosition,
+    transient_caret: Option<Arc<BlockNode>>,
+    importer: Importer,
+}
+
+impl ImportedTree {
+    fn new<'a>(root: &'a AstNode<'a>, original_source: bool) -> Result<Self, DocumentError> {
+        let mut importer = Importer::new(original_source);
+        let children = root.children().collect::<Vec<_>>();
+        let mut blocks = Vec::with_capacity(children.len());
+        let mut positions = Vec::with_capacity(children.len());
+        let mut index = 0;
+        while index < children.len() {
+            let child = children[index];
+            if let Some(metadata) = recognized_table_metadata(child)
+                && let Some(table_node) = children.get(index + 1).copied()
+            {
+                let table = match &table_node.data.borrow().value {
+                    NodeValue::Table(table_data)
+                        if metadata.widths.len() == table_data.alignments.len() =>
+                    {
+                        Some(importer.table(table_node, &table_data.alignments)?)
+                    }
+                    NodeValue::HtmlBlock(html) => {
+                        crate::html::html_table_data(&crate::html::ParsedHtml::new(&html.literal))
+                            .filter(|data| metadata.widths.len() == data.alignments.len())
+                            .map(|data| importer.html_table(data))
+                            .transpose()?
+                    }
+                    _ => None,
+                };
+                if let Some(mut table) = table {
+                    metadata.apply(&mut table);
+                    let block = BlockNode::Table(table);
+                    let mut source_position = table_node.data.borrow().sourcepos;
+                    source_position.start = child.data.borrow().sourcepos.start;
+                    positions.push((block.id(), source_position));
+                    blocks.push(Arc::new(block));
+                    index += 2;
+                    continue;
+                }
+            }
+            if let Some(block) = importer.block(child)? {
+                positions.push((block.id(), child.data.borrow().sourcepos));
+                blocks.push(Arc::new(block));
+            }
+            index += 1;
+        }
+        // Comrak resolves footnotes semantically and may expose their definition
+        // nodes after later source blocks. SourceSpine requires source order so
+        // every prefix has exactly one owner and unrelated edits cannot duplicate
+        // an out-of-order definition from a later block's prefix.
+        let mut imported = blocks.into_iter().zip(positions).collect::<Vec<_>>();
+        imported.sort_by_key(|(_, (_, position))| {
+            (
+                position.start.line,
+                position.start.column,
+                position.end.line,
+                position.end.column,
+            )
+        });
+        let (mut blocks, positions): (Vec<_>, Vec<_>) = imported.into_iter().unzip();
+        let mut transient_caret = None;
+        let first_position = if let Some(position) = blocks
+            .iter()
+            .find_map(|block| block.first_editable_position())
+        {
+            position
+        } else {
+            let id = importer.allocate();
+            let caret = Arc::new(BlockNode::Paragraph(Paragraph {
+                id,
+                content: RichText::default(),
+            }));
+            blocks.push(caret.clone());
+            transient_caret = Some(caret);
+            DocumentPosition::new(id, 0, Affinity::Downstream)
+        };
+        Ok(Self {
+            blocks: BlockSequence::new(blocks),
+            positions,
+            first_position,
+            transient_caret,
+            importer,
+        })
+    }
 }
 
 struct ImportedTableMetadata {
@@ -139,7 +163,8 @@ impl ImportedTableMetadata {
 }
 
 fn recognized_table_metadata(node: &AstNode<'_>) -> Option<ImportedTableMetadata> {
-    let NodeValue::HtmlBlock(html) = node.data.borrow().value.clone() else {
+    let data = node.data.borrow();
+    let NodeValue::HtmlBlock(html) = &data.value else {
         return None;
     };
     let literal = html.literal.trim();
@@ -433,6 +458,17 @@ struct Importer {
 }
 
 impl Importer {
+    fn new(original_source: bool) -> Self {
+        Self {
+            next_id: 1,
+            list_item_positions: Vec::new(),
+            note_paragraph_positions: Vec::new(),
+            table_cell_positions: Vec::new(),
+            leaf_positions: Vec::new(),
+            original_source,
+        }
+    }
+
     fn allocate(&mut self) -> NodeId {
         let id = NodeId::new_unchecked(self.next_id);
         self.next_id += 1;
@@ -440,15 +476,16 @@ impl Importer {
     }
 
     fn block<'a>(&mut self, node: &'a AstNode<'a>) -> Result<Option<BlockNode>, DocumentError> {
-        let value = node.data.borrow().value.clone();
-        let source_leaf = (matches!(&value, NodeValue::Paragraph | NodeValue::Heading(_))
+        let data = node.data.borrow();
+        let value = &data.value;
+        let source_leaf = (matches!(value, NodeValue::Paragraph | NodeValue::Heading(_))
             && !node.ancestors().any(|ancestor| {
                 matches!(
                     &ancestor.data.borrow().value,
                     NodeValue::DescriptionTerm | NodeValue::DescriptionDetails
                 )
             }))
-            || matches!(&value, NodeValue::CodeBlock(code) if code.fenced);
+            || matches!(value, NodeValue::CodeBlock(code) if code.fenced);
         let block = match value {
             NodeValue::Paragraph => {
                 let standalone_math = node
@@ -485,7 +522,7 @@ impl Importer {
                     id,
                     language: code.info.split_whitespace().next().map(str::to_owned),
                     syntax: crate::CodeBlockSyntax::Fenced,
-                    content: RichText::new(code.literal),
+                    content: RichText::new(code.literal.as_str()),
                 }))
             }
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => {
@@ -494,7 +531,7 @@ impl Importer {
                     blocks: self.editable_children(node)?,
                 })
             }
-            NodeValue::List(list) => Some(BlockNode::List(self.list(node, list)?)),
+            NodeValue::List(list) => Some(BlockNode::List(self.list(node, *list)?)),
             NodeValue::DescriptionList => {
                 let id = self.allocate();
                 let blocks = node
@@ -532,7 +569,7 @@ impl Importer {
                     AlertType::Warning => AlertKind::Warning,
                     AlertType::Caution => AlertKind::Caution,
                 },
-                title: alert.title.map(RichText::new),
+                title: alert.title.as_deref().map(RichText::new),
                 blocks: self.editable_children(node)?,
             }),
             NodeValue::FootnoteDefinition(definition) => {
@@ -551,7 +588,7 @@ impl Importer {
                 }
                 Some(BlockNode::FootnoteDefinition {
                     id,
-                    label: definition.name,
+                    label: definition.name.clone(),
                     blocks: BlockSequence::new(blocks),
                 })
             }
@@ -559,9 +596,10 @@ impl Importer {
                 id: self.allocate(),
             }),
             NodeValue::HtmlBlock(html) => {
-                if let Some(table) = crate::html::html_table_data(&html.literal) {
+                let parsed = crate::html::ParsedHtml::new(&html.literal);
+                if let Some(table) = crate::html::html_table_data(&parsed) {
                     Some(BlockNode::Table(self.html_table(table)?))
-                } else if let Some(groups) = crate::html::html_definition_data(&html.literal) {
+                } else if let Some(groups) = crate::html::html_definition_data(&parsed) {
                     let mut definitions = Vec::with_capacity(groups.len());
                     for (kind, fragments) in groups {
                         let id = self.allocate();
@@ -597,17 +635,18 @@ impl Importer {
                 } else {
                     Some(BlockNode::PreservedSource {
                         id: self.allocate(),
-                        description: crate::html::inert_html_fragment(&html.literal)
+                        description: parsed
+                            .inert_fragment()
                             .map(|fragment| fragment.text().trim().to_owned())
                             .filter(|text| !text.is_empty())
                             .unwrap_or_else(|| "Unsupported or preserved HTML".to_owned()),
-                        source: Arc::from(html.literal),
+                        source: Arc::from(html.literal.as_str()),
                     })
                 }
             }
             NodeValue::FrontMatter(front_matter) => Some(BlockNode::PreservedSource {
                 id: self.allocate(),
-                source: Arc::from(front_matter),
+                source: Arc::from(front_matter.as_str()),
                 description: "Front matter".to_owned(),
             }),
             _ => None,
@@ -662,10 +701,10 @@ impl Importer {
         for item_node in node.children() {
             let mut checked = None;
             let mut blocks = Vec::new();
-            match item_node.data.borrow().value.clone() {
+            match &item_node.data.borrow().value {
                 NodeValue::Item(_) => {
                     for child in item_node.children() {
-                        match child.data.borrow().value.clone() {
+                        match &child.data.borrow().value {
                             NodeValue::TaskItem(task) => {
                                 checked = Some(task.symbol.is_some());
                                 blocks.push(Arc::new(BlockNode::Paragraph(Paragraph {
@@ -883,9 +922,8 @@ fn append_inline<'a>(
     runs: &mut Vec<InlineRun>,
     styles: &mut SmallVec<[InlineStyle; 3]>,
 ) {
-    let value = node.data.borrow().value.clone();
-    match value {
-        NodeValue::Text(value) => push_piece(text, runs, &value, styles),
+    match &node.data.borrow().value {
+        NodeValue::Text(value) => push_piece(text, runs, value, styles),
         NodeValue::Code(code) => {
             styles.push(InlineStyle::Code);
             push_piece(text, runs, &code.literal, styles);
@@ -907,7 +945,7 @@ fn append_inline<'a>(
         }
         NodeValue::Link(link) => with_style(
             node,
-            InlineStyle::Link(LinkTarget(link.url)),
+            InlineStyle::Link(LinkTarget(link.url.clone())),
             text,
             runs,
             styles,
@@ -915,9 +953,9 @@ fn append_inline<'a>(
         NodeValue::Image(link) => {
             let alt = inline_plain_text(node);
             let style = InlineStyle::Image {
-                source: link.url,
+                source: link.url.clone(),
                 alt: alt.clone(),
-                title: (!link.title.is_empty()).then_some(link.title),
+                title: (!link.title.is_empty()).then(|| link.title.clone()),
             };
             let piece = if alt.is_empty() { "image" } else { &alt };
             let mut image_styles = styles.clone();
@@ -927,7 +965,7 @@ fn append_inline<'a>(
         NodeValue::FootnoteReference(reference) => {
             let label = format!("[^{}]", reference.name);
             let mut reference_styles = styles.clone();
-            reference_styles.push(InlineStyle::FootnoteReference(reference.name));
+            reference_styles.push(InlineStyle::FootnoteReference(reference.name.clone()));
             push_piece(text, runs, &label, &reference_styles);
         }
         NodeValue::HtmlInline(source) => {
@@ -944,12 +982,12 @@ fn append_inline<'a>(
                 push_piece(text, runs, "\n", styles);
                 return;
             }
-            if apply_inline_html_transition(&source, styles) {
+            if apply_inline_html_transition(source, styles) {
                 return;
             }
             let mut html_styles = styles.clone();
             html_styles.push(InlineStyle::PreservedHtml(source.clone()));
-            push_piece(text, runs, &source, &html_styles);
+            push_piece(text, runs, source, &html_styles);
         }
         _ => {
             for child in node.children() {
@@ -1034,7 +1072,7 @@ fn standalone_image<'a>(node: &'a AstNode<'a>, id: NodeId) -> Option<ImageNode> 
     if children.next().is_some() {
         return None;
     }
-    let (child, enclosing_link) = if let NodeValue::Link(link) = child.data.borrow().value.clone() {
+    let (child, enclosing_link) = if let NodeValue::Link(link) = &child.data.borrow().value {
         let mut linked = child.children();
         let image = linked.next()?;
         if linked.next().is_some() {
@@ -1043,73 +1081,41 @@ fn standalone_image<'a>(node: &'a AstNode<'a>, id: NodeId) -> Option<ImageNode> 
         (
             image,
             Some(crate::ImageLink {
-                target: LinkTarget(link.url),
-                title: (!link.title.is_empty()).then_some(link.title),
+                target: LinkTarget(link.url.clone()),
+                title: (!link.title.is_empty()).then(|| link.title.clone()),
             }),
         )
     } else {
         (child, None)
     };
-    let NodeValue::Image(link) = child.data.borrow().value.clone() else {
+    let data = child.data.borrow();
+    let NodeValue::Image(link) = &data.value else {
         return None;
     };
     Some(ImageNode {
         id,
-        source: link.url,
+        source: link.url.clone(),
         alt: RichText::new(inline_plain_text(child)),
-        title: (!link.title.is_empty()).then_some(link.title),
+        title: (!link.title.is_empty()).then(|| link.title.clone()),
         intrinsic_size: None,
         link: enclosing_link,
     })
 }
 
-fn first_editable_position(blocks: &[Arc<BlockNode>]) -> Option<DocumentPosition> {
-    for block in blocks {
-        if block.text().is_some() {
-            return Some(DocumentPosition::new(block.id(), 0, Affinity::Downstream));
-        }
-        let nested = match block.as_ref() {
-            BlockNode::List(list) => list
-                .items
-                .iter()
-                .find_map(|item| first_editable_position(&item.blocks.to_vec())),
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                first_editable_position(&blocks.to_vec())
-            }
-            BlockNode::Table(table) => table.rows.iter().find_map(|row| {
-                row.cells
-                    .iter()
-                    .find_map(|cell| first_editable_position(&cell.blocks.to_vec()))
-            }),
-            _ => None,
-        };
-        if nested.is_some() {
-            return nested;
-        }
-    }
-    None
-}
-
 fn build_spine(
     source: Arc<str>,
+    line_starts: &[usize],
     positions: &[(NodeId, Sourcepos)],
     blocks: &BlockSequence,
-    item_positions: &[(NodeId, Sourcepos)],
-    note_paragraph_positions: &[(NodeId, Sourcepos)],
-    table_cell_positions: &[(NodeId, Sourcepos)],
-    leaf_positions: &[(NodeId, Sourcepos)],
+    importer: &Importer,
 ) -> SourceSpine {
-    let line_starts = line_starts(&source);
     let mut previous_end = 0;
     let mut units = FxHashMap::<NodeId, SourceUnit>::default();
     let mut order = Vec::with_capacity(positions.len());
     let mut owned_roots = FxHashMap::<NodeId, Vec<NodeId>>::default();
     units.reserve(positions.len());
     for (id, position) in positions {
-        let Some((start, end)) = source_range(*position, &line_starts, &source) else {
+        let Some((start, end)) = source_range(*position, line_starts, &source) else {
             continue;
         };
         if start < previous_end || start > end {
@@ -1142,17 +1148,17 @@ fn build_spine(
         positions
             .iter()
             .filter_map(|(id, position)| {
-                let (start, end) = source_range(*position, &line_starts, &source)?;
+                let (start, end) = source_range(*position, line_starts, &source)?;
                 source.get(start..end)?;
                 Some((*id, start..end))
             })
             .collect()
     };
     let mut nested = crate::source::NestedSourceSpans {
-        list_items: spans(item_positions),
-        note_paragraphs: spans(note_paragraph_positions),
-        table_cells: spans(table_cell_positions),
-        leaf_blocks: spans(leaf_positions),
+        list_items: spans(&importer.list_item_positions),
+        note_paragraphs: spans(&importer.note_paragraph_positions),
+        table_cells: spans(&importer.table_cell_positions),
+        leaf_blocks: spans(&importer.leaf_positions),
         html_paragraphs: FxHashMap::default(),
         owned_roots,
         references: FxHashMap::default(),
@@ -1619,7 +1625,7 @@ fn serialize_block(
         BlockNode::List(list) => serialize_list(list, newline, indent)?,
         BlockNode::Definition { kind, blocks, .. } => match kind {
             crate::DefinitionKind::List if !definition_markdown_safe(blocks) => {
-                serialize_block_html(block, newline, indent)?
+                serialize_block_html(block, newline, indent, HtmlTarget::Clipboard)?
             }
             crate::DefinitionKind::List | crate::DefinitionKind::Term => {
                 serialize_sequence(blocks, newline, indent)?
@@ -1637,7 +1643,7 @@ fn serialize_block(
             }
         },
         BlockNode::Table(table) if table.requires_html_serialization() => {
-            serialize_html_table(table, newline, indent)?
+            serialize_html_table(table, newline, indent, HtmlTarget::Clipboard)?
         }
         BlockNode::Table(table) => serialize_pipe_table(table, newline)?,
     })
@@ -1798,14 +1804,6 @@ fn serialize_html_table(
     table: &Table,
     newline: &str,
     indent: usize,
-) -> Result<String, DocumentError> {
-    serialize_html_table_for(table, newline, indent, HtmlTarget::Clipboard)
-}
-
-fn serialize_html_table_for(
-    table: &Table,
-    newline: &str,
-    indent: usize,
     target: HtmlTarget<'_>,
 ) -> Result<String, DocumentError> {
     let mut output = table_metadata(table, newline)?;
@@ -1865,7 +1863,7 @@ fn serialize_html_table_for(
             }
             output.push('>');
             output.push_str(newline);
-            output.push_str(&serialize_sequence_html_for(
+            output.push_str(&serialize_sequence_html(
                 &cell.blocks,
                 newline,
                 indent + 6,
@@ -1944,9 +1942,12 @@ fn table_metadata(table: &Table, newline: &str) -> Result<String, DocumentError>
 }
 
 pub(crate) fn serialize_inline(text: &RichText) -> String {
-    if inline_styles_need_html_boundaries(text) {
-        return preserve_inline_edge_spaces(serialize_inline_with_html_boundaries(text));
-    }
+    serialize_inline_with(text, inline_styles_need_html_boundaries(text))
+}
+
+/// `html_boundaries` writes bold, italic and strikethrough as inline HTML tags
+/// for runs whose Markdown delimiters could not open or close.
+fn serialize_inline_with(text: &RichText, html_boundaries: bool) -> String {
     let source = text.as_string();
     let mut output = String::new();
     for run in text.runs() {
@@ -1982,7 +1983,7 @@ pub(crate) fn serialize_inline(text: &RichText) -> String {
             })
             .collect();
         for style in &formatting {
-            output.push_str(open_style(style));
+            output.push_str(open_style(style, html_boundaries));
         }
         if let Some(image) = serialize_inline_image(&run.styles) {
             output.push_str(&image);
@@ -1998,7 +1999,7 @@ pub(crate) fn serialize_inline(text: &RichText) -> String {
             push_escaped_text(&mut output, value);
         }
         for style in formatting.iter().rev() {
-            output.push_str(&close_style(style));
+            push_close_style(&mut output, style, html_boundaries);
         }
     }
     preserve_inline_edge_spaces(output)
@@ -2172,86 +2173,37 @@ fn inline_styles_cross(text: &RichText) -> bool {
     })
 }
 
-fn serialize_inline_with_html_boundaries(text: &RichText) -> String {
-    let source = text.as_string();
-    let mut output = String::new();
-    for run in text.runs() {
-        let value = &source[run.range.clone()];
-        if let Some(InlineStyle::FootnoteReference(label)) = run
-            .styles
-            .iter()
-            .find(|style| matches!(style, InlineStyle::FootnoteReference(_)))
-        {
-            output.push_str(&format!("[^{label}]"));
-            continue;
-        }
-        if let Some(InlineStyle::PreservedHtml(html)) = run
-            .styles
-            .iter()
-            .find(|style| matches!(style, InlineStyle::PreservedHtml(_)))
-        {
-            output.push_str(html);
-            continue;
-        }
-
-        for style in &run.styles {
-            output.push_str(match style {
-                InlineStyle::Bold => "<strong>",
-                InlineStyle::Italic => "<em>",
-                InlineStyle::Strikethrough => "<del>",
-                InlineStyle::Link(_) => "[",
-                _ => "",
-            });
-        }
-        if let Some(image) = serialize_inline_image(&run.styles) {
-            output.push_str(&image);
-        } else if let Some(InlineStyle::Math { display }) = run
-            .styles
-            .iter()
-            .find(|style| matches!(style, InlineStyle::Math { .. }))
-        {
-            output.push_str(&serialize_inline_math(value, *display));
-        } else if run.styles.contains(&InlineStyle::Code) {
-            output.push_str(&serialize_code_span(value));
-        } else {
-            push_escaped_text(&mut output, value);
-        }
-        for style in run.styles.iter().rev() {
-            match style {
-                InlineStyle::Bold => output.push_str("</strong>"),
-                InlineStyle::Italic => output.push_str("</em>"),
-                InlineStyle::Strikethrough => output.push_str("</del>"),
-                InlineStyle::Link(LinkTarget(target)) => {
-                    output.push_str(&format!("]({})", serialize_destination(target)));
-                }
-                _ => {}
-            }
-        }
-    }
-    output
-}
-
 pub(crate) fn clipboard_html(markdown: &str) -> String {
     comrak::markdown_to_html(markdown, &markdown_options())
 }
 
-fn open_style(style: &InlineStyle) -> &str {
-    match style {
-        InlineStyle::Bold => "**",
-        InlineStyle::Italic => "*",
-        InlineStyle::Strikethrough => "~~",
-        InlineStyle::Link(_) => "[",
+/// Opening delimiter of a Markdown formatting style. Styles whose delimiters
+/// cannot flank their text use inline HTML tags instead.
+fn open_style(style: &InlineStyle, html_boundaries: bool) -> &'static str {
+    match (style, html_boundaries) {
+        (InlineStyle::Bold, false) => "**",
+        (InlineStyle::Bold, true) => "<strong>",
+        (InlineStyle::Italic, false) => "*",
+        (InlineStyle::Italic, true) => "<em>",
+        (InlineStyle::Strikethrough, false) => "~~",
+        (InlineStyle::Strikethrough, true) => "<del>",
+        (InlineStyle::Link(_), _) => "[",
         _ => "",
     }
 }
 
-fn close_style(style: &InlineStyle) -> String {
-    match style {
-        InlineStyle::Bold => "**".to_owned(),
-        InlineStyle::Italic => "*".to_owned(),
-        InlineStyle::Strikethrough => "~~".to_owned(),
-        InlineStyle::Link(LinkTarget(target)) => format!("]({})", serialize_destination(target)),
-        _ => String::new(),
+fn push_close_style(output: &mut String, style: &InlineStyle, html_boundaries: bool) {
+    match (style, html_boundaries) {
+        (InlineStyle::Link(LinkTarget(target)), _) => {
+            output.push_str("](");
+            output.push_str(&serialize_destination(target));
+            output.push(')');
+        }
+        (InlineStyle::Bold, true) => output.push_str("</strong>"),
+        (InlineStyle::Italic, true) => output.push_str("</em>"),
+        (InlineStyle::Strikethrough, true) => output.push_str("</del>"),
+        // Markdown delimiter runs close with the same run that opened them.
+        _ => output.push_str(open_style(style, false)),
     }
 }
 
@@ -2273,10 +2225,7 @@ pub(crate) fn escape_inline(value: &str) -> String {
 
 pub(crate) fn serialize_code_span(value: &str) -> String {
     if value.contains(['\r', '\n']) {
-        let value = escape_html(value)
-            .replace('\r', "&#13;")
-            .replace('\n', "&#10;");
-        return format!("<code>{value}</code>");
+        return format!("<code>{}</code>", escape_html_literal_text(value));
     }
     let fence = "`".repeat(longest_backtick_run(value).saturating_add(1).max(1));
     let needs_padding = value.starts_with('`')
@@ -2343,7 +2292,7 @@ pub(crate) fn serialize_title(title: &str) -> String {
 
 /// Mixed preview copy uses canonical roots before applying export sanitization.
 pub(crate) fn clipboard_html_blocks(blocks: &BlockSequence) -> Result<String, DocumentError> {
-    let html = serialize_sequence_html(blocks, "\n", 0)?;
+    let html = serialize_sequence_html(blocks, "\n", 0, HtmlTarget::Clipboard)?;
     crate::html::clipboard_html_document(&html).ok_or_else(|| {
         DocumentError::Clipboard("Selection cannot be safely exported as HTML".into())
     })
@@ -2351,12 +2300,15 @@ pub(crate) fn clipboard_html_blocks(blocks: &BlockSequence) -> Result<String, Do
 
 pub(crate) fn static_html_blocks(blocks: &BlockSequence) -> Result<String, DocumentError> {
     let mut heading_ids = FxHashMap::default();
-    collect_heading_ids(blocks, &mut Anchorizer::new(), &mut heading_ids);
-    serialize_sequence_html_for(blocks, "\n", 0, HtmlTarget::Static(&heading_ids))
+    let _ = crate::links::visit_heading_anchors(blocks, &mut |id, anchor| {
+        heading_ids.insert(id, anchor);
+        ControlFlow::<()>::Continue(())
+    });
+    serialize_sequence_html(blocks, "\n", 0, HtmlTarget::Static(&heading_ids))
 }
 
 #[derive(Clone, Copy)]
-enum HtmlTarget<'a> {
+pub(super) enum HtmlTarget<'a> {
     Clipboard,
     Static(&'a FxHashMap<NodeId, String>),
 }
@@ -2374,51 +2326,7 @@ impl<'a> HtmlTarget<'a> {
     }
 }
 
-fn collect_heading_ids(
-    blocks: &BlockSequence,
-    anchorizer: &mut Anchorizer,
-    output: &mut FxHashMap<NodeId, String>,
-) {
-    for block in blocks {
-        match block.as_ref() {
-            BlockNode::Heading(heading) => {
-                output.insert(
-                    heading.id,
-                    anchorizer.anchorize(&heading.content.as_string()),
-                );
-            }
-            BlockNode::List(list) => {
-                for item in list.items.iter() {
-                    collect_heading_ids(&item.blocks, anchorizer, output);
-                }
-            }
-            BlockNode::BlockQuote { blocks, .. }
-            | BlockNode::Alert { blocks, .. }
-            | BlockNode::Definition { blocks, .. }
-            | BlockNode::FootnoteDefinition { blocks, .. } => {
-                collect_heading_ids(blocks, anchorizer, output);
-            }
-            BlockNode::Table(table) => {
-                for row in table.rows.iter() {
-                    for cell in row.cells.iter() {
-                        collect_heading_ids(&cell.blocks, anchorizer, output);
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
 fn serialize_sequence_html(
-    blocks: &BlockSequence,
-    newline: &str,
-    indent: usize,
-) -> Result<String, DocumentError> {
-    serialize_sequence_html_for(blocks, newline, indent, HtmlTarget::Clipboard)
-}
-
-fn serialize_sequence_html_for(
     blocks: &BlockSequence,
     newline: &str,
     indent: usize,
@@ -2427,7 +2335,7 @@ fn serialize_sequence_html_for(
     let mut output = String::new();
     for block in blocks {
         output.push_str(&" ".repeat(indent));
-        output.push_str(&serialize_block_html_for(block, newline, indent, target)?);
+        output.push_str(&serialize_block_html(block, newline, indent, target)?);
         output.push_str(newline);
     }
     Ok(output)
@@ -2437,21 +2345,13 @@ fn serialize_block_html(
     block: &BlockNode,
     newline: &str,
     indent: usize,
-) -> Result<String, DocumentError> {
-    serialize_block_html_for(block, newline, indent, HtmlTarget::Clipboard)
-}
-
-fn serialize_block_html_for(
-    block: &BlockNode,
-    newline: &str,
-    indent: usize,
     target: HtmlTarget<'_>,
 ) -> Result<String, DocumentError> {
     Ok(match block {
         BlockNode::Paragraph(paragraph) => {
             format!(
                 "<p>{}</p>",
-                serialize_inline_html_for(&paragraph.content, target)
+                serialize_inline_html(&paragraph.content, target)
             )
         }
         BlockNode::Heading(heading) => {
@@ -2460,7 +2360,7 @@ fn serialize_block_html_for(
                 .map_or_else(String::new, |id| format!(" id=\"{}\"", escape_html(id)));
             format!(
                 "<h{level}{id}>{}</h{level}>",
-                serialize_inline_html_for(&heading.content, target),
+                serialize_inline_html(&heading.content, target),
                 level = heading.level.clamp(1, 6)
             )
         }
@@ -2511,7 +2411,7 @@ fn serialize_block_html_for(
         }
         BlockNode::BlockQuote { blocks, .. } => format!(
             "<blockquote>{newline}{}</blockquote>",
-            serialize_sequence_html_for(blocks, newline, indent + 2, target)?
+            serialize_sequence_html(blocks, newline, indent + 2, target)?
         ),
         BlockNode::List(list) => {
             let is_task = matches!(list.kind, ListKind::Task);
@@ -2540,7 +2440,7 @@ fn serialize_block_html_for(
                     });
                 }
                 list_html.push_str(newline);
-                list_html.push_str(&serialize_sequence_html_for(
+                list_html.push_str(&serialize_sequence_html(
                     &item.blocks,
                     newline,
                     indent + 4,
@@ -2562,7 +2462,7 @@ fn serialize_block_html_for(
             };
             format!(
                 "<{tag}>{newline}{}</{tag}>",
-                serialize_sequence_html_for(blocks, newline, indent + 2, target)?
+                serialize_sequence_html(blocks, newline, indent + 2, target)?
             )
         }
         BlockNode::Alert {
@@ -2582,20 +2482,20 @@ fn serialize_block_html_for(
             let title = title.as_ref().map_or_else(String::new, |title| {
                 format!(
                     "<strong>{}</strong>{newline}",
-                    serialize_inline_html_for(title, target)
+                    serialize_inline_html(title, target)
                 )
             });
             format!(
                 "<aside data-alert=\"{}\">{newline}{}{}</aside>",
                 escape_html(kind),
                 title,
-                serialize_sequence_html_for(blocks, newline, indent + 2, target)?
+                serialize_sequence_html(blocks, newline, indent + 2, target)?
             )
         }
         BlockNode::FootnoteDefinition { label, blocks, .. } => format!(
             "<section role=\"doc-footnote\" id=\"fn-{}\">{newline}{}</section>",
             escape_html(label),
-            serialize_sequence_html_for(blocks, newline, indent + 2, target)?
+            serialize_sequence_html(blocks, newline, indent + 2, target)?
         ),
         BlockNode::ThematicBreak { .. } => "<hr>".into(),
         // Serialization is source preservation, not rendering. An untouched
@@ -2611,15 +2511,11 @@ fn serialize_block_html_for(
             })
         }
         BlockNode::PreservedSource { source, .. } => source.to_string(),
-        BlockNode::Table(table) => serialize_html_table_for(table, newline, indent, target)?,
+        BlockNode::Table(table) => serialize_html_table(table, newline, indent, target)?,
     })
 }
 
-fn serialize_inline_html(text: &RichText) -> String {
-    serialize_inline_html_for(text, HtmlTarget::Clipboard)
-}
-
-fn serialize_inline_html_for(text: &RichText, target: HtmlTarget<'_>) -> String {
+pub(super) fn serialize_inline_html(text: &RichText, target: HtmlTarget<'_>) -> String {
     let source = text.as_string();
     let mut output = String::new();
     for run in text.runs() {
@@ -2740,17 +2636,15 @@ fn safe_static_url(value: &str) -> bool {
 }
 
 fn escape_html(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    let mut escaped = String::with_capacity(value.len());
+    crate::html::push_escaped_html(&mut escaped, value, false);
+    escaped
 }
 
 fn escape_html_literal_text(value: &str) -> String {
-    escape_html(value)
-        .replace('\r', "&#13;")
-        .replace('\n', "&#10;")
+    let mut escaped = String::with_capacity(value.len());
+    crate::html::push_escaped_html(&mut escaped, value, true);
+    escaped
 }
 
 fn escape_html_inline_text(value: &str) -> String {
@@ -2795,7 +2689,13 @@ mod tests {
             (ids[2], (3, 1, 3, 5).into()),
             (ids[3], (4, 1, 4, 5).into()),
         ];
-        let spine = build_spine(source.clone(), &positions, &blocks, &[], &[], &[], &[]);
+        let spine = build_spine(
+            source.clone(),
+            &line_starts(&source),
+            &positions,
+            &blocks,
+            &Importer::new(true),
+        );
         assert_eq!(spine.unit(ids[0]).unwrap().source, 0..16);
         assert_eq!(spine.order(), &[ids[0], ids[3]]);
         assert_eq!(
@@ -2827,7 +2727,7 @@ mod tests {
         cells[0].blocks = BlockSequence::new(vec![nested]);
         rows[1].cells = cells.into();
         outer.rows = rows.into();
-        let html = serialize_html_table(&outer, "\n", 0).unwrap();
+        let html = serialize_html_table(&outer, "\n", 0, HtmlTarget::Clipboard).unwrap();
         assert_eq!(html.matches("<table>").count(), 2, "{html}");
         for content in [
             "Nested key",
@@ -2858,8 +2758,8 @@ mod tests {
             "import retains the enclosing link"
         );
         for output in [
-            serialize_inline(text),
-            serialize_inline_with_html_boundaries(text),
+            serialize_inline_with(text, false),
+            serialize_inline_with(text, true),
         ] {
             assert!(
                 output.contains("[![First](a.png \"Title\")](guide.md)"),
@@ -2883,7 +2783,7 @@ mod tests {
                 2
             );
         }
-        let html = serialize_inline_html(text);
+        let html = serialize_inline_html(text, HtmlTarget::Clipboard);
         assert!(html.contains("<strong><a href=\"guide.md\"><img src=\"a.png\" alt=\"First\" title=\"Title\"></a></strong>"), "{html}");
     }
     use crate::{Document, EditCommand, InlineFormat};

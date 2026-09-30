@@ -7,8 +7,6 @@ use crate::{
     Table, TextSelection,
 };
 
-pub const RICH_CLIPBOARD_MIME: &str = "application/x-tachyon-fragment+json;version=1";
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ClipboardPayload {
     pub plain_text: Option<String>,
@@ -164,25 +162,9 @@ fn table_payload(
         border: table.border,
         preserved_metadata: Arc::from([]),
     };
-    let plain_text = selected
-        .rows
-        .iter()
-        .map(|row| {
-            row.cells
-                .iter()
-                .map(|cell| {
-                    cell.blocks
-                        .iter()
-                        .map(|block| block.plain_text())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                })
-                .collect::<Vec<_>>()
-                .join("\t")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let blocks = BlockSequence::new(vec![Arc::new(BlockNode::Table(selected))]);
+    let selected = BlockNode::Table(selected);
+    let plain_text = selected.plain_text();
+    let blocks = BlockSequence::new(vec![Arc::new(selected)]);
     let markdown = crate::markdown::serialize_clipboard_blocks(&blocks)?;
     Ok(Some(payload_from_markdown(plain_text, markdown)))
 }

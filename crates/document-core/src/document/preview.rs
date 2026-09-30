@@ -46,7 +46,7 @@ pub(super) fn resolve_with_roots(
                 expected_source,
                 ..
             } => {
-                if !matches!(find_node(&state.blocks, *node_id),
+                if !matches!(state.blocks.node(*node_id),
                     Some(BlockNode::PreservedSource { source, .. }) if source == expected_source)
                 {
                     return Err(DocumentError::Html(

@@ -85,7 +85,7 @@ def main():
     parser.add_argument("--seconds", type=float, default=30)
     parser.add_argument("--runs", type=int, default=2)
     parser.add_argument("--fixture", choices=["100k", "1m", "10m", "adaptive"], action="append")
-    parser.add_argument("--output", type=Path, default=ROOT / "performance/adaptive-scroll-2026-09-06.json")
+    parser.add_argument("--output", type=Path, default=ROOT / "performance/results/adaptive-scroll.json")
     args = parser.parse_args()
     if args.seconds <= 0 or args.runs < 1:
         parser.error("positive duration and run count required")

@@ -1,9 +1,9 @@
-use std::{ops::Range, path::PathBuf, sync::Arc, time::SystemTime};
+use std::{ops::Range, sync::Arc};
 
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{BlockNode, BlockSequence, NodeId, Revision};
+use crate::{BlockNode, BlockSequence, NodeId};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LineEnding {
@@ -233,23 +233,4 @@ impl SourceSpine {
     pub(crate) fn slice(&self, range: Range<usize>) -> &str {
         &self.original[range]
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct SourceIdentity {
-    pub path: PathBuf,
-    pub length: u64,
-    pub modified: Option<SystemTime>,
-    pub content_hash: [u8; 32],
-    #[cfg(unix)]
-    pub device: u64,
-    #[cfg(unix)]
-    pub inode: u64,
-}
-
-#[derive(Clone, Debug)]
-pub struct SaveSnapshot {
-    pub revision: Revision,
-    pub bytes: Arc<[u8]>,
-    pub expected_identity: Option<SourceIdentity>,
 }

@@ -6,29 +6,23 @@ use std::sync::{Mutex, OnceLock};
 
 use blitz_dom::{FontContext, build_single_font_ctx};
 
+use crate::fonts;
+
 pub(super) fn context() -> FontContext {
     static FONTS: OnceLock<Mutex<FontContext>> = OnceLock::new();
     FONTS
         .get_or_init(|| {
-            let mut fonts = build_single_font_ctx(include_bytes!(
-                "../../../../assets/fonts/PublicSans-Tachyon-ExtraLight.ttf"
-            ));
+            let mut fonts = build_single_font_ctx(fonts::PUBLIC_SANS_EXTRA_LIGHT);
             for bytes in [
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Regular.ttf")
-                    .as_slice(),
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Semibold.ttf")
-                    .as_slice(),
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Bold.ttf").as_slice(),
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-ExtraLightItalic.ttf")
-                    .as_slice(),
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-Italic.ttf").as_slice(),
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-SemiboldItalic.ttf")
-                    .as_slice(),
-                include_bytes!("../../../../assets/fonts/PublicSans-Tachyon-BoldItalic.ttf")
-                    .as_slice(),
-                include_bytes!("../../../../assets/fonts/SplineSansMono-Tachyon-Regular.ttf")
-                    .as_slice(),
-                include_bytes!("../../../../assets/fonts/FiraCode-Tachyon-Regular.ttf").as_slice(),
+                fonts::PUBLIC_SANS_REGULAR,
+                fonts::PUBLIC_SANS_SEMIBOLD,
+                fonts::PUBLIC_SANS_BOLD,
+                fonts::PUBLIC_SANS_EXTRA_LIGHT_ITALIC,
+                fonts::PUBLIC_SANS_ITALIC,
+                fonts::PUBLIC_SANS_SEMIBOLD_ITALIC,
+                fonts::PUBLIC_SANS_BOLD_ITALIC,
+                fonts::SPLINE_SANS_MONO_REGULAR,
+                fonts::FIRA_CODE_REGULAR,
                 blitz_dom::BULLET_FONT,
             ] {
                 fonts.collection.register_fonts(bytes.to_vec().into(), None);

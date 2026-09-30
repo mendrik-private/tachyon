@@ -2,8 +2,86 @@
 use super::*;
 use crate::adaptive::prose::{Flow, Line};
 
-const MAX_ROOTS: usize = 16;
-const MAX_BYTES: usize = 64 * 1024;
+/// Source bounds shared by every measured paragraph flow (reading bands,
+/// figure floats and inline lists).
+pub(super) const MAX_ROOTS: usize = 16;
+pub(super) const MAX_BYTES: usize = 64 * 1024;
+
+/// Inline content a flow may split at source offsets: no atomic embedded
+/// images, preserved HTML or math, and no strong RTL text.
+pub(super) fn fragmentable(paragraph: &document_core::Paragraph, text: &str) -> bool {
+    !paragraph.content.runs().iter().any(|run| {
+        run.styles.iter().any(|style| {
+            matches!(
+                style,
+                InlineStyle::Image { .. }
+                    | InlineStyle::PreservedHtml(_)
+                    | InlineStyle::Math { .. }
+            )
+        })
+    }) && !measurement::contains_strong_rtl(text)
+}
+
+/// A complete, bounded, single-line-source top-level paragraph that reading
+/// bands and figure floats may continue across column boundaries.
+pub(super) fn flowable_paragraph(
+    paragraph: &document_core::Paragraph,
+    segment: &crate::ProjectionSegment,
+    text: &str,
+) -> bool {
+    segment.node_id == segment.top_level_node_id
+        && segment.context.figure_text.is_none()
+        && segment.node_range == (0..paragraph.content.len())
+        && paragraph.content.len() <= MAX_BYTES
+        && !text.contains(['\n', '\r'])
+        && fragmentable(paragraph, text)
+}
+
+/// Native lines for one source-contiguous fragment of `segment`, wrapped at a
+/// column of `width`.
+pub(super) fn fragment_lines(
+    projection: &TextProjection,
+    segment: &crate::ProjectionSegment,
+    range: Range<usize>,
+    width: f32,
+    fonts: Option<&FontMeasurement>,
+) -> Vec<VisualLineSpec> {
+    let mut fragment = segment.clone();
+    fragment.node_range =
+        segment.node_range.start + range.start..segment.node_range.start + range.end;
+    fragment.set_projection_range(
+        segment.projection_start() + range.start..segment.projection_start() + range.end,
+    );
+    build_visual_lines_for_segment(
+        projection,
+        &fragment,
+        &HashMap::new(),
+        width + 8.,
+        &[],
+        fonts,
+        None,
+    )
+}
+
+/// A fragment placed on its slot's tracks. The flow owns every gap between
+/// fragments, so the paragraph's own outer margins are removed.
+pub(super) fn slotted_fragment(
+    projection: &TextProjection,
+    segment: &crate::ProjectionSegment,
+    range: Range<usize>,
+    slot: LayoutSlot,
+    width: f32,
+    fonts: Option<&FontMeasurement>,
+) -> Vec<VisualLineSpec> {
+    let mut lines = fragment_lines(projection, segment, range, slot.width(width), fonts);
+    arrangement::place_on_slot(&mut lines, slot, width);
+    for line in &mut lines {
+        line.style.space_above = 0.;
+        line.style.space_below = 0.;
+        line.gap_before = 0.;
+    }
+    lines
+}
 
 // Typography is not a relationship: ordinary reference prose may form a
 // reading band too. Specialized paragraph roles remain atomic boundaries.
@@ -124,7 +202,6 @@ pub(super) fn measure(
             return false;
         };
         ordinary_prose(segment)
-            && segment.node_range == (0..p.content.len())
             && plan.measures_root(p.id)
             && plan.has_measured_geometry(p.id)
             && !plan.prose_flows.contains_key(&p.id)
@@ -135,19 +212,7 @@ pub(super) fn measure(
             && !plan.resources.contains_key(&p.id)
             && !plan.editorials.contains_key(&p.id)
             && plan.editing_node != Some(p.id)
-            && p.content.len() <= MAX_BYTES
-            && !p.content.runs().iter().any(|run| {
-                run.styles.iter().any(|style| {
-                    matches!(
-                        style,
-                        document_core::InlineStyle::Image { .. }
-                            | document_core::InlineStyle::PreservedHtml(_)
-                            | document_core::InlineStyle::Math { .. }
-                    )
-                })
-            })
-            && !projection.text()[segment.projection_range()].contains(['\n', '\r'])
-            && !measurement::contains_strong_rtl(&projection.text()[segment.projection_range()])
+            && flowable_paragraph(p, segment, &projection.text()[segment.projection_range()])
     };
     // Stay within published planning windows so deferred chapter geometry
     // never depends on an unmeasured neighbour outside its request.
@@ -496,28 +561,7 @@ pub(super) fn build(
             span: (12 / flow.columns) as u8,
             fixed_canvas: Some(flow.canvas),
         };
-        let mut fragment = segment.clone();
-        fragment.node_range =
-            segment.node_range.start + range.start..segment.node_range.start + range.end;
-        fragment.set_projection_range(
-            segment.projection_start() + range.start..segment.projection_start() + range.end,
-        );
-        let mut lines = build_visual_lines_for_segment(
-            projection,
-            &fragment,
-            &HashMap::new(),
-            slot.width(width) + 8.,
-            &[],
-            fonts,
-            None,
-        );
-        for line in &mut lines {
-            line.set_slot(Some(slot));
-            line.x_fraction = slot.left(width) / width;
-            line.width_fraction = slot.width(width) / width;
-            line.style.space_above = 0.;
-            line.style.space_below = 0.;
-        }
+        let mut lines = slotted_fragment(projection, segment, range.clone(), slot, width, fonts);
         if let Some(first) = lines.first_mut() {
             let opens_column = flow
                 .starts

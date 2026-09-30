@@ -50,7 +50,7 @@ to this cache.
 and tests it against the pinned AccessKit consumer: all offscreen descendants,
 scroll transforms, Unicode edits, focus, removal, reordering, reparenting, ID
 reuse, and complete reactivation. Native timing and semantic evidence are
-recorded in `performance/REFERENCE-SCROLL-FIX.md`.
+recorded in `performance/REFERENCE-SCROLL-FIX.md` (commit 9977ce8).
 
 On forced full publication the cache moves the complete tree into AccessKit and
 clears its comparison baseline, avoiding a second full-tree clone during
@@ -69,7 +69,7 @@ without fractional scaling retain their legacy output-scale path.
 
 The native title-bar harness compares the actual accessible 28px button bounds
 against the requested display scale before accepting a screenshot. See
-`performance/TITLE-BAR-STYLE.md` for the repeated native matrix. Remove this
+`performance/TITLE-BAR-STYLE.md` (commit 9977ce8) for the repeated native matrix. Remove this
 override when the pinned upstream preserves the same preference across output
 membership events and passes the matrix.
 

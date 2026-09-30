@@ -69,9 +69,8 @@ pub(super) struct GroupAnalysis {
 }
 
 impl GroupAnalysis {
-    pub fn build(roots: &[&BlockNode]) -> Self {
+    pub fn build(roots: &[&BlockNode], figure_roles: &crate::projection::FigureRoles) -> Self {
         let mut analysis = Self::default();
-        let figure_roles = crate::figures::associations(roots);
         let mut ancestors: Vec<NodeId> = Vec::new();
         let mut owners = Vec::with_capacity(roots.len());
         analysis.preamble = 0..roots.len();
@@ -428,7 +427,7 @@ mod tests {
             .iter()
             .map(AsRef::as_ref)
             .collect::<Vec<_>>();
-        let groups = super::GroupAnalysis::build(&roots);
+        let groups = super::GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
         assert!(groups.validate(&roots));
         let mut anchored = 0;
         for (i, root) in roots.iter().enumerate() {
@@ -472,7 +471,8 @@ mod tests {
                         .iter()
                         .map(AsRef::as_ref)
                         .collect::<Vec<_>>();
-                    let plan = super::GroupAnalysis::build(&roots);
+                    let plan =
+                        super::GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
                     assert!(plan.validate(&roots));
                     let action = roots
                         .iter()
@@ -507,7 +507,7 @@ mod tests {
             .iter()
             .map(AsRef::as_ref)
             .collect::<Vec<_>>();
-        let mut groups = super::GroupAnalysis::build(&roots);
+        let mut groups = super::GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
         assert!(
             groups.validate(&roots),
             "an adjacent shared-caption edge is not duplicate source ownership"
@@ -533,7 +533,7 @@ mod tests {
             let document = document_core::Document::from_markdown(source.as_str()).unwrap();
             let snapshot = document.snapshot();
             let roots = snapshot.blocks().iter().map(AsRef::as_ref).collect::<Vec<_>>();
-            let groups = super::GroupAnalysis::build(&roots);
+            let groups = super::GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
             assert!(groups.validate(&roots));
             assert!(groups.groups.iter().flat_map(|g| &g.relationships).all(|r| r.kind != super::RelationshipKind::CriticalInstruction), "{source}");
             assert_eq!(snapshot.serialize().unwrap(), source);
@@ -552,7 +552,7 @@ mod tests {
         .unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
         let roots = projection.roots().collect::<Vec<_>>();
-        let analysis = GroupAnalysis::build(&roots);
+        let analysis = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
         assert!(analysis.validate(&roots));
         assert_eq!(analysis.preamble, 0..1);
         assert_eq!(analysis.sections.len(), 3);
@@ -577,7 +577,7 @@ mod tests {
             let document = Document::from_markdown(source).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let roots = projection.roots().collect::<Vec<_>>();
-            let analysis = GroupAnalysis::build(&roots);
+            let analysis = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
             let gallery = analysis
                 .groups
                 .iter()
@@ -608,7 +608,7 @@ mod tests {
         let document = Document::from_markdown(source).unwrap();
         let projection = TextProjection::from_snapshot(&document.snapshot());
         let roots = projection.roots().collect::<Vec<_>>();
-        let mut analysis = GroupAnalysis::build(&roots);
+        let mut analysis = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
         assert!(analysis.validate(&roots));
         assert_eq!(analysis.groups[0].roots, 0..3);
         assert_eq!(analysis.groups[0].kind, GroupKind::ExplanationContent);
@@ -645,7 +645,7 @@ mod tests {
                 let document = Document::from_markdown(source.as_str()).unwrap();
                 let projection = TextProjection::from_snapshot(&document.snapshot());
                 let roots: Vec<_> = projection.roots().collect();
-                let analysis = GroupAnalysis::build(&roots);
+                let analysis = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
                 assert!(analysis.validate(&roots));
                 assert_eq!(analysis.groups.len(), 1);
                 assert_eq!(analysis.groups[0].kind, GroupKind::ExplanationContent);
@@ -676,7 +676,7 @@ mod tests {
                 let document = Document::from_markdown(source.as_str()).unwrap();
                 let projection = TextProjection::from_snapshot(&document.snapshot());
                 let roots = projection.roots().collect::<Vec<_>>();
-                let analysis = GroupAnalysis::build(&roots);
+                let analysis = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
                 assert!(analysis.validate(&roots));
                 assert_eq!(analysis.groups.len(), 1);
                 assert_eq!(analysis.groups[0].kind, GroupKind::ExplanationContent);
@@ -698,7 +698,10 @@ mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let roots: Vec<_> = projection.roots().collect();
             assert!(explanation_content(&roots, 0).is_none());
-            assert!(GroupAnalysis::build(&roots).validate(&roots));
+            assert!(
+                GroupAnalysis::build(&roots, &crate::figures::associations(&roots))
+                    .validate(&roots)
+            );
             assert_eq!(document.snapshot().serialize().unwrap(), source);
         }
     }
@@ -723,9 +726,12 @@ mod tests {
             let document = Document::from_markdown(source.as_str()).unwrap();
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let roots = projection.roots().collect::<Vec<_>>();
-            let analysis = GroupAnalysis::build(&roots);
+            let analysis = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
             assert!(analysis.validate(&roots), "{source}");
-            assert_eq!(analysis.groups, GroupAnalysis::build(&roots).groups);
+            assert_eq!(
+                analysis.groups,
+                GroupAnalysis::build(&roots, &crate::figures::associations(&roots)).groups
+            );
         }
     }
 
@@ -735,7 +741,7 @@ mod tests {
         let mut document = Document::from_markdown(source).unwrap();
         let mut projection = TextProjection::from_snapshot(&document.snapshot());
         let roots = projection.roots().collect::<Vec<_>>();
-        let old = GroupAnalysis::build(&roots);
+        let old = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
         let target = roots[3].id();
         let edit = document
             .apply(document_core::EditCommand::ReplaceText {
@@ -750,7 +756,7 @@ mod tests {
             .refresh_text_node(&edit.snapshot, target)
             .unwrap();
         let roots = projection.roots().collect::<Vec<_>>();
-        let new = GroupAnalysis::build(&roots);
+        let new = GroupAnalysis::build(&roots, &crate::figures::associations(&roots));
         assert!(new.validate(&roots));
         assert_eq!(old.groups, new.groups);
         assert_ne!(new.groups[0].id, new.groups[1].id);

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::{
     BlockNode, BlockSequence, DocumentError, DocumentPosition, ListKind, NodeId, Paragraph,
-    PositionError, RichText, TextSelection,
+    PositionError, RichText, TextSelection, model::PathStep,
 };
 
 pub(crate) struct TreeRange<'a> {
@@ -109,7 +109,11 @@ fn endpoint(
     position: DocumentPosition,
 ) -> Result<(Vec<usize>, &Arc<BlockNode>), DocumentError> {
     let mut path = Vec::new();
-    let block = find_path(blocks, position.node_id, &mut path)
+    let block = blocks
+        .descend(position.node_id, &mut |step| match step {
+            PathStep::Block(index) | PathStep::ListItem { index, .. } => path.push(index),
+            PathStep::TableCell { row, column, .. } => path.extend([row, column]),
+        })
         .ok_or(PositionError::UnknownNode(position.node_id))?;
     block
         .text()
@@ -119,46 +123,6 @@ fn endpoint(
             &(position.text_offset..position.text_offset),
         )?;
     Ok((path, block))
-}
-
-fn find_path<'a>(
-    blocks: &'a BlockSequence,
-    id: NodeId,
-    path: &mut Vec<usize>,
-) -> Option<&'a Arc<BlockNode>> {
-    let index = blocks.top_index_containing(id)?;
-    path.push(index);
-    let block = blocks.get(index)?;
-    if block.id() == id {
-        return Some(block);
-    }
-    match block.as_ref() {
-        BlockNode::Definition { blocks, .. }
-        | BlockNode::BlockQuote { blocks, .. }
-        | BlockNode::Alert { blocks, .. }
-        | BlockNode::FootnoteDefinition { blocks, .. } => find_path(blocks, id, path),
-        BlockNode::List(list) => {
-            let (index, item) = list
-                .items
-                .iter()
-                .enumerate()
-                .find(|(_, item)| item.blocks.contains_node(id))?;
-            path.push(index);
-            find_path(&item.blocks, id, path)
-        }
-        BlockNode::Table(table) => {
-            for (row_index, row) in table.rows.iter().enumerate() {
-                for (cell_index, cell) in row.cells.iter().enumerate() {
-                    if cell.blocks.contains_node(id) {
-                        path.extend([row_index, cell_index]);
-                        return find_path(&cell.blocks, id, path);
-                    }
-                }
-            }
-            None
-        }
-        _ => None,
-    }
 }
 
 enum Relation {

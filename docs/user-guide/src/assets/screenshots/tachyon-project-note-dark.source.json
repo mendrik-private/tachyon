@@ -1,0 +1,19 @@
+{
+  "source_unchanged": true,
+  "passes": true,
+  "fixture": "holdout/project-note.md",
+  "binary_sha256": "19452c60cca14146dbc957cec55f8eae5b6288a4833d91bcf0e9ec09787bd2e3",
+  "original_sha256": "1c91a3f8cac4218fb2bf3132183e7fd67020db8057919a04702f223d2a8fb228",
+  "current_sha256": "1c91a3f8cac4218fb2bf3132183e7fd67020db8057919a04702f223d2a8fb228",
+  "width": 1280,
+  "height": 900,
+  "zoom_steps": 0,
+  "source_origin": {
+    "path": "/tmp/tachyon-release-pages/docs/user-guide/src/assets/screenshots/project-note.md",
+    "staged_sha256": "1c91a3f8cac4218fb2bf3132183e7fd67020db8057919a04702f223d2a8fb228",
+    "resource_scope": "selected_markdown_only",
+    "state_at_check": "unchanged",
+    "current_sha256": "1c91a3f8cac4218fb2bf3132183e7fd67020db8057919a04702f223d2a8fb228"
+  },
+  "source_resources": []
+}

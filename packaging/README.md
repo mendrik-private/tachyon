@@ -43,7 +43,8 @@ file /tmp/tachyon-stage/usr/share/icons/hicolor/scalable/apps/io.github.mendrik_
 [Release](../.github/workflows/release.yml) builds a Linux x86_64 archive on
 Ubuntu 24.04. A pushed `v*` tag starts the workflow. The tag must exactly match
 `v` plus the version in `crates/markdown-app/Cargo.toml`, including any prerelease
-suffix. Manual runs must select an existing matching tag, not a branch.
+suffix. Rerun a failed tagged workflow from GitHub Actions; the release workflow
+does not accept a branch or manual dispatch.
 
 Before tagging, commit the complete application and its build inputs: manifests,
 lockfiles, vendored sources, bundled fonts, test fixtures, documentation and
@@ -53,32 +54,45 @@ are not available to the runner. The Rust toolchain pinned in
 
 The workflow runs `scripts/check.sh`, builds the optimized binary with `--locked`,
 stages it with `packaging/install.sh`, validates the desktop entry and AppStream
-XML, and checks for unresolved shared libraries. The resulting draft contains:
+metadata, and checks for unresolved shared libraries. The resulting release
+contains:
 
 - `tachyon-vVERSION-linux-x86_64.tar.gz`, with `bin/`, desktop integration,
-  licenses and user documentation;
+  licenses, source documentation, and the offline HTML user guide under
+  `share/doc/tachyon/user-guide/`; the README's screenshot sources and capture
+  provenance are also included at their documented relative paths;
 - `runtime-libraries.txt`, the build host's shared-library dependency inventory;
 - `SHA256SUMS`, covering both files.
 
 The same files are retained as a workflow artifact for 14 days. Only the final
-release job receives `contents: write`; the build has read-only repository
-permissions. The workflow uses the built-in `GITHUB_TOKEN` and needs no personal
+publish job receives `contents: write`; the verification job additionally has
+read-only deployment access, and all build jobs have read-only repository
+access. The workflow uses the built-in `GITHUB_TOKEN` and needs no personal
 access token. Repository or organization policy must permit release creation.
 
-For example, after updating the application version to `0.1.0` and committing
-the intended release contents:
+Do not create the tag directly. After updating the release metadata, building
+the guide, committing and pushing `main`, wait for the Documentation workflow to
+deploy GitHub Pages for that exact commit. Then run:
 
 ```sh
-git tag -a v0.1.0 -m 'Tachyon 0.1.0'
-git push origin v0.1.0
+scripts/release-github.sh
 ```
 
-Review the generated notes and assets, complete native Wayland qualification,
-and publish the draft from GitHub Releases. Mark prerelease versions as
-prereleases when publishing. This follows GitHub's
-[draft release workflow](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository?tool=webui).
-Rerunning a tag can replace draft assets; it refuses to overwrite a published
-release. Use a new version and tag for subsequent releases.
+The launcher requires a clean `main`, verifies that HEAD is on `origin/main`,
+checks Cargo and AppStream versions, requires a successful `github-pages`
+deployment for that exact commit, and refuses to reuse a local or remote tag.
+The tag workflow repeats those checks so a manual tag push cannot bypass them.
+See the [release checklist](../docs/release-checklist.md) for the complete
+preparation sequence.
+
+After the documentation and application gates pass, the release workflow stages
+the assets on a draft and then publishes it automatically. This keeps a failed
+upload from becoming a visible partial release. A rerun may replace assets on an
+existing draft, but the workflow refuses to modify an already-published release.
+Versions with a semantic prerelease suffix, such as `0.2.0-rc.1`, are published
+as GitHub prereleases; build metadata after `+` does not make a stable version a
+prerelease. Published notes link to the online guide and the exact tagged source
+revision. Use a new version and tag after publication.
 
 The archive is not an AppImage or a static binary. It requires a compatible
 Linux userspace, a Wayland session and Vulkan drivers. Ubuntu 24.04 is the build

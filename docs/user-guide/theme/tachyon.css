@@ -1,0 +1,51 @@
+:root {
+  --content-max-width: 82rem;
+}
+
+.content main {
+  line-height: 1.65;
+}
+
+.content main img {
+  max-height: 54rem;
+  border: 1px solid var(--table-border-color);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.45rem 1.35rem rgb(0 0 0 / 18%);
+}
+
+.content main img[alt^="Tachyon logo"] {
+  display: block;
+  width: min(12rem, 42vw);
+  margin: 1.5rem auto 2rem;
+  border: 0;
+  border-radius: 1.25rem;
+  box-shadow: none;
+}
+
+.content main p:has(> a > img) {
+  text-align: center;
+}
+
+.content main kbd {
+  display: inline-block;
+  min-width: 1.45em;
+  padding: 0.08em 0.38em;
+  border: 1px solid var(--table-border-color);
+  border-bottom-width: 2px;
+  border-radius: 0.3em;
+  background: var(--table-header-bg);
+  font: 0.82em var(--mono-font);
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .content main {
+    line-height: 1.55;
+  }
+
+  .content main img {
+    max-height: none;
+  }
+}

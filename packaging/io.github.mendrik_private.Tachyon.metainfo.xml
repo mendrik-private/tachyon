@@ -4,6 +4,7 @@
   <name>Tachyon</name>
   <summary>Read and edit Markdown as a rich document</summary>
   <url type="homepage">https://github.com/mendrik-private/tachyon</url>
+  <url type="help">https://mendrik-private.github.io/tachyon/</url>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT OR Apache-2.0</project_license>
   <developer id="io.github.mendrik_private">
@@ -28,6 +29,7 @@
     <control>pointing</control>
   </recommends>
   <releases>
+    <release version="0.1.15" date="2026-09-30" />
     <release version="0.1.14" date="2026-09-26" />
     <release version="0.1.13" date="2026-09-15" />
     <release version="0.1.12" date="2026-09-15" />

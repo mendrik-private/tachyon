@@ -14,22 +14,24 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Install native dependencies
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            build-essential clang cmake git libfontconfig-dev libglib2.0-dev \
+            appstream build-essential clang cmake git libfontconfig-dev libglib2.0-dev \
             libssl-dev libvulkan1 libwayland-dev libx11-xcb-dev \
             libxkbcommon-x11-dev libzstd-dev pkg-config desktop-file-utils \
             libxml2-utils
       - name: Install pinned Rust toolchain
         run: rustup show
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Check workspace
         run: scripts/check.sh
       - name: Validate desktop metadata
         run: |
           desktop-file-validate packaging/io.github.mendrik_private.Tachyon.desktop
+          appstreamcli validate --no-net \
+            packaging/io.github.mendrik_private.Tachyon.metainfo.xml
           xmllint --noout \
             packaging/io.github.mendrik_private.Tachyon.metainfo.xml

@@ -1,0 +1,15 @@
+{
+  "appearance": "dark",
+  "role_pixels": {
+    "page": 709414,
+    "title_bar": 34591,
+    "heading": 2841,
+    "text": 130
+  },
+  "passes": true,
+  "binary_sha256": "19452c60cca14146dbc957cec55f8eae5b6288a4833d91bcf0e9ec09787bd2e3",
+  "fixture": "holdout/project-note.md",
+  "width": 1280,
+  "height": 900,
+  "zoom_steps": 0
+}

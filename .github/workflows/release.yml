@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
-  workflow_dispatch:
+    tags:
+      - 'v*'
 
 permissions:
   contents: read
@@ -13,26 +13,90 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  verify:
+    name: Verify release source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag and release metadata
+        run: scripts/verify-release-metadata.py "$GITHUB_REF_NAME"
+
+      - name: Verify tagged commit is on origin/main
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Refuse an existing published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != true ]; then
+              echo "Release $GITHUB_REF_NAME is already published; refusing to modify it." >&2
+              exit 1
+            fi
+          fi
+
+      - name: Verify Pages deployed the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          deployments=$(gh api --method GET "repos/$GH_REPO/deployments" \
+            -f sha="$GITHUB_SHA" -f environment=github-pages -f per_page=100 \
+            --jq 'sort_by(.created_at) | reverse | .[].id')
+          test -n "$deployments" || {
+            echo "No github-pages deployment exists for $GITHUB_SHA." >&2
+            exit 1
+          }
+
+          successful_deployment=
+          successful_url=
+          for deployment in $deployments; do
+            status=$(gh api "repos/$GH_REPO/deployments/$deployment/statuses" \
+              --jq 'map(select(.state == "success")) | sort_by(.created_at) | reverse | .[0] // empty')
+            if [ -n "$status" ]; then
+              successful_deployment=$deployment
+              successful_url=$(printf '%s' "$status" | jq -r '.environment_url // .target_url // empty')
+              break
+            fi
+          done
+          test -n "$successful_deployment" || {
+            echo "No successful github-pages deployment exists for $GITHUB_SHA." >&2
+            exit 1
+          }
+          echo "Verified github-pages deployment $successful_deployment for $GITHUB_SHA."
+          if [ -n "$successful_url" ]; then
+            echo "Documentation: $successful_url"
+          fi
+
+  docs:
+    name: Validate release documentation
+    uses: ./.github/workflows/docs-build.yml
+
+  app:
+    name: Check and build application
+    needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify release tag matches the application version
-        env:
-          RELEASE_REF_TYPE: ${{ github.ref_type }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          python3 - <<'PY'
-          import os
-          import tomllib
-          from pathlib import Path
-          version = tomllib.loads(Path('crates/markdown-app/Cargo.toml').read_text())['package']['version']
-          if os.environ['RELEASE_REF_TYPE'] != 'tag' or os.environ['RELEASE_TAG'] != f'v{version}':
-              raise SystemExit(f'Run this workflow on the existing tag v{version}, matching markdown-app/Cargo.toml.')
-          PY
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
       - name: Install native dependencies
         run: |
           sudo apt-get update
@@ -41,66 +105,164 @@ jobs:
             libssl-dev libvulkan1 libwayland-dev libx11-xcb-dev \
             libxkbcommon-x11-dev libzstd-dev pkg-config desktop-file-utils \
             libxml2-utils
+
       - name: Install pinned Rust toolchain
         run: rustup show
-      - uses: Swatinem/rust-cache@v2
+
+      - name: Restore Rust build cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
       - name: Check workspace
         run: scripts/check.sh
+
       - name: Build release binary
         run: cargo build --release --locked --bin tachyon
-      - name: Package Linux x86_64 installation
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
+
+      - name: Store release binary
+        run: tar -C target/release -czf target/tachyon-release-binary.tar.gz tachyon
+
+      - name: Upload release binary
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: tachyon-release-binary
+          path: target/tachyon-release-binary.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: Package Linux x86_64 release
+    needs: [app, docs]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install validation and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            appstream desktop-file-utils file libfontconfig1 libglib2.0-0t64 libssl3t64 \
+            libvulkan1 libwayland-client0 libx11-xcb1 libxkbcommon-x11-0 \
+            libzstd1 libxml2-utils
+
+      - name: Download release binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tachyon-release-binary
+          path: target
+
+      - name: Download built guide
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tachyon-docs-site
+          path: target/docs-site
+
+      - name: Build installation archive
         run: |
           set -euo pipefail
-          bundle="tachyon-${RELEASE_TAG}-linux-x86_64"
+          version=$(scripts/verify-release-metadata.py "$GITHUB_REF_NAME")
+          bundle="tachyon-v${version}-linux-x86_64"
+          binary="$RUNNER_TEMP/tachyon"
+          stage="$RUNNER_TEMP/$bundle"
+
+          tar -C "$RUNNER_TEMP" -xzf target/tachyon-release-binary.tar.gz
+          test -x "$binary"
+          test -f target/docs-site/index.html
           mkdir -p dist
-          packaging/install.sh "$RUNNER_TEMP/$bundle"
-          install -Dm644 README.md "$RUNNER_TEMP/$bundle/share/doc/tachyon/README.md"
-          install -Dm644 docs/markdown-layouts.md "$RUNNER_TEMP/$bundle/share/doc/tachyon/docs/markdown-layouts.md"
-          install -Dm644 packaging/README.md "$RUNNER_TEMP/$bundle/share/doc/tachyon/packaging/README.md"
-          desktop-file-validate "$RUNNER_TEMP/$bundle/share/applications/io.github.mendrik_private.Tachyon.desktop"
-          xmllint --noout "$RUNNER_TEMP/$bundle/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml"
-          file "$RUNNER_TEMP/$bundle/bin/tachyon"
-          ldd "$RUNNER_TEMP/$bundle/bin/tachyon" > dist/runtime-libraries.txt
+          packaging/install.sh "$stage" "$binary"
+          install -Dm644 README.md "$stage/share/doc/tachyon/README.md"
+          install -Dm644 docs/markdown-layouts.md \
+            "$stage/share/doc/tachyon/docs/markdown-layouts.md"
+          install -Dm644 docs/paragraph-layout.md \
+            "$stage/share/doc/tachyon/docs/paragraph-layout.md"
+          install -Dm644 docs/release-checklist.md \
+            "$stage/share/doc/tachyon/docs/release-checklist.md"
+          install -Dm644 packaging/README.md \
+            "$stage/share/doc/tachyon/packaging/README.md"
+          mkdir -p "$stage/share/doc/tachyon/docs/user-guide/src/assets"
+          cp -a docs/user-guide/src/assets/screenshots \
+            "$stage/share/doc/tachyon/docs/user-guide/src/assets/"
+          mkdir -p "$stage/share/doc/tachyon/user-guide"
+          cp -a target/docs-site/. "$stage/share/doc/tachyon/user-guide/"
+
+          desktop-file-validate \
+            "$stage/share/applications/io.github.mendrik_private.Tachyon.desktop"
+          appstreamcli validate --no-net \
+            "$stage/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml"
+          xmllint --noout \
+            "$stage/share/metainfo/io.github.mendrik_private.Tachyon.metainfo.xml"
+          file "$stage/bin/tachyon"
+          ldd "$stage/bin/tachyon" > dist/runtime-libraries.txt
           if grep -q 'not found' dist/runtime-libraries.txt; then
             cat dist/runtime-libraries.txt
             exit 1
           fi
+
           tar -C "$RUNNER_TEMP" -czf "dist/$bundle.tar.gz" "$bundle"
           (cd dist && sha256sum "$bundle.tar.gz" runtime-libraries.txt > SHA256SUMS)
-      - uses: actions/upload-artifact@v4
+
+      - name: Store release artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: linux-x86_64-release
           path: dist/*
           if-no-files-found: error
           retention-days: 14
 
-  release:
-    needs: build
+  publish:
+    name: Publish GitHub Release
+    needs: package
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: linux-x86_64-release
           path: dist
-      - name: Create or update the draft release
+
+      - name: Stage assets and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft); then
+          version=${GITHUB_REF_NAME#v}
+          version_core=${version%%+*}
+          prerelease=false
+          if [[ "$version_core" == *-* ]]; then
+            prerelease=true
+          fi
+
+          docs_url=https://mendrik-private.github.io/tachyon/
+          source_url="https://github.com/$GH_REPO/tree/$GITHUB_SHA"
+          printf -v release_header \
+            'Documentation: %s\n\nTagged source: %s\n\n' \
+            "$docs_url" "$source_url"
+
+          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null); then
             if [ "$draft" != true ]; then
-              echo 'Refusing to replace assets on an already published release.' >&2
+              echo "Release $GITHUB_REF_NAME is already published; refusing to modify it." >&2
               exit 1
             fi
-            gh release upload "$RELEASE_TAG" dist/* --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
           else
-            gh release create "$RELEASE_TAG" dist/* --verify-tag --draft \
-              --title "Tachyon $RELEASE_TAG" --generate-notes
+            create_args=(--verify-tag --draft --generate-notes \
+              --title "Tachyon $GITHUB_REF_NAME")
+            if [ "$prerelease" = true ]; then
+              create_args+=(--prerelease)
+            fi
+            gh release create "$GITHUB_REF_NAME" dist/* "${create_args[@]}"
           fi
+
+          release_body=$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)
+          if [[ "$release_body" != *"$source_url"* ]]; then
+            release_body="${release_header}${release_body}"
+          fi
+          gh release edit "$GITHUB_REF_NAME" \
+            --draft=false \
+            --prerelease="$prerelease" \
+            --notes "$release_body"

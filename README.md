@@ -6,9 +6,14 @@ Tachyon keeps your Markdown rendered while you edit it. Headings, lists, tables,
 code and figures share one editable document, with automatic layouts that adapt
 to the space available. Your work lives in local Markdown files.
 
-<P>
-<img width="2879" height="1669" alt="image" src="https://github.com/user-attachments/assets/aee4dd72-89bc-42eb-93a6-a3af80f087e7" />
-</P>
+**[Read the Tachyon User Guide](https://mendrik-private.github.io/tachyon/)**
+
+<p>
+<img width="1440" height="1000" alt="Tachyon showing a project note with its Outline and Browser navigation" src="docs/user-guide/src/assets/screenshots/tachyon-project-note-wide.png" />
+</p>
+
+_Captured from the v0.1.14 release built from the same application source
+baseline; see the [capture provenance](docs/user-guide/src/assets/screenshots/PROVENANCE.md)._
 
 ## Highlights
 
@@ -22,8 +27,8 @@ to the space available. Your work lives in local Markdown files.
   compact records emerge from your document's structure.
 - **Technical writing built in.** Syntax-highlighted code with Copy actions,
   mathematical formulas, Mermaid previews and explicit JSON Schema trees.
-- **Find your place.** File browser, document outline, minimap, in-document
-  search and local-file/heading links.
+- **Find your place.** File browser, document outline, in-document search and
+  local-file/heading links.
 - **Keep your work.** Atomic autosave, recoverable untitled drafts, crash
   recovery and explicit handling of changes made outside the app.
 - **Comfortable reading.** Light and dark appearance, serif headings, bundled
@@ -97,6 +102,17 @@ The script requires the checked-in lockfile, verifies the two Git source
 commits, checks formatting and Clippy with warnings denied, and runs all target
 and documentation tests.
 
+Build and check the published user guide with the pinned mdBook 0.5.4 toolchain:
+
+```sh
+scripts/build-docs.sh
+python3 -m http.server --directory target/docs-site
+```
+
+Then open `http://localhost:8000`. The helper stages the canonical layout
+cookbook and local branding before it runs mdBook and the site link checker, so
+use it instead of invoking `mdbook build` or `mdbook serve` directly.
+
 ## Keyboard commands
 
 | Command | Shortcut |
@@ -107,9 +123,11 @@ and documentation tests.
 | Save | `Ctrl+S` |
 | Save as | `Ctrl+Shift+S` |
 | Save a copy | `Ctrl+Alt+Shift+S` |
+| Export paged HTML | `Ctrl+Shift+E` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` |
 | Toggle navigation | `Ctrl+Alt+N` |
 | Close window | `Ctrl+W` |
+| Zoom in / out / actual size | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
 | Bold / italic / strike / code | `Ctrl+B` / `Ctrl+I` / `Ctrl+Shift+X` / `Ctrl+E` |
 | Link | `Ctrl+K` |
 | Open link at caret | `Alt+Enter` |
@@ -119,8 +137,9 @@ and documentation tests.
 | Paste as Markdown | `Ctrl+Shift+V` |
 | Page up / down (extend selection with `Shift`) | `PageUp` / `PageDown` |
 
-The divider between Files and Outline is keyboard adjustable after focusing
-it. Both navigation sections and the document scroll independently.
+The navigation panel uses keyboard-accessible Outline and Browser tabs. Focus a
+tab and use Left/Up or Right/Down to switch; drag the panel edge with the pointer
+to resize it. The active navigation tab and the document scroll independently.
 
 Find follows source order and includes text inside supported HTML disclosures.
 Matches in wide tables, code and editable HTML scroll their local content into

@@ -13076,9 +13076,13 @@ fn visual_line_containing(lines: &[VisualLineSpec], offset: usize) -> Option<&Vi
 /// line the segment owns is among them; callers that need exact ownership
 /// still check each line's segment.
 fn segment_line_span(lines: &[VisualLineSpec], segment: &crate::ProjectionSegment) -> Range<usize> {
-    let start = lines.partition_point(|line| line.projected_start() < segment.projection_start());
-    let end = start
-        + lines[start..].partition_point(|line| line.projected_start() <= segment.projection_end());
+    projected_line_span(lines, segment.projection_range())
+}
+
+/// Indexes of the lines that start within `range`, its end included.
+fn projected_line_span(lines: &[VisualLineSpec], range: Range<usize>) -> Range<usize> {
+    let start = lines.partition_point(|line| line.projected_start() < range.start);
+    let end = start + lines[start..].partition_point(|line| line.projected_start() <= range.end);
     start..end
 }
 

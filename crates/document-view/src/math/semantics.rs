@@ -28,14 +28,7 @@ impl MathMarkup {
 
     pub fn xml(&self) -> String {
         let mut xml = format!("<{}>", self.tag);
-        for ch in self.text.chars() {
-            match ch {
-                '&' => xml.push_str("&amp;"),
-                '<' => xml.push_str("&lt;"),
-                '>' => xml.push_str("&gt;"),
-                _ => xml.push(ch),
-            }
-        }
+        document_core::push_escaped_html(&mut xml, &self.text, false);
         for child in &self.children {
             xml.push_str(&child.xml());
         }

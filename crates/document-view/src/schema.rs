@@ -135,18 +135,11 @@ fn append<'a>(
     Ok(())
 }
 
-fn xml(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
-
 fn text(id: &str, content: &str, x: f32, y: f32, color: u32) -> String {
-    format!(
-        "<text id=\"{id}\" x=\"{x}\" y=\"{y}\" fill=\"#{color:06x}\">{}</text>",
-        xml(content)
-    )
+    let mut text = format!("<text id=\"{id}\" x=\"{x}\" y=\"{y}\" fill=\"#{color:06x}\">");
+    document_core::push_escaped_html(&mut text, content, false);
+    text.push_str("</text>");
+    text
 }
 
 fn svg(body: &str, width: f32, height: f32) -> String {

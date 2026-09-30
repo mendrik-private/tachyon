@@ -13,23 +13,43 @@ use crate::{
     command::caret_after, model::PathStep,
 };
 
+mod node_map;
 mod preview;
 mod source_rebase;
+
+pub use node_map::NodeIdSet;
+use node_map::NodeMap;
 
 #[derive(Clone, Debug)]
 struct SnapshotState {
     revision: Revision,
     blocks: BlockSequence,
     selection: Selection,
-    dirty_nodes: BTreeSet<NodeId>,
+    dirty_nodes: NodeIdSet,
     structure_changed: bool,
-    moved_source_nodes: BTreeSet<NodeId>,
+    moved_source_nodes: NodeIdSet,
     source: SourceSpine,
     next_node_id: u64,
-    node_revisions: Arc<HashMap<NodeId, Revision>>,
+    /// Revision of each node last changed by a transaction; absent for nodes
+    /// untouched since import and pruned when a transaction removes the node.
+    node_revisions: NodeMap<Revision>,
     /// Import/repair-only caret host, not authored content. Pointer identity
     /// distinguishes the untouched host from a paragraph the user has edited.
     transient_caret: Option<Arc<BlockNode>>,
+}
+
+impl SnapshotState {
+    /// Stamp nodes a transaction changed. Removed nodes lose their entry, so
+    /// the map tracks live nodes; any reinsertion is itself a change.
+    fn record_node_revisions(&mut self, changed: &BTreeSet<NodeId>, revision: Revision) {
+        for node_id in changed {
+            if self.blocks.contains_node(*node_id) {
+                self.node_revisions.insert(*node_id, revision);
+            } else {
+                self.node_revisions.remove(*node_id);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -80,7 +100,7 @@ impl DocumentSnapshot {
     }
 
     #[must_use]
-    pub fn dirty_node_ids(&self) -> &BTreeSet<NodeId> {
+    pub fn dirty_node_ids(&self) -> &NodeIdSet {
         &self.0.dirty_nodes
     }
 
@@ -93,7 +113,7 @@ impl DocumentSnapshot {
         self.0.blocks.contains_node(node_id).then(|| {
             self.0
                 .node_revisions
-                .get(&node_id)
+                .get(node_id)
                 .copied()
                 .unwrap_or_default()
         })
@@ -368,10 +388,11 @@ impl Document {
     pub fn rebase_source(&mut self, prepared: SourceRebase) -> bool {
         if self.composition.is_some()
             || self.current.revision() != prepared.origin.revision()
-            || !Arc::ptr_eq(
-                &self.current.0.node_revisions,
-                &prepared.origin.0.node_revisions,
-            )
+            || !self
+                .current
+                .0
+                .node_revisions
+                .ptr_eq(&prepared.origin.0.node_revisions)
         {
             return false;
         }
@@ -468,11 +489,8 @@ impl Document {
             || changed_node_ids(&before.0.blocks, &state.blocks),
             |node_id| BTreeSet::from([node_id]),
         );
-        state.dirty_nodes.extend(&transaction_dirty);
-        let node_revisions = Arc::make_mut(&mut state.node_revisions);
-        for node_id in &transaction_dirty {
-            node_revisions.insert(*node_id, revision);
-        }
+        state.dirty_nodes.extend(transaction_dirty.iter().copied());
+        state.record_node_revisions(&transaction_dirty, revision);
         // Classified single-leaf text/style commands preserve IDs, container
         // shapes and ownership at every depth. RichText mutation validates its
         // ranges, and reconciliation above validates the published selection.
@@ -605,11 +623,8 @@ impl Document {
         replace_text_selection(&mut state, composition.range, text, false)?;
         retire_transient_caret(&mut state);
         let transaction_dirty = changed_node_ids(&composition.before.0.blocks, &state.blocks);
-        state.dirty_nodes.extend(&transaction_dirty);
-        let node_revisions = Arc::make_mut(&mut state.node_revisions);
-        for node_id in transaction_dirty {
-            node_revisions.insert(node_id, revision);
-        }
+        state.dirty_nodes.extend(transaction_dirty.iter().copied());
+        state.record_node_revisions(&transaction_dirty, revision);
         self.current = DocumentSnapshot(Arc::new(state));
         Ok(self.current.clone())
     }
@@ -661,10 +676,7 @@ impl Document {
         let mut state = (*source.0).clone();
         state.revision = revision;
         let changed = changed_node_ids(&self.current.0.blocks, &state.blocks);
-        let revisions = Arc::make_mut(&mut state.node_revisions);
-        for node_id in changed {
-            revisions.insert(node_id, revision);
-        }
+        state.record_node_revisions(&changed, revision);
         DocumentSnapshot(Arc::new(state))
     }
 }
@@ -2636,12 +2648,12 @@ pub(crate) fn snapshot_from_import(
         revision: Revision::default(),
         blocks,
         selection,
-        dirty_nodes: BTreeSet::new(),
+        dirty_nodes: NodeIdSet::default(),
         structure_changed: false,
-        moved_source_nodes: BTreeSet::new(),
+        moved_source_nodes: NodeIdSet::default(),
         source,
         next_node_id,
-        node_revisions: Arc::new(HashMap::new()),
+        node_revisions: NodeMap::default(),
         transient_caret,
     }))
 }
@@ -4849,5 +4861,129 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn transactions_share_untouched_revision_and_dirty_storage() {
+        let source = (0..4_000).fold(String::new(), |mut source, index| {
+            source.push_str(&format!("Paragraph {index}\n\n"));
+            source
+        });
+        let mut document = Document::from_markdown(source).expect("document");
+        let ids: Vec<_> = document
+            .snapshot()
+            .blocks()
+            .iter()
+            .map(|block| block.id())
+            .collect();
+        let type_into = |document: &mut Document, node_id| {
+            document
+                .apply(EditCommand::ReplaceText {
+                    node_id,
+                    range: 0..0,
+                    text: "x".into(),
+                    selection_after: None,
+                    typing: true,
+                })
+                .expect("typing")
+        };
+        for id in ids.iter().step_by(2) {
+            type_into(&mut document, *id);
+        }
+        document
+            .apply(EditCommand::MoveBlock { from: 0, to: 3 })
+            .expect("move");
+        let before = document.snapshot();
+        assert_eq!(before.dirty_node_ids().len(), 2_000);
+        assert!(!before.0.moved_source_nodes.is_empty());
+
+        let caret = TextSelection::caret(DocumentPosition::new(ids[1], 1, Affinity::Downstream));
+        document
+            .apply(EditCommand::SetSelection(Selection::Text(caret)))
+            .expect("caret move");
+        let moved = document.snapshot();
+        assert!(moved.0.node_revisions.ptr_eq(&before.0.node_revisions));
+        assert_eq!(
+            moved.0.dirty_nodes.unshared_leaves(&before.0.dirty_nodes),
+            0
+        );
+        assert_eq!(
+            moved
+                .0
+                .moved_source_nodes
+                .unshared_leaves(&before.0.moved_source_nodes),
+            0
+        );
+
+        let edited = ids[1];
+        let result = type_into(&mut document, edited);
+        let after = document.snapshot();
+        assert_eq!(after.node_revision(edited), Some(result.revision));
+        assert_eq!(
+            after
+                .0
+                .node_revisions
+                .unshared_leaves(&before.0.node_revisions),
+            1
+        );
+        assert_eq!(
+            after.0.dirty_nodes.unshared_leaves(&before.0.dirty_nodes),
+            1
+        );
+        assert_eq!(
+            after
+                .0
+                .moved_source_nodes
+                .unshared_leaves(&before.0.moved_source_nodes),
+            0
+        );
+        assert!(after.dirty_node_ids().contains(&edited));
+        assert_eq!(
+            after.dirty_node_ids().len(),
+            before.dirty_node_ids().len() + 1
+        );
+        for id in ids.iter().filter(|id| **id != edited) {
+            assert_eq!(after.node_revision(*id), before.node_revision(*id));
+        }
+
+        let result = type_into(&mut document, edited);
+        let again = document.snapshot();
+        assert_eq!(again.node_revision(edited), Some(result.revision));
+        assert_eq!(
+            again
+                .0
+                .node_revisions
+                .unshared_leaves(&after.0.node_revisions),
+            1
+        );
+        assert_eq!(again.0.dirty_nodes.unshared_leaves(&after.0.dirty_nodes), 0);
+    }
+
+    #[test]
+    fn removed_nodes_leave_the_revision_map_and_return_with_a_fresh_revision() {
+        let mut document = Document::from_markdown("One\n\nTwo\n\nThree\n").expect("document");
+        let removed = document.snapshot().blocks().get(1).expect("block").id();
+        document
+            .apply(EditCommand::ReplaceText {
+                node_id: removed,
+                range: 0..0,
+                text: "x".into(),
+                selection_after: None,
+                typing: false,
+            })
+            .expect("edit");
+        let edited = document.snapshot();
+        assert!(edited.0.node_revisions.get(removed).is_some());
+
+        document
+            .apply(EditCommand::DeleteBlock { node_id: removed })
+            .expect("delete");
+        let deleted = document.snapshot();
+        assert_eq!(deleted.node_revision(removed), None);
+        assert!(deleted.0.node_revisions.get(removed).is_none());
+        assert_eq!(deleted.0.node_revisions.len(), 0);
+
+        let restored = document.undo().expect("undo");
+        assert_eq!(restored.node_revision(removed), Some(restored.revision()));
     }
 }

@@ -338,7 +338,7 @@ pub fn editable_html_markdown(source: &str) -> Option<String> {
 /// Escape text for HTML element content or a double-quoted attribute value.
 /// `line_breaks` also encodes CR and LF: raw blank lines would end a Markdown
 /// HTML block, and HTML parsing would normalize CRLF.
-pub(crate) fn push_escaped_html(output: &mut String, value: &str, line_breaks: bool) {
+pub fn push_escaped_html(output: &mut String, value: &str, line_breaks: bool) {
     for character in value.chars() {
         match character {
             '&' => output.push_str("&amp;"),

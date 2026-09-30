@@ -25,14 +25,28 @@ impl TableResizeDrag {
     }
 }
 
+/// Lines of `table`'s own cells, in source order. Sorted, non-overlapping
+/// lines of the table's contiguous segment run all start within its projected
+/// span; nested tables and other cell content share that span and are skipped.
+fn table_lines<'a>(
+    lines: &'a [VisualLineSpec],
+    projection: &TextProjection,
+    table: NodeId,
+) -> impl Iterator<Item = &'a VisualLineSpec> {
+    let span = projection
+        .table_projection_range(table)
+        .map_or(0..0, |range| projected_line_span(lines, range));
+    lines[span].iter().filter(move |line| {
+        line.table_cell
+            .is_some_and(|(owner, _, _, _)| owner == table)
+    })
+}
+
 impl RichDocumentEditor {
     fn table_resize_guide(&self) -> Option<Bounds<Pixels>> {
         let drag = self.table_resize_drag?;
         let element = self.element_bounds?;
-        let mut rows = self.visual_lines.iter().filter(|line| {
-            line.table_cell
-                .is_some_and(|(table, _, _, _)| table == drag.table_id)
-        });
+        let mut rows = table_lines(&self.visual_lines, &self.projection, drag.table_id);
         let first = rows.next()?;
         let mut top = first.table_row_y;
         let mut bottom = top + first.table_row_height;
@@ -93,7 +107,7 @@ impl RichDocumentEditor {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use super::hit_bounds;
+    use super::{hit_bounds, table_lines};
     use crate::init_editor;
 
     const SOURCE: &str = concat!(
@@ -115,6 +129,113 @@ mod tests {
             bounds: Bounds::new(mask.bounds.origin, size(px(80.), px(28.))),
         };
         assert!(hit_bounds(line, 1., Some(clipped)).is_none());
+    }
+
+    /// A canonical table nested in a rich cell, between prose paragraphs, and
+    /// ending in an empty cell. Markdown cannot author one, but canonical
+    /// cells hold any blocks.
+    fn nested_table_document() -> Document {
+        let mut document = Document::from_markdown(concat!(
+            "Lead paragraph.\n\n",
+            "| Outer | Neighbor |\n| --- | --- |\n| Container | Independent neighbor. |\n",
+            "| Empty last cell | |\n\n",
+            "| Nested key | Nested value |\n| --- | ---: |\n| Retry count | 17 |\n\n",
+            "Trailing paragraph.\n",
+        ))
+        .unwrap();
+        let snapshot = document.snapshot();
+        let BlockNode::Table(outer) = snapshot.blocks().get(1).unwrap().as_ref() else {
+            panic!("outer table");
+        };
+        let nested = snapshot.blocks().get(2).unwrap().clone();
+        let mut outer = outer.clone();
+        let mut rows = outer.rows.to_vec();
+        let mut cells = rows[1].cells.to_vec();
+        let mut blocks = cells[0].blocks.to_vec();
+        blocks.push(nested.clone());
+        cells[0].blocks = document_core::BlockSequence::new(blocks);
+        rows[1].cells = cells.into();
+        outer.rows = rows.into();
+        for node_id in [outer.id, nested.id()] {
+            document
+                .apply(EditCommand::DeleteBlock { node_id })
+                .unwrap();
+        }
+        document
+            .apply(EditCommand::InsertBlock {
+                index: 1,
+                block: Arc::new(BlockNode::Table(outer)),
+            })
+            .unwrap();
+        document
+    }
+
+    #[test]
+    fn table_lines_match_full_scan_for_nested_contained_and_adjacent_tables() {
+        let mut documents = [
+            include_str!("../../../../performance/layout-fixtures/12-measured-tables.md"),
+            include_str!("../../../../performance/layout-fixtures/33-nested-tables.md"),
+            include_str!("../../../../performance/layout-fixtures/35-rich-table-cells.md"),
+            include_str!("../../../../performance/layout-fixtures/82-authored-table-widths.md"),
+            include_str!("../../../../performance/layout-fixtures/117-table-led-resize.md"),
+            include_str!("../../../../performance/layout-fixtures/125-table-reading-edge.md"),
+        ]
+        .into_iter()
+        .map(|source| Document::from_markdown(source).unwrap())
+        .collect::<Vec<_>>();
+        documents.push(nested_table_document());
+        let (mut nested, mut listed, mut quoted) = (false, false, false);
+        for document in &documents {
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let mut tables = projection
+                .segments()
+                .iter()
+                .filter_map(|segment| Some(segment.context.table_cell?.0))
+                .collect::<Vec<_>>();
+            tables.sort_unstable();
+            tables.dedup();
+            assert!(!tables.is_empty());
+            for &table in &tables {
+                let context = projection.table_context(table).unwrap();
+                nested |= projection.segments()[context.segments.clone()]
+                    .iter()
+                    .any(|segment| {
+                        segment
+                            .context
+                            .table_cell
+                            .is_some_and(|(id, ..)| id != table)
+                    });
+                listed |= context.outer.list_depth > 0;
+                quoted |= context.outer.quote_depth > 0;
+            }
+            for width in [320., 760.] {
+                let lines = build_visual_lines_with_images(&projection, &HashMap::new(), width);
+                for &table in &tables {
+                    let scanned = lines
+                        .iter()
+                        .filter(|line| line.table_cell.is_some_and(|(id, ..)| id == table))
+                        .map(std::ptr::from_ref)
+                        .collect::<Vec<_>>();
+                    let spanned = table_lines(&lines, &projection, table)
+                        .map(std::ptr::from_ref)
+                        .collect::<Vec<_>>();
+                    assert!(!scanned.is_empty(), "{table:?} at {width}");
+                    assert_eq!(spanned, scanned, "{table:?} at {width}");
+                    let span = projected_line_span(
+                        &lines,
+                        projection.table_projection_range(table).unwrap(),
+                    );
+                    assert!(
+                        span.len() < lines.len(),
+                        "{table:?} visits only its own span"
+                    );
+                }
+            }
+        }
+        assert!(
+            nested && listed && quoted,
+            "fixtures cover every table container"
+        );
     }
 
     fn start_resize(

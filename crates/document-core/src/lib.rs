@@ -22,13 +22,13 @@ pub use command::{
     BlockStyle, EditCommand, HtmlTextEdit, InlineFormat, InsertBlockKind, InverseOperation,
     PreviewPosition, PreviewSelection, TransactionResult,
 };
-pub use document::{Document, DocumentSnapshot, RevisionTagged, SourceRebase};
+pub use document::{Document, DocumentSnapshot, NodeIdSet, RevisionTagged, SourceRebase};
 pub use error::{DocumentError, PositionError};
 pub use export::{StaticHtmlOptions, StaticPageSize};
 pub use html::{
     HtmlConversionLeaf, HtmlTextPosition, InertHtmlFragment, InertHtmlImage, editable_html_leaves,
     editable_html_markdown, editable_html_text_leaves, editable_html_text_nodes,
-    html_text_disclosures, inert_html_fragment,
+    html_text_disclosures, inert_html_fragment, push_escaped_html,
 };
 pub use links::{LinkDestination, LinkError, heading_node, resolve_link};
 pub use model::{

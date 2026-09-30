@@ -626,6 +626,9 @@ pub(crate) struct ContainerEdges {
 pub(crate) struct TableContext {
     pub outer: ProjectionContext,
     pub containers: Vec<NodeId>,
+    /// Every cell's segments, nested tables included. Cells are appended in
+    /// one uninterrupted pass, so the table owns a contiguous source run.
+    pub segments: Range<usize>,
 }
 
 #[derive(Debug, Default)]
@@ -1366,6 +1369,18 @@ impl TextProjection {
 
     pub(crate) fn table_context(&self, id: NodeId) -> Option<&TableContext> {
         self.table_contexts.get(&id)
+    }
+
+    /// Projected span of every cell of table `id`, nested content included.
+    pub(crate) fn table_projection_range(&self, id: NodeId) -> Option<Range<usize>> {
+        let segments = &self.table_context(id)?.segments;
+        if segments.is_empty() {
+            return None;
+        }
+        Some(
+            self.segments[segments.start].projection_start()
+                ..self.segments[segments.end - 1].projection_end(),
+        )
     }
 
     pub(crate) fn container_cell(&self, id: NodeId) -> Option<(NodeId, usize, usize)> {
@@ -2143,13 +2158,7 @@ fn append_sequence(
             }
             BlockNode::Table(table) => {
                 let properties = property_header_labels(table) || entity_header_labels(table);
-                projection.table_contexts.insert(
-                    table.id,
-                    TableContext {
-                        outer: context.clone(),
-                        containers: containers.clone(),
-                    },
-                );
+                let first_segment = projection.segments.len();
                 let mut widths = vec![96_f32; table.columns.len()];
                 // Analyze once per projection, not once per cell or frame.
                 // Long descriptive columns can negotiate more room while
@@ -2191,6 +2200,14 @@ fn append_sequence(
                         );
                     }
                 }
+                projection.table_contexts.insert(
+                    table.id,
+                    TableContext {
+                        outer: context.clone(),
+                        containers: containers.clone(),
+                        segments: first_segment..projection.segments.len(),
+                    },
+                );
             }
             BlockNode::PreservedSource {
                 id,

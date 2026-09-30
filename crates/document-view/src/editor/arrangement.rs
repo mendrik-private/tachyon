@@ -1493,6 +1493,15 @@ pub(super) fn build_visual_lines_with_extensions(
                 !shares_slot(Some(segment_index + 1)),
             )
         });
+        let shares_root = |index: Option<usize>| {
+            index
+                .and_then(|i| projection.segments().get(i))
+                .is_some_and(|s| s.top_level_node_id == segment.top_level_node_id)
+        };
+        let (opens_root, closes_root) = (
+            !shares_root(segment_index.checked_sub(1)),
+            !shares_root(Some(segment_index + 1)),
+        );
         if slot.is_some_and(|s| matches!(s.card_accent, crate::adaptive::CardAccent::Editorial(_)))
         {
             let slot = slot.unwrap();
@@ -1676,22 +1685,17 @@ pub(super) fn build_visual_lines_with_extensions(
                     projection.block(slot.group),
                     Some(BlockNode::Definition { .. })
                 ) {
-                    // Remove outside paragraph margins only at the column
-                    // edges. Rich descriptions retain internal block spacing,
-                    // code headers, quote padding and semantic table geometry.
-                    if index == 0 && first_in_slot {
+                    // Remove outside margins only at the column edges inside
+                    // the list; apply_group_spacing owns the root's own edges.
+                    // Rich descriptions retain internal block spacing, code
+                    // headers, quote padding and semantic table geometry.
+                    if index == 0 && first_in_slot && !opens_root {
                         line.style.space_above -=
                             outer_margin_above(line, block).min(line.style.space_above);
                     }
-                    if index + 1 == count && last_in_slot && line.table_cell.is_none() {
-                        let external = if line.rendered_code_preview() {
-                            DocumentStyle::EQUATION_GAP
-                        } else if matches!(block, BlockNode::Heading(_)) {
-                            7.
-                        } else {
-                            16.
-                        };
-                        line.style.space_below -= external.min(line.style.space_below);
+                    if index + 1 == count && last_in_slot && !closes_root {
+                        line.style.space_below -= outer_margin_below(line, segment, block, plan)
+                            .min(line.style.space_below);
                     }
                 }
                 if slot.cards {
@@ -9226,6 +9230,63 @@ pub(super) mod tests {
                 editor.perform_undo(window, cx);
                 assert_eq!(editor.document.snapshot().serialize().unwrap(), before);
             })
+        });
+    }
+
+    /// Lays out `source` with measured definition rails and returns the last
+    /// line of the leaf whose text starts with `text`.
+    fn definition_leaf_bottom(
+        cx: &mut gpui::App,
+        source: &str,
+        width: f32,
+        text: &str,
+    ) -> VisualLineSpec {
+        let document = Document::from_markdown(source).unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let fonts =
+            FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+        let plan = build_measured_adaptive_plan(&projection, width, 1000., None, false, &fonts);
+        let leaf = projection
+            .segments()
+            .iter()
+            .find(|s| projection.text()[s.projection_range()].starts_with(text))
+            .unwrap();
+        build_measured_visual_lines(&projection, &HashMap::new(), width, &plan, Some(&fonts))
+            .into_iter()
+            .filter(|line| line.projected_start() >= leaf.projection_start())
+            .take_while(|line| line.projected_end() <= leaf.projection_end())
+            .last()
+            .unwrap()
+    }
+
+    #[gpui::test]
+    fn definition_column_edge_retains_closing_quote_padding(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "# Terms\n\nRelationships\n: Preserve the meaning of each group.\n\n    > A quoted remark closes this description.\n\nStable identity\n: The source-owned identity of a block.\n";
+            let quote = definition_leaf_bottom(cx, source, 1280., "A quoted remark");
+            let term = definition_leaf_bottom(cx, source, 1280., "Stable identity");
+            assert!(
+                quote.slot.is_some_and(|slot| term.slot.is_some_and(|term| {
+                    slot.group == term.group && !slot.same_row(term)
+                })),
+                "the description closes a column in an aligned definition row"
+            );
+            assert_eq!(quote.style.space_below, DocumentStyle::QUOTE_PADDING);
+        });
+    }
+
+    #[gpui::test]
+    fn definition_root_edge_removes_outer_margin_once(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "# Terms\n\nStable identity\n: The source-owned identity of a block.\n\n    ```\n    let id = block.id();\n    ```\n";
+            let stacked = definition_leaf_bottom(cx, source, 400., "let id");
+            let aligned = definition_leaf_bottom(cx, source, 1280., "let id");
+            assert!(stacked.slot.is_none() && aligned.slot.is_some());
+            assert!(stacked.style.space_below > 0.);
+            assert_eq!(
+                aligned.style.space_below, stacked.style.space_below,
+                "a code block ending the list keeps its own bottom padding"
+            );
         });
     }
 }

@@ -1473,10 +1473,7 @@ fn ensure_blank_line(output: &mut String, newline: &str) {
     }
 }
 
-fn block_or_descendant_dirty(
-    block: &BlockNode,
-    dirty: &std::collections::BTreeSet<NodeId>,
-) -> bool {
+fn block_or_descendant_dirty(block: &BlockNode, dirty: &crate::NodeIdSet) -> bool {
     if dirty.contains(&block.id()) {
         return true;
     }

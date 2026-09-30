@@ -60,9 +60,9 @@ silently recreating or overwriting an unexpected path.
 ## Export paged HTML
 
 Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> or choose **Export paged
-HTML…**. Tachyon writes a standalone, inert `.html` document with embedded print
-styles, an A4 portrait page rule, print margins, a running title, and page-number
-rules for browsers or paged-HTML renderers that support them.
+HTML…**. Tachyon writes a single inert `.html` file with embedded print styles,
+an A4 portrait page rule, print margins, a running title, and page-number rules
+for browsers or paged-HTML renderers that support them.
 
 Export uses a snapshot and does not change or save the Markdown source. The
 export path cannot be the Markdown source path, and Tachyon adds an `.html`
@@ -72,6 +72,8 @@ notice tells you that the file contains an earlier revision.
 
 The export preserves semantic headings, lists, tasks, tables, authored table
 widths, code, figures, footnotes, and safe supported HTML. It removes active
-script content and editor-only controls. It is an HTML/print export rather than a
-pixel-identical copy of the adaptive editor; review the result in the browser or
-renderer you intend to use.
+script content and editor-only controls. Image paths and URLs remain references;
+images are not embedded in the HTML. If you move the export, copy local image
+files with it at the same relative paths. It is an HTML/print export rather than
+a pixel-identical copy of the adaptive editor; review the result in the browser
+or renderer you intend to use.

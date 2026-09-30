@@ -14774,7 +14774,7 @@ mod tests {
             ..Default::default()
         };
         for prefix in [
-            "The divider between Files and Outline",
+            "The navigation panel uses keyboard-accessible",
             "Find follows source order",
             "For copyable source examples",
             "Short independent lists can use",

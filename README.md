@@ -103,6 +103,7 @@ and documentation tests.
 | --- | --- |
 | New document | `Ctrl+N` |
 | Open file | `Ctrl+O` |
+| Back to previous file | `Alt+Left` |
 | Open folder | `Ctrl+Shift+O` |
 | Save | `Ctrl+S` |
 | Save as | `Ctrl+Shift+S` |
@@ -206,6 +207,12 @@ links use the normal file-open safeguards: save/resolve unsaved edits before
 switching files. Missing headings/files show an error without rewriting source.
 Other protocols and remote file hosts are not opened. Opaque fragments without a verified text map do not expose
 link hit regions yet. No active DOM or network provider is added to measurement.
+
+The Browser follows the active document's folder and shows its Markdown
+siblings. A folder chosen with **Open folder…** stays rooted while linked files
+remain inside it; nested ancestors expand to reveal the active file. Use the
+title-bar **Back** button or Alt+Left to return through successfully opened files
+with each file's reading position restored.
 
 Local images in supported HTML fragments now use the same bounded image loader
 as Markdown images. Only visible/lookahead fragments request resources; decoded

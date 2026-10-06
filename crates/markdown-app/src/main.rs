@@ -67,6 +67,7 @@ gpui::actions!(
     tachyon_window,
     [
         NewDocumentAction,
+        BackDocumentAction,
         OpenFileAction,
         OpenFolderAction,
         SaveDocumentAction,
@@ -206,6 +207,7 @@ fn main() {
         init_editor(cx);
         cx.bind_keys([
             KeyBinding::new("ctrl-n", NewDocumentAction, Some(WINDOW_KEY_CONTEXT)),
+            KeyBinding::new("alt-left", BackDocumentAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-o", OpenFileAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-shift-o", OpenFolderAction, Some(WINDOW_KEY_CONTEXT)),
             KeyBinding::new("ctrl-s", SaveDocumentAction, Some(WINDOW_KEY_CONTEXT)),
@@ -507,6 +509,29 @@ struct DocumentCompletionTicket {
     epoch: u64,
     revision: Revision,
     source_path: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct FileHistoryEntry {
+    path: PathBuf,
+    view_state: EditorViewState,
+}
+
+#[derive(Clone, Debug)]
+enum FileOpenPurpose {
+    Initial(Option<EditorViewState>),
+    Navigate(Option<FileHistoryEntry>),
+    Back(FileHistoryEntry),
+}
+
+impl FileOpenPurpose {
+    fn view_state(&self) -> Option<&EditorViewState> {
+        match self {
+            Self::Initial(view_state) => view_state.as_ref(),
+            Self::Back(entry) => Some(&entry.view_state),
+            Self::Navigate(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1086,7 +1111,7 @@ struct MarkdownWindow {
     workspace_state_in_flight: bool,
     workspace_state_debounce: WorkspaceStateDebounce,
     workspace_state_wake: Option<gpui::Task<()>>,
-    pending_view_state: Option<EditorViewState>,
+    file_history: Vec<FileHistoryEntry>,
     unsaved: bool,
     saved_revision: Revision,
     autosave_generation: u64,
@@ -1110,6 +1135,7 @@ struct MarkdownWindow {
     navigation_nodes: Vec<NavigationNode>,
     expanded_folders: HashSet<PathBuf>,
     navigation_request: u64,
+    navigation_expansion_generation: u64,
     outline: Arc<Vec<OutlineEntry>>,
     active_heading: Option<document_core::NodeId>,
     navigation_overlay: bool,
@@ -1353,7 +1379,7 @@ impl MarkdownWindow {
             workspace_state_in_flight: false,
             workspace_state_debounce: WorkspaceStateDebounce::default(),
             workspace_state_wake: None,
-            pending_view_state: None,
+            file_history: Vec::new(),
             unsaved: false,
             saved_revision: Revision::default(),
             autosave_generation: 0,
@@ -1375,6 +1401,7 @@ impl MarkdownWindow {
             navigation_nodes: Vec::new(),
             expanded_folders: HashSet::new(),
             navigation_request: 0,
+            navigation_expansion_generation: 0,
             navigation_root,
             navigation_root_explicit,
             outline,
@@ -1413,7 +1440,7 @@ impl MarkdownWindow {
         } else if let Some(path) = initial_file {
             let entity = cx.entity();
             cx.defer(move |cx| {
-                entity.update(cx, |this, cx| this.open_file(path, cx));
+                entity.update(cx, |this, cx| this.open_initial_file(path, None, cx));
             });
         } else if let Some(directory) = initial_directory {
             let entity = cx.entity();
@@ -1433,13 +1460,16 @@ impl MarkdownWindow {
     fn accept_initial_preload(&mut self, preload: InitialPreload, cx: &mut gpui::Context<Self>) {
         let ticket = self.begin_open_ticket(cx);
         match preload.try_recv() {
-            Ok(result) => self.finish_document_load(result, ticket, None, cx),
+            Ok(result) => {
+                self.finish_document_load(result, ticket, None, FileOpenPurpose::Initial(None), cx)
+            }
             Err(TryRecvError::Disconnected) => self.finish_document_load(
                 Err(LoadJobError::WorkerStopped(
                     "initial document loader stopped unexpectedly",
                 )),
                 ticket,
                 None,
+                FileOpenPurpose::Initial(None),
                 cx,
             ),
             Err(TryRecvError::Empty) => {
@@ -1456,7 +1486,13 @@ impl MarkdownWindow {
                 cx.spawn(async move |this, cx| {
                     let result = wait.await;
                     let _ = this.update(cx, |this, cx| {
-                        this.finish_document_load(result, ticket, None, cx);
+                        this.finish_document_load(
+                            result,
+                            ticket,
+                            None,
+                            FileOpenPurpose::Initial(None),
+                            cx,
+                        );
                     });
                 })
                 .detach();
@@ -1656,7 +1692,7 @@ impl MarkdownWindow {
         self.recovery_key = new_untitled_recovery_key();
         self.recovery_generation = self.recovery_generation.wrapping_add(1);
         self.recovery_dirty = false;
-        self.pending_view_state = None;
+        self.file_history.clear();
         self.pending_reload = None;
         self.recovery_entry = None;
         self.reload_in_flight = false;
@@ -2070,6 +2106,9 @@ impl MarkdownWindow {
                         document.rebase_source(prepared);
                         this.document_epoch = this.document_epoch.wrapping_add(1);
                         this.source_path = Some(path.clone());
+                        if previous_path.as_ref() != Some(&path) {
+                            this.file_history.retain(|entry| entry.path != path);
+                        }
                         this.recovery_key = path.clone();
                         this.recovery_generation = this.recovery_generation.wrapping_add(1);
                         this.recovery_dirty = false;
@@ -2093,11 +2132,7 @@ impl MarkdownWindow {
                                 "Saved, but durability or recovery cleanup needs attention: {error}"
                             ))
                         });
-                        if !this.navigation_root_explicit
-                            && let Some(parent) = path.parent().map(PathBuf::from)
-                        {
-                            this.load_navigation(parent, false, cx);
-                        }
+                        this.reconcile_navigation_for_file(&path, cx);
                         this.reconcile_external_watch(cx);
                         this.queue_workspace_state(cx);
                         if this.unsaved {
@@ -2296,11 +2331,11 @@ impl MarkdownWindow {
                     }
                     this.navigation_width = clamp_navigation_width(state.navigation_width);
                     this.expanded_folders = state.expanded_folders.into_iter().collect();
-                    if !this.navigation_root_explicit
+                    if this.navigation_root.is_none()
                         && let Some(root) = state.navigation_root
                     {
                         this.navigation_root = Some(root);
-                        this.navigation_root_explicit = true;
+                        this.navigation_root_explicit = state.navigation_root_explicit;
                     }
                     // Restoring an active document does not load an explicit browser root.
                     // Load the remembered tree independently, including when the file fails to open.
@@ -2309,7 +2344,7 @@ impl MarkdownWindow {
                         this.load_navigation(root, explicit, cx);
                     }
                     if restore_active && let Some(path) = state.active_path {
-                        this.pending_view_state = Some(EditorViewState {
+                        let view_state = EditorViewState {
                             selection: state.selection_start..state.selection_end,
                             reversed: state.selection_reversed,
                             scroll_y: state.scroll_y,
@@ -2322,8 +2357,8 @@ impl MarkdownWindow {
                                     intra_line_offset: state.scroll_anchor_intra_line_offset,
                                 }
                             }),
-                        });
-                        this.open_file(path, cx);
+                        };
+                        this.open_initial_file(path, Some(view_state), cx);
                     } else {
                         if restore_active && let Some(key) = state.draft_recovery_key {
                             this.recovery_key = key.clone();
@@ -2361,6 +2396,7 @@ impl MarkdownWindow {
                 .is_none()
                 .then(|| self.recovery_key.clone()),
             navigation_root: self.navigation_root.clone(),
+            navigation_root_explicit: self.navigation_root_explicit,
             navigation_width: self.navigation_width,
             justify: self.editor.read(cx).body_justified(),
             hyphenate: self.editor.read(cx).hyphenation_enabled(),
@@ -2959,6 +2995,29 @@ impl MarkdownWindow {
         self.open_file_at(path, None, cx);
     }
 
+    fn open_initial_file(
+        &mut self,
+        path: PathBuf,
+        view_state: Option<EditorViewState>,
+        cx: &mut gpui::Context<Self>,
+    ) {
+        self.start_file_open(path, None, FileOpenPurpose::Initial(view_state), cx);
+    }
+
+    fn can_go_back(&self) -> bool {
+        !self.file_history.is_empty() && !self.unsaved && !self.reload_in_flight
+    }
+
+    fn go_back(&mut self, cx: &mut gpui::Context<Self>) {
+        if !self.can_go_back() {
+            return;
+        }
+        let Some(target) = self.file_history.last().cloned() else {
+            return;
+        };
+        self.start_file_open(target.path.clone(), None, FileOpenPurpose::Back(target), cx);
+    }
+
     fn reveal_heading(&mut self, fragment: &str, cx: &mut gpui::Context<Self>) {
         let editor = self.editor.clone();
         let found = self
@@ -2981,14 +3040,42 @@ impl MarkdownWindow {
         fragment: Option<String>,
         cx: &mut gpui::Context<Self>,
     ) {
+        let previous = self.source_path.clone().map(|path| FileHistoryEntry {
+            path,
+            view_state: self.editor.read(cx).view_state(),
+        });
+        self.start_file_open(path, fragment, FileOpenPurpose::Navigate(previous), cx);
+    }
+
+    fn start_file_open(
+        &mut self,
+        path: PathBuf,
+        fragment: Option<String>,
+        purpose: FileOpenPurpose,
+        cx: &mut gpui::Context<Self>,
+    ) {
         startup_trace(self.startup_trace_started_at, "open-file-start");
         // An explicit link back into this file is navigation, not a reload;
         // it remains usable with unsaved edits and preserves content history.
         if self.source_path.as_ref() == Some(&path) {
+            if let FileOpenPurpose::Back(target) = &purpose {
+                self.editor.update(cx, |editor, cx| {
+                    editor.restore_view_state(&target.view_state, cx);
+                });
+                if self
+                    .file_history
+                    .last()
+                    .is_some_and(|entry| entry.path == target.path)
+                {
+                    self.file_history.pop();
+                }
+                self.schedule_workspace_state(cx);
+            }
             if let Some(fragment) = fragment.as_deref() {
                 self.reveal_heading(fragment, cx);
             }
             self.navigation_overlay = false;
+            cx.notify();
             return;
         }
         if self.unsaved {
@@ -3004,6 +3091,7 @@ impl MarkdownWindow {
         }
         let ticket = self.begin_open_ticket(cx);
         self.reload_in_flight = true;
+        cx.notify();
         let load_path = path.clone();
         let recovery = self.recovery.clone();
         let trace_started_at = self.startup_trace_started_at;
@@ -3015,7 +3103,7 @@ impl MarkdownWindow {
         cx.spawn(async move |this, cx| {
             let result = load.await;
             let _ = this.update(cx, |this, cx| {
-                this.finish_document_load(result, ticket, fragment, cx);
+                this.finish_document_load(result, ticket, fragment, purpose, cx);
             });
         })
         .detach();
@@ -3026,6 +3114,7 @@ impl MarkdownWindow {
         result: Result<LoadedDocument, LoadJobError>,
         ticket: DocumentCompletionTicket,
         fragment: Option<String>,
+        purpose: FileOpenPurpose,
         cx: &mut gpui::Context<Self>,
     ) {
         if !self.document_matches_ticket(&ticket, cx) {
@@ -3051,6 +3140,27 @@ impl MarkdownWindow {
         self.reload_in_flight = false;
         match result {
             Ok(loaded) => {
+                if self.source_path.as_ref() == Some(&loaded.canonical) {
+                    if let FileOpenPurpose::Back(target) = &purpose {
+                        self.editor.update(cx, |editor, cx| {
+                            editor.restore_view_state(&target.view_state, cx);
+                        });
+                        if self
+                            .file_history
+                            .last()
+                            .is_some_and(|entry| entry.path == target.path)
+                        {
+                            self.file_history.pop();
+                        }
+                        self.schedule_workspace_state(cx);
+                    }
+                    if let Some(fragment) = fragment.as_deref() {
+                        self.reveal_heading(fragment, cx);
+                    }
+                    self.navigation_overlay = false;
+                    cx.notify();
+                    return;
+                }
                 startup_trace(self.startup_trace_started_at, "open-file-install");
                 self.detach_active_session(cx);
                 let attachment = self.session_registry.borrow_mut().attach(
@@ -3067,7 +3177,7 @@ impl MarkdownWindow {
                 );
                 let document_directory = loaded.canonical.parent().map(PathBuf::from);
                 self.last_open_directory.clone_from(&document_directory);
-                let view_state = self.pending_view_state.take();
+                let view_state = purpose.view_state().cloned();
                 let reused_session = attachment.reused;
                 self.editor.update(cx, |editor, cx| {
                     editor.set_document_directory(document_directory, cx);
@@ -3091,11 +3201,6 @@ impl MarkdownWindow {
                     .and_then(|name| name.to_str())
                     .unwrap_or("document.md")
                     .to_owned();
-                if !self.navigation_root_explicit
-                    && let Some(root) = loaded.canonical.parent().map(PathBuf::from)
-                {
-                    self.load_navigation(root, false, cx);
-                }
                 self.source_path = Some(loaded.canonical);
                 self.recovery_key = self
                     .source_path
@@ -3125,6 +3230,26 @@ impl MarkdownWindow {
                         .detach();
                 }
                 self.recovery_entry = loaded.recovery_entry;
+                match purpose {
+                    FileOpenPurpose::Initial(_) | FileOpenPurpose::Navigate(None) => {}
+                    FileOpenPurpose::Navigate(Some(previous)) => {
+                        self.file_history.push(previous);
+                    }
+                    FileOpenPurpose::Back(target) => {
+                        if self
+                            .file_history
+                            .last()
+                            .is_some_and(|entry| entry.path == target.path)
+                        {
+                            self.file_history.pop();
+                        }
+                    }
+                }
+                let source_path = self
+                    .source_path
+                    .clone()
+                    .expect("loaded document has a source path");
+                self.reconcile_navigation_for_file(&source_path, cx);
                 self.refresh_outline(cx);
                 self.unsaved = attachment.dirty;
                 self.conflict = false;
@@ -3145,7 +3270,6 @@ impl MarkdownWindow {
                 self.queue_workspace_state(cx);
             }
             Err(error) => {
-                self.pending_view_state = None;
                 self.notice = Some(Notice::error(error.to_string()));
                 if self.startup_config.take().is_some()
                     && let Some(completion) = self.startup_completion.take()
@@ -3168,27 +3292,76 @@ impl MarkdownWindow {
         explicit: bool,
         cx: &mut gpui::Context<Self>,
     ) {
+        self.load_navigation_for_file(directory, explicit, None, cx);
+    }
+
+    fn load_navigation_for_file(
+        &mut self,
+        directory: PathBuf,
+        explicit: bool,
+        active_file: Option<PathBuf>,
+        cx: &mut gpui::Context<Self>,
+    ) {
         self.navigation_root = Some(directory.clone());
         self.navigation_root_explicit = explicit;
         self.navigation_request = self.navigation_request.wrapping_add(1);
         let request = self.navigation_request;
         let requested_directory = directory.clone();
-        let expanded_folders = self.expanded_folders.clone();
+        let expansion_generation = self.navigation_expansion_generation;
+        let expanded_at_request = self.expanded_folders.clone();
         let load = cx
             .background_executor()
-            .spawn_dedicated(
-                move |_| async move { navigation_children(&directory, &expanded_folders) },
-            );
+            .spawn_dedicated(move |_| async move {
+                let mut expanded_folders = expanded_at_request.clone();
+                let mut auto_expanded = Vec::new();
+                let (root, explicit) = if let Some(active_file) = active_file {
+                    let canonical = explicit
+                        .then(|| std::fs::canonicalize(&directory).ok())
+                        .flatten();
+                    if let Some(root) = canonical.filter(|root| active_file.starts_with(root)) {
+                        let mut ancestor = active_file.parent();
+                        while let Some(path) = ancestor {
+                            if path == root {
+                                break;
+                            }
+                            auto_expanded.push(path.to_path_buf());
+                            expanded_folders.insert(path.to_path_buf());
+                            ancestor = path.parent();
+                        }
+                        (root, true)
+                    } else {
+                        let root = active_file.parent().map(PathBuf::from).ok_or_else(|| {
+                            format!("Could not find the folder for {}", active_file.display())
+                        })?;
+                        (root, false)
+                    }
+                } else {
+                    let root = std::fs::canonicalize(&directory).map_err(|error| {
+                        format!("Could not read {}: {error}", directory.display())
+                    })?;
+                    (root, explicit)
+                };
+                let nodes = navigation_children(&root, &expanded_folders)?;
+                Ok::<_, String>((root, explicit, auto_expanded, nodes))
+            });
         cx.spawn(async move |this, cx| {
-            let navigation_nodes = load.await;
+            let navigation = load.await;
             let _ = this.update(cx, |this, cx| {
                 if this.navigation_request == request
                     && this.navigation_root.as_ref() == Some(&requested_directory)
                 {
-                    match navigation_nodes {
-                        Ok(nodes) => {
-                            this.navigation_nodes = nodes;
-                            this.notice = None;
+                    match navigation {
+                        Ok((root, explicit, auto_expanded, nodes)) => {
+                            this.navigation_root = Some(root.clone());
+                            this.navigation_root_explicit = explicit;
+                            if this.navigation_expansion_generation != expansion_generation {
+                                // A newer expand/collapse preference wins. Re-read with
+                                // that snapshot instead of publishing a mismatched tree.
+                                this.load_navigation(root, explicit, cx);
+                            } else {
+                                this.expanded_folders.extend(auto_expanded);
+                                this.navigation_nodes = nodes;
+                            }
                         }
                         Err(error) => this.notice = Some(Notice::error(error)),
                     }
@@ -3198,6 +3371,26 @@ impl MarkdownWindow {
             });
         })
         .detach();
+    }
+
+    fn reconcile_navigation_for_file(
+        &mut self,
+        path: &std::path::Path,
+        cx: &mut gpui::Context<Self>,
+    ) {
+        let Some(directory) = self
+            .navigation_root
+            .clone()
+            .or_else(|| path.parent().map(PathBuf::from))
+        else {
+            return;
+        };
+        self.load_navigation_for_file(
+            directory,
+            self.navigation_root_explicit,
+            Some(path.to_path_buf()),
+            cx,
+        );
     }
 
     fn toggle_navigation_directory(&mut self, path: PathBuf, cx: &mut gpui::Context<Self>) {
@@ -3215,6 +3408,7 @@ impl MarkdownWindow {
         } else {
             self.expanded_folders.remove(&path);
         }
+        self.navigation_expansion_generation = self.navigation_expansion_generation.wrapping_add(1);
         self.queue_workspace_state(cx);
         cx.notify();
         if !needs_load {
@@ -3905,6 +4099,7 @@ impl Render for MarkdownWindow {
             .or_else(|| self.notice.clone());
         self.reconcile_notice(status, window, cx);
         let active_path = self.source_path.clone();
+        let can_go_back = self.can_go_back();
         let active_heading = self.active_heading;
         let files_empty = self.navigation_nodes.is_empty();
         let file_rows = navigation_rows(&self.navigation_nodes)
@@ -4413,6 +4608,9 @@ impl Render for MarkdownWindow {
             .on_action(cx.listener(|this, _: &NewDocumentAction, _, cx| {
                 this.new_document(cx);
             }))
+            .on_action(cx.listener(|this, _: &BackDocumentAction, _, cx| {
+                this.go_back(cx);
+            }))
             .on_action(cx.listener(|this, _: &OpenFileAction, _, cx| {
                 this.prompt_open_file(cx);
             }))
@@ -4584,6 +4782,18 @@ impl Render for MarkdownWindow {
                             .pr(px(8.))
                             .gap(px(8.))
                             .text_size(px(13.))
+                            .child(
+                                title_bar::button("title-bar-back", cx)
+                                    .icon(IconName::ArrowLeft)
+                                    .accessible_disabled(!can_go_back)
+                                    .accessible_name("Back")
+                                    .accessible_shortcut("Alt+Left")
+                                    .tooltip("Back — Alt+Left")
+                                    .on_click(|_, window, cx| {
+                                        cx.stop_propagation();
+                                        window.dispatch_action(Box::new(BackDocumentAction), cx);
+                                    }),
+                            )
                             .child(
                                 div()
                                     .id("title-menu-container")
@@ -5303,6 +5513,7 @@ mod tests {
                 "document restored"
             );
             assert_eq!(view.navigation_root.as_ref(), Some(&root));
+            assert!(!view.navigation_root_explicit);
             assert!(view.editor.read(cx).body_justified());
             assert!(!view.editor.read(cx).hyphenation_enabled());
             assert!(
@@ -5341,6 +5552,508 @@ mod tests {
         });
         cx.run_until_parked();
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[gpui::test]
+    fn explicit_initial_file_replaces_unrelated_remembered_browser_folder(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let fixture = std::env::temp_dir().join(format!(
+            "tachyon-explicit-file-navigation-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let remembered = fixture.join("remembered-empty");
+        let documents = fixture.join("documents");
+        std::fs::create_dir_all(&remembered).unwrap();
+        std::fs::create_dir_all(&documents).unwrap();
+        let active = documents.join("active.md");
+        let sibling = documents.join("sibling.md");
+        std::fs::write(&active, "# Active").unwrap();
+        std::fs::write(&sibling, "# Sibling").unwrap();
+        let store = WorkspaceStateStore::at_path(fixture.join("workspace.json"));
+        store
+            .write(&WorkspaceState {
+                navigation_root: Some(remembered.clone()),
+                ..WorkspaceState::default()
+            })
+            .unwrap();
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            init_editor(cx);
+        });
+        let view_slot = Rc::new(RefCell::new(None));
+        let view_for_window = view_slot.clone();
+        let (_root, cx) = cx.add_window_view(|window, cx| {
+            let view = cx.new(|cx| {
+                MarkdownWindow::new(
+                    Some(active.clone()),
+                    Rc::new(RefCell::new(SessionRegistry::default())),
+                    LaunchInstrumentation {
+                        performance: None,
+                        startup: None,
+                        started_at: SystemTime::now(),
+                        trace_started_at: Instant::now(),
+                        initial_preload: None,
+                        completion: None,
+                    },
+                    store,
+                    window,
+                    cx,
+                )
+            });
+            *view_for_window.borrow_mut() = Some(view.clone());
+            Root::new(view, window, cx)
+        });
+        let view = view_slot
+            .borrow_mut()
+            .take()
+            .expect("Markdown window was constructed");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            let settled = view.read_with(cx, |view, _| {
+                view.source_path.as_ref() == Some(&active)
+                    && !view.reload_in_flight
+                    && (view.navigation_root.as_ref() == Some(&remembered)
+                        || (view.navigation_root.as_ref() == Some(&documents)
+                            && view
+                                .navigation_nodes
+                                .iter()
+                                .any(|node| node.path == sibling)))
+            });
+            if settled || Instant::now() >= deadline {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.source_path.as_ref(), Some(&active));
+            assert_eq!(
+                view.navigation_root.as_ref(),
+                Some(&documents),
+                "an explicit initial file must replace an unrelated remembered browser folder"
+            );
+            assert!(
+                view.navigation_nodes.iter().any(|node| node.path == active),
+                "Browser must list the explicitly opened file"
+            );
+            assert!(
+                view.navigation_nodes
+                    .iter()
+                    .any(|node| node.path == sibling),
+                "Browser must list Markdown siblings of the explicitly opened file"
+            );
+        });
+        view.update(cx, |view, _| {
+            if let Some(cancel) = view.external_watch_cancel.take() {
+                let _ = cancel.send(());
+            }
+        });
+        cx.run_until_parked();
+        std::fs::remove_dir_all(fixture).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[gpui::test]
+    fn explicit_browser_root_reveals_descendants_and_rebases_for_outside_file(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let fixture = std::env::temp_dir().join(format!(
+            "tachyon-explicit-browser-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let chosen = fixture.join("chosen");
+        let nested = chosen.join("nested");
+        let outside = fixture.join("outside");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        let nested_active = nested.join("active.md");
+        let nested_sibling = nested.join("sibling.md");
+        let outside_active = outside.join("outside.md");
+        let outside_sibling = outside.join("outside-sibling.md");
+        std::fs::write(&nested_active, "# Nested active").unwrap();
+        std::fs::write(&nested_sibling, "# Nested sibling").unwrap();
+        std::fs::write(&outside_active, "# Outside active").unwrap();
+        std::fs::write(&outside_sibling, "# Outside sibling").unwrap();
+        let chosen_alias = fixture.join("chosen-link");
+        std::os::unix::fs::symlink(&chosen, &chosen_alias).unwrap();
+        let store = WorkspaceStateStore::at_path(fixture.join("workspace.json"));
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            init_editor(cx);
+        });
+        let view_slot = Rc::new(RefCell::new(None));
+        let view_for_window = view_slot.clone();
+        let (_root, cx) = cx.add_window_view(|window, cx| {
+            let view = cx.new(|cx| {
+                MarkdownWindow::new(
+                    Some(chosen_alias),
+                    Rc::new(RefCell::new(SessionRegistry::default())),
+                    LaunchInstrumentation {
+                        performance: None,
+                        startup: None,
+                        started_at: SystemTime::now(),
+                        trace_started_at: Instant::now(),
+                        initial_preload: None,
+                        completion: None,
+                    },
+                    store,
+                    window,
+                    cx,
+                )
+            });
+            *view_for_window.borrow_mut() = Some(view.clone());
+            Root::new(view, window, cx)
+        });
+        let view = view_slot
+            .borrow_mut()
+            .take()
+            .expect("Markdown window was constructed");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                view.navigation_root.as_ref() == Some(&chosen)
+                    && view.navigation_root_explicit
+                    && view.navigation_nodes.iter().any(|node| node.path == nested)
+            }) {
+                break;
+            }
+            assert!(Instant::now() < deadline, "explicit browser root timed out");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        let nested_result = view.read_with(cx, |view, _| {
+            load_document(
+                nested_active.clone(),
+                view.recovery.clone(),
+                view.startup_trace_started_at,
+            )
+        });
+        view.update(cx, |view, cx| {
+            // Model the opposite completion order: the document finishes while
+            // the explicit browser root is still its unresolved alias.
+            view.navigation_root = Some(fixture.join("chosen-link"));
+            view.navigation_root_explicit = true;
+            view.navigation_request = view.navigation_request.wrapping_add(1);
+            let ticket = view.begin_open_ticket(cx);
+            view.reload_in_flight = true;
+            view.finish_document_load(
+                nested_result,
+                ticket,
+                None,
+                FileOpenPurpose::Navigate(None),
+                cx,
+            );
+            view.toggle_navigation_directory(nested.clone(), cx);
+            view.toggle_navigation_directory(nested.clone(), cx);
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                view.source_path.as_ref() == Some(&nested_active)
+                    && view.navigation_root.as_ref() == Some(&chosen)
+                    && view.navigation_root_explicit
+                    && view.navigation_nodes.iter().any(|node| {
+                        node.path == nested
+                            && matches!(
+                                node.kind,
+                                NavigationNodeKind::Directory {
+                                    expanded: false,
+                                    ..
+                                }
+                            )
+                    })
+            }) {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "newer collapsed browser preference timed out"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        view.update(cx, |view, cx| {
+            view.reconcile_navigation_for_file(&nested_active, cx)
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                navigation_rows(&view.navigation_nodes)
+                    .iter()
+                    .any(|row| row.path == nested_sibling)
+            }) {
+                break;
+            }
+            assert!(Instant::now() < deadline, "nested browser reveal timed out");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        view.read_with(cx, |view, _| {
+            assert!(view.expanded_folders.contains(&nested));
+            assert_eq!(view.navigation_root.as_ref(), Some(&chosen));
+        });
+
+        view.update(cx, |view, cx| view.open_file(outside_active.clone(), cx));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| {
+                view.source_path.as_ref() == Some(&outside_active)
+                    && view.navigation_root.as_ref() == Some(&outside)
+                    && !view.navigation_root_explicit
+                    && view
+                        .navigation_nodes
+                        .iter()
+                        .any(|node| node.path == outside_sibling)
+            }) {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "outside browser rebase timed out"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        view.update(cx, |view, _| {
+            if let Some(cancel) = view.external_watch_cancel.take() {
+                let _ = cancel.send(());
+            }
+        });
+        cx.run_until_parked();
+        std::fs::remove_dir_all(fixture).unwrap();
+    }
+
+    #[gpui::test]
+    fn file_back_history_commits_only_successful_navigation(cx: &mut gpui::TestAppContext) {
+        let fixture = std::env::temp_dir().join(format!(
+            "tachyon-file-history-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&fixture).unwrap();
+        let first = fixture.join("first.md");
+        let second = fixture.join("second.md");
+        let third = fixture.join("third.md");
+        std::fs::write(&first, "# First\n").unwrap();
+        std::fs::write(&second, "# Second\n").unwrap();
+        std::fs::write(&third, "# Third\n").unwrap();
+        let store = WorkspaceStateStore::at_path(fixture.join("workspace.json"));
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            init_editor(cx);
+        });
+        let view_slot = Rc::new(RefCell::new(None));
+        let view_for_window = view_slot.clone();
+        let (_root, cx) = cx.add_window_view(|window, cx| {
+            let view = cx.new(|cx| {
+                MarkdownWindow::new(
+                    Some(first.clone()),
+                    Rc::new(RefCell::new(SessionRegistry::default())),
+                    LaunchInstrumentation {
+                        performance: None,
+                        startup: None,
+                        started_at: SystemTime::now(),
+                        trace_started_at: Instant::now(),
+                        initial_preload: None,
+                        completion: None,
+                    },
+                    store,
+                    window,
+                    cx,
+                )
+            });
+            *view_for_window.borrow_mut() = Some(view.clone());
+            Root::new(view, window, cx)
+        });
+        let view = view_slot
+            .borrow_mut()
+            .take()
+            .expect("Markdown window was constructed");
+        let wait_for_path = |cx: &mut gpui::VisualTestContext,
+                             view: &Entity<MarkdownWindow>,
+                             expected: &std::path::Path| {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                cx.run_until_parked();
+                if view.read_with(cx, |view, _| {
+                    view.source_path.as_deref() == Some(expected) && !view.reload_in_flight
+                }) {
+                    break;
+                }
+                assert!(Instant::now() < deadline, "document load timed out");
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        };
+
+        wait_for_path(cx, &view, &first);
+        let first_state = view.read_with(cx, |view, cx| view.editor.read(cx).view_state());
+        view.update(cx, |view, cx| view.open_file(second.clone(), cx));
+        wait_for_path(cx, &view, &second);
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.file_history.len(), 1);
+            assert_eq!(view.file_history[0].path, first);
+            assert_eq!(view.file_history[0].view_state, first_state);
+        });
+
+        let requested_second_state = EditorViewState {
+            selection: 2..4,
+            reversed: true,
+            scroll_y: 37.,
+            scroll_anchor: None,
+        };
+        view.update(cx, |view, cx| {
+            view.editor.update(cx, |editor, cx| {
+                editor.restore_view_state(&requested_second_state, cx)
+            });
+        });
+        let second_state = view.read_with(cx, |view, cx| view.editor.read(cx).view_state());
+        view.update(cx, |view, cx| view.open_file(third.clone(), cx));
+        wait_for_path(cx, &view, &third);
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.file_history.len(), 2);
+            assert_eq!(view.file_history[1].path, second);
+            assert_eq!(view.file_history[1].view_state, second_state);
+        });
+
+        view.update(cx, |view, cx| view.go_back(cx));
+        wait_for_path(cx, &view, &second);
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.file_history.len(), 1);
+            assert_eq!(view.editor.read(cx).view_state(), second_state);
+        });
+
+        view.update(cx, |view, cx| {
+            view.unsaved = true;
+            view.go_back(cx);
+        });
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.source_path.as_ref(), Some(&second));
+            assert_eq!(view.file_history.len(), 1);
+        });
+        view.update(cx, |view, _| view.unsaved = false);
+        let displaced_first = fixture.join("displaced-first.md");
+        std::fs::rename(&first, &displaced_first).unwrap();
+        view.update(cx, |view, cx| view.go_back(cx));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            cx.run_until_parked();
+            if view.read_with(cx, |view, _| !view.reload_in_flight) {
+                break;
+            }
+            assert!(Instant::now() < deadline, "failed Back load timed out");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.source_path.as_ref(), Some(&second));
+            assert_eq!(view.file_history.len(), 1);
+            assert_eq!(view.file_history[0].path, first);
+        });
+        std::fs::rename(&displaced_first, &first).unwrap();
+
+        let stale_result = view.read_with(cx, |view, _| {
+            load_document(
+                first.clone(),
+                view.recovery.clone(),
+                view.startup_trace_started_at,
+            )
+        });
+        let stale_source = view.update(cx, |view, cx| {
+            let ticket = view.begin_open_ticket(cx);
+            let target = view.file_history.last().cloned().unwrap();
+            view.reload_in_flight = true;
+            view.editor
+                .read(cx)
+                .shared_session()
+                .apply(document_core::EditCommand::ReplaceSelection {
+                    text: "stale ".into(),
+                    typing: false,
+                })
+                .unwrap();
+            let stale_source = view
+                .editor
+                .read(cx)
+                .document()
+                .snapshot()
+                .serialize()
+                .unwrap();
+            view.finish_document_load(
+                stale_result,
+                ticket,
+                None,
+                FileOpenPurpose::Back(target),
+                cx,
+            );
+            stale_source
+        });
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.source_path.as_ref(), Some(&second));
+            assert_eq!(view.file_history.len(), 1);
+            assert!(!view.reload_in_flight);
+            assert_eq!(
+                view.editor
+                    .read(cx)
+                    .document()
+                    .snapshot()
+                    .serialize()
+                    .unwrap(),
+                stale_source
+            );
+        });
+
+        view.update(cx, |view, cx| {
+            view.unsaved = false;
+            view.go_back(cx);
+        });
+        wait_for_path(cx, &view, &first);
+        view.read_with(cx, |view, cx| {
+            assert!(view.file_history.is_empty());
+            assert_eq!(view.editor.read(cx).view_state(), first_state);
+        });
+        view.update(cx, |view, cx| {
+            view.file_history.push(FileHistoryEntry {
+                path: first.clone(),
+                view_state: first_state.clone(),
+            });
+            view.go_back(cx);
+        });
+        view.read_with(cx, |view, _| {
+            assert!(view.file_history.is_empty());
+            assert!(!view.reload_in_flight);
+        });
+        view.update(cx, |view, cx| {
+            view.open_file_at(first.clone(), Some("first".into()), cx);
+        });
+        view.read_with(cx, |view, _| assert!(view.file_history.is_empty()));
+
+        view.update(cx, |view, cx| view.open_file(second.clone(), cx));
+        wait_for_path(cx, &view, &second);
+        view.update(cx, |view, cx| view.new_document(cx));
+        view.read_with(cx, |view, _| {
+            assert!(view.source_path.is_none());
+            assert!(view.file_history.is_empty());
+        });
+
+        view.update(cx, |view, _| {
+            if let Some(cancel) = view.external_watch_cancel.take() {
+                let _ = cancel.send(());
+            }
+        });
+        cx.run_until_parked();
+        std::fs::remove_dir_all(fixture).unwrap();
     }
 
     #[test]

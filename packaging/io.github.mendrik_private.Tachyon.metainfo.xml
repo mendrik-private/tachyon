@@ -28,6 +28,8 @@
     <control>pointing</control>
   </recommends>
   <releases>
+    <release version="0.1.16" date="2026-10-06" />
+    <release version="0.1.15" date="2026-09-30" />
     <release version="0.1.14" date="2026-09-26" />
     <release version="0.1.13" date="2026-09-15" />
     <release version="0.1.12" date="2026-09-15" />

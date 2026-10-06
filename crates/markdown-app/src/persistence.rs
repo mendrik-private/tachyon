@@ -812,6 +812,8 @@ pub struct WorkspaceState {
     pub draft_recovery_key: Option<PathBuf>,
     #[serde(default)]
     pub navigation_root: Option<PathBuf>,
+    #[serde(default)]
+    pub navigation_root_explicit: bool,
     pub navigation_width: f32,
     pub justify: bool,
     pub hyphenate: bool,
@@ -834,6 +836,7 @@ impl Default for WorkspaceState {
             last_open_directory: None,
             draft_recovery_key: None,
             navigation_root: None,
+            navigation_root_explicit: false,
             navigation_width: 224.,
             justify: false,
             hyphenate: false,
@@ -1611,6 +1614,7 @@ mod tests {
         assert_eq!(state.last_open_directory, None);
         assert!(!state.justify);
         assert!(!state.hyphenate);
+        assert!(!state.navigation_root_explicit);
         assert_eq!(state.active_path, Some(PathBuf::from("/tmp/notes.md")));
         assert_eq!(state.navigation_width, 287.);
     }
@@ -1628,6 +1632,7 @@ mod tests {
             last_open_directory: Some(directory.join("previous-folder")),
             draft_recovery_key: None,
             navigation_root: Some(directory.clone()),
+            navigation_root_explicit: true,
             navigation_width: 287.,
             justify: true,
             hyphenate: true,

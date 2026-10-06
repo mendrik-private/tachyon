@@ -409,18 +409,31 @@ impl FontMeasurement {
                     None => valid = false,
                 }
             });
-            // Unicode word boundaries avoid treating a whole CJK cell as
-            // one unbreakable Latin word. Inline styles use the exact font
-            // runs of each source slice. No byte-count width assumptions.
-            for (offset, word) in text
-                .split_word_bound_indices()
-                .filter(|(_, s)| !s.trim().is_empty())
-            {
-                let start = segment.projection_start() + offset;
-                result.minimum[column] = result.minimum[column].max(table_constraint_width(
-                    self.line_width(projection, start..start + word.len(), minimum_font_size)?,
-                    inset,
-                ));
+            // A short token the native wrapper keeps whole (`TYP-01`,
+            // `v1.2`) must fit, or it is split character-wise. Longer
+            // tokens (paths, long identifiers) wrap anyway: their
+            // Unicode word segments bound the column instead, which
+            // also avoids treating a whole CJK run as one Latin word.
+            // Inline styles use the exact font runs of each source
+            // slice. No byte-count width assumptions.
+            for (offset, token) in unbreakable_tokens(text) {
+                let short = token.graphemes(true).count() <= UNBREAKABLE_TOKEN_GRAPHEMES;
+                let parts = if short {
+                    vec![(offset, token)]
+                } else {
+                    token
+                        .split_word_bound_indices()
+                        .filter(|(_, s)| !s.trim().is_empty())
+                        .map(|(inner, word)| (offset + inner, word))
+                        .collect()
+                };
+                for (offset, part) in parts {
+                    let start = segment.projection_start() + offset;
+                    result.minimum[column] = result.minimum[column].max(table_constraint_width(
+                        self.line_width(projection, start..start + part.len(), minimum_font_size)?,
+                        inset,
+                    ));
+                }
             }
             if !valid {
                 return None;
@@ -882,6 +895,80 @@ fn table_constraint_width(content: f32, inset: f32) -> f32 {
     (content + inset).ceil() + 1. / 64.
 }
 
+/// Longest token whose complete width bounds a table column's minimum.
+const UNBREAKABLE_TOKEN_GRAPHEMES: usize = 16;
+
+/// Byte offsets and text of the units GPUI's native line wrapper never breaks
+/// between (`LineWrapper::wrap_line`): a break opportunity precedes a word
+/// character after a space, and any other non-space character. Trailing
+/// spaces are excluded; explicit line breaks end a unit.
+fn unbreakable_tokens(text: &str) -> Vec<(usize, &str)> {
+    let mut tokens = Vec::new();
+    let mut start = None;
+    let mut previous = '\0';
+    let mut close = |start: &mut Option<usize>, end: usize| {
+        if let Some(begin) = start.take() {
+            let token = text[begin..end].trim_end_matches(' ');
+            if !token.is_empty() {
+                tokens.push((begin, token));
+            }
+        }
+    };
+    for (index, character) in text.char_indices() {
+        if matches!(character, '\n' | '\r') {
+            close(&mut start, index);
+            previous = '\0';
+            continue;
+        }
+        if character != ' ' {
+            if start.is_none() {
+                start = Some(index);
+            } else if !wraps_as_word(character) || previous == ' ' {
+                close(&mut start, index);
+                start = Some(index);
+            }
+        }
+        previous = character;
+    }
+    close(&mut start, text.len());
+    tokens
+}
+
+/// Mirrors GPUI's `LineWrapper::is_word_char`, which is crate-private.
+fn wraps_as_word(c: char) -> bool {
+    c.is_ascii_alphanumeric()
+        || matches!(
+            c,
+            '\u{00C0}'..='\u{00FF}'
+                | '\u{0100}'..='\u{017F}'
+                | '\u{0180}'..='\u{024F}'
+                | '\u{0400}'..='\u{04FF}'
+                | '\u{1E00}'..='\u{1EFF}'
+                | '\u{0300}'..='\u{036F}'
+                | '\u{0980}'..='\u{09FF}'
+                | '-'
+                | '_'
+                | '.'
+                | '\''
+                | '’'
+                | '‘'
+                | '$'
+                | '%'
+                | '@'
+                | '#'
+                | '^'
+                | '~'
+                | ','
+                | '='
+                | ':'
+                | ';'
+                | '⋯'
+                | '\u{202F}'
+                | '\u{00A0}'
+                | '\u{2011}'
+        )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1336,6 +1423,124 @@ mod tests {
             assert!(fitted[0] >= required - 0.01, "narrow columns must overflow locally, not crush identifiers");
             assert!(fitted.iter().sum::<f32>() > 240.);
             assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[test]
+    fn unbreakable_tokens_follow_the_native_wrapper() {
+        let tokens = |text| {
+            unbreakable_tokens(text)
+                .into_iter()
+                .map(|(_, token)| token)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(tokens("TYP-01"), ["TYP-01"]);
+        assert_eq!(tokens("  SYN-01  v1.2,  "), ["SYN-01", "v1.2,"]);
+        assert_eq!(tokens("undo/redo (x)"), ["undo", "/redo", "(x", ")"]);
+        assert_eq!(tokens("a\nb-c"), ["a", "b-c"]);
+        assert_eq!(tokens("日本"), ["日", "本"]);
+        assert_eq!(unbreakable_tokens("ab cd")[1], (3, "cd"));
+    }
+
+    #[gpui::test]
+    fn short_identifier_cells_keep_their_complete_token(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = "| ID | Note |\n| --- | --- |\n| TYP-01 | configuration-schema-revision-identifier |\n";
+            let document = Document::from_markdown(source).unwrap();
+            let mut projection = TextProjection::from_snapshot(&document.snapshot());
+            let id = projection.roots().next().unwrap().id();
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            measurement.measure_tables(&mut projection);
+            let measured = projection.table_measurements(id).unwrap();
+            let width = |text: &str| {
+                let segment = projection
+                    .segments()
+                    .iter()
+                    .find(|s| projection.text()[s.projection_range()].contains(text))
+                    .unwrap();
+                let start = segment.projection_start()
+                    + projection.text()[segment.projection_range()]
+                        .find(text)
+                        .unwrap();
+                measurement
+                    .line_width(&projection, start..start + text.len(), DocumentStyle::TABLE_SIZE)
+                    .unwrap()
+            };
+            // The native wrapper keeps `TYP-01` whole; Unicode word segments
+            // (`TYP`, `-`, `01`) alone would allow a `TYP-0` / `1` split.
+            assert!(measured.minimum[0] >= width("TYP-01") + 24. - 0.01);
+            // A long token wraps anyway; only its word segments bound it.
+            let long = "configuration-schema-revision-identifier";
+            assert!(long.len() > UNBREAKABLE_TOKEN_GRAPHEMES);
+            assert!(measured.minimum[1] < width(long) + 24. - 1.);
+            assert!(measured.minimum[1] >= width("configuration") + 24. - 0.01);
+        });
+    }
+
+    #[gpui::test]
+    fn squeezed_tables_keep_identifier_columns_on_one_line(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let severities = ["High", "Medium", "Low", "Critical"];
+            let categories = ["Typing", "Syntax", "Layout", "Recovery"];
+            let mut source =
+                "| ID | Severity | Category | Title | Location |\n| --- | --- | --- | --- | --- |\n"
+                    .to_owned();
+            for row in 1..=23 {
+                source.push_str(&format!(
+                    "| TYP-{row:02} | {} | {} | Pasting a long paragraph into a table cell loses the trailing inline style | crates/document-view/src/editor/measurement.rs near the table constraint |\n",
+                    severities[row % 4],
+                    categories[row % 4],
+                ));
+            }
+            let document = Document::from_markdown(source.as_str()).unwrap();
+            let mut projection = TextProjection::from_snapshot(&document.snapshot());
+            let id = projection.roots().next().unwrap().id();
+            let measurement =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            measurement.measure_tables(&mut projection);
+            let measured = projection.table_measurements(id).unwrap().clone();
+            let minimum = measured.minimum.iter().sum::<f32>();
+            let preferred = measured.preferred.iter().sum::<f32>();
+            let mut checked = 0;
+            for canvas in [minimum + 40., (minimum + preferred) / 2., preferred - 40.] {
+                let fitted = projection.fitted_table_widths(id, canvas).unwrap();
+                let total = fitted.iter().sum::<f32>();
+                assert!(total > minimum && total < preferred, "{total}");
+                for column in 0..3 {
+                    assert!(
+                        fitted[column] >= measured.preferred[column] - 0.01,
+                        "column {column} at {canvas}: {fitted:?} {measured:?}"
+                    );
+                }
+                // The prose columns absorb the whole shortfall.
+                assert!(fitted[3] <= measured.preferred[3] && fitted[4] <= measured.preferred[4]);
+                assert!(
+                    fitted[3] + fitted[4] < measured.preferred[3] + measured.preferred[4] - 1.
+                );
+                if table_records::is_cell(&projection, &projection.segments()[0], canvas) {
+                    continue;
+                }
+                for segment in projection.segments() {
+                    let (_, row, column) = segment.context.table_cell.unwrap();
+                    if row == 0 || column > 2 {
+                        continue;
+                    }
+                    let width = segment_text_width(segment, &projection, canvas);
+                    let lines = measurement
+                        .wrap(
+                            &projection,
+                            segment,
+                            segment.projection_range(),
+                            width,
+                            DocumentStyle::TABLE_SIZE,
+                        )
+                        .unwrap();
+                    assert_eq!(lines.len(), 1, "{canvas}: {:?}", &projection.text()[segment.projection_range()]);
+                    checked += 1;
+                }
+            }
+            assert!(checked > 0, "at least one canvas must use the grid layout");
         });
     }
 

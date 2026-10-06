@@ -10,6 +10,7 @@ fn slot(flow: &FigureFlow, item: usize) -> LayoutSlot {
         _ => (0, 12),
     };
     LayoutSlot {
+        grid: None,
         align_components: false,
         group: flow.text.group,
         item,

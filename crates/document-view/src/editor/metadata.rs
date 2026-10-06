@@ -167,6 +167,7 @@ fn strip(
     let mut rows = Vec::with_capacity(entries.len());
     for (index, &(node, end, label, _)) in entries.iter().enumerate() {
         let slot = LayoutSlot {
+            grid: None,
             align_components: false,
             group,
             item: index,

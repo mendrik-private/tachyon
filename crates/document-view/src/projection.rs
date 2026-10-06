@@ -82,13 +82,40 @@ impl TableMeasurements {
                 .map(|width| width * available / preferred)
                 .collect();
         }
-        let fraction = (available - minimum) / (preferred - minimum).max(f32::EPSILON);
+        // Water-filling: every column grows from its minimum by the same
+        // amount, capped at its own slack. Compact columns (IDs, severities,
+        // counts) reach their single-line width first; the shortfall is taken
+        // from the columns with the most slack. Ties stay deterministic since
+        // the level depends only on the multiset of slacks.
+        let level = slack_level(
+            self.minimum
+                .iter()
+                .zip(&self.preferred)
+                .map(|(low, high)| (high - low).max(0.)),
+            available - minimum,
+        );
         self.minimum
             .iter()
             .zip(&self.preferred)
-            .map(|(low, high)| low + (high - low) * fraction)
+            .map(|(low, high)| low + (high - low).max(0.).min(level))
             .collect()
     }
+}
+
+/// The common growth `level` with `Σ min(slack, level) == budget`, for a
+/// budget below the total slack.
+fn slack_level(slacks: impl Iterator<Item = f32>, budget: f32) -> f32 {
+    let mut slacks = slacks.collect::<Vec<_>>();
+    slacks.sort_by(f32::total_cmp);
+    let mut consumed = 0.;
+    for (index, slack) in slacks.iter().enumerate() {
+        let open = (slacks.len() - index) as f32;
+        if consumed + slack * open >= budget {
+            return (budget - consumed) / open;
+        }
+        consumed += slack;
+    }
+    f32::INFINITY
 }
 
 fn fit_columns(weights: &[f32], available: f32) -> Vec<f32> {
@@ -144,6 +171,63 @@ fn automatic_columns_fit_without_squeezing_short_labels() {
         assert!(fitted[1] >= fitted[3] && fitted[3] >= fitted[0]);
     }
     assert_eq!(fit_columns(&[400., 400., 400.], 200.), vec![96.; 3]);
+}
+
+#[test]
+fn squeezed_tables_shrink_wide_prose_before_compact_columns() {
+    // ID, Severity, Category, Title, Location: compact columns are a single
+    // unbreakable token (or nearly), long prose columns carry the slack.
+    let measured = TableMeasurements {
+        minimum: vec![80., 90., 110., 140., 150.],
+        preferred: vec![80., 90., 130., 520., 460.],
+        reading_width: 640.,
+        record_headers: None,
+    };
+    for canvas in [650., 700., 800., 900., 1100.] {
+        let fitted = measured.fit(canvas);
+        assert!((fitted.iter().sum::<f32>() - canvas).abs() < 0.01);
+        for (width, preferred) in fitted.iter().zip(&measured.preferred).take(3) {
+            assert!(*width >= preferred - 0.001);
+        }
+        assert!(fitted[3] < measured.preferred[3] && fitted[4] < measured.preferred[4]);
+    }
+}
+
+#[test]
+fn fitted_columns_stay_within_their_measured_bounds() {
+    let measured = TableMeasurements {
+        minimum: vec![64., 120., 75.5, 200., 64., 90.],
+        preferred: vec![64., 480., 81.25, 210., 900., 300.],
+        reading_width: 640.,
+        record_headers: None,
+    };
+    let minimum = measured.minimum.iter().sum::<f32>();
+    let preferred = measured.preferred.iter().sum::<f32>();
+    let mut previous = measured.minimum.clone();
+    let mut canvas = minimum;
+    while canvas < preferred {
+        let fitted = measured.fit(canvas);
+        assert_eq!(fitted, measured.fit(canvas));
+        assert!((fitted.iter().sum::<f32>() - canvas).abs() < 0.01);
+        for (column, width) in fitted.iter().enumerate() {
+            assert!(*width >= measured.minimum[column]);
+            assert!(*width <= measured.preferred[column]);
+            // More room never takes width away from any column.
+            assert!(*width >= previous[column] - 0.001);
+        }
+        previous = fitted;
+        canvas += 7.25;
+    }
+    // Equal slack is shared equally, independent of column order.
+    let symmetric = TableMeasurements {
+        minimum: vec![100., 50., 100.],
+        preferred: vec![300., 250., 300.],
+        reading_width: 2000.,
+        record_headers: None,
+    };
+    let fitted = symmetric.fit(550.);
+    assert!((fitted[0] - 200.).abs() < 0.001 && (fitted[1] - 150.).abs() < 0.001);
+    assert!((fitted[2] - 200.).abs() < 0.001);
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

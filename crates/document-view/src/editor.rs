@@ -93,6 +93,7 @@ mod inline_math;
 mod reflow;
 mod resource_batch;
 mod search;
+mod switch_layout;
 mod table_records;
 mod table_resize;
 #[cfg(feature = "layout-validation")]
@@ -341,6 +342,9 @@ pub struct PreparedDocumentView {
     components: Arc<ComponentIndex>,
     published_geometry: Option<Arc<PublishedGeometry>>,
     recovery: Option<reflow::Failed>,
+    /// Content identity for a provisional view, computed with it off the UI
+    /// thread; measured worker output carries none.
+    content: Option<u64>,
 }
 
 type ReflowOutput = (
@@ -381,6 +385,7 @@ impl PreparedDocumentView {
         let paint_order = visual_line_paint_order(&visual_lines);
         let document_height = visual_document_height(&visual_lines);
         let components = component_geometry(&projection, &visual_lines, 760., 1., &paint_order);
+        let content = switch_layout::content_fingerprint(&document.snapshot(), &projection);
         Self {
             projection,
             visual_lines: Arc::new(visual_lines),
@@ -390,6 +395,7 @@ impl PreparedDocumentView {
             components: Arc::new(components),
             published_geometry: None,
             recovery: None,
+            content,
         }
     }
 
@@ -542,6 +548,7 @@ impl PreparedDocumentView {
                         components: geometry.components.clone(),
                         published_geometry: Some(geometry.clone()),
                         recovery: Some(reflow::Failed::StackTimedOut),
+                        content: None,
                     },
                     image_dimensions.clone(),
                     None,
@@ -653,6 +660,7 @@ impl PreparedDocumentView {
                 components: geometry.components.clone(),
                 published_geometry: Some(geometry),
                 recovery: planner_failed.then_some(reflow::Failed::PlannerPanicked),
+                content: None,
             },
             image_dimensions,
             report,
@@ -1437,6 +1445,13 @@ pub struct RichDocumentEditor {
     layout_resume_task: Option<Task<()>>,
     layout_focus: Option<NodeId>,
     layout_replan_pending: bool,
+    /// Hides a newly installed document's provisional layout until its first
+    /// measured reflow commits or fails; the task ends it at the budget.
+    presentation_hold: Option<Task<()>>,
+    /// Content identity of a newly installed document until its first
+    /// measured commit, the only reflow the switch cache records or replaces.
+    switch_layout: Option<switch_layout::Pending>,
+    measured_layouts: switch_layout::Cache,
 }
 
 impl RichDocumentEditor {
@@ -1584,6 +1599,9 @@ impl RichDocumentEditor {
             layout_resume_task: None,
             layout_focus: None,
             layout_replan_pending: false,
+            presentation_hold: None,
+            switch_layout: None,
+            measured_layouts: switch_layout::Cache::default(),
         }
     }
 
@@ -1640,9 +1658,11 @@ impl RichDocumentEditor {
         let selection = document.snapshot().selection().clone();
         self.document.replace(document);
         self.selection = selection;
+        let content = prepared.content;
         self.install_prepared(prepared);
         self.projected_generation = self.document.generation();
         self.reset_document_view_caches();
+        self.begin_presentation_hold(content, cx);
         cx.notify();
     }
 
@@ -1668,10 +1688,37 @@ impl RichDocumentEditor {
         }
         self.document = document;
         self.selection = self.document.snapshot().selection().clone();
+        let content = prepared.content;
         self.install_prepared(prepared);
         self.projected_generation = self.document.generation();
         self.reset_document_view_caches();
+        self.begin_presentation_hold(content, cx);
         cx.notify();
+    }
+
+    /// The provisional layout is prepared at a fixed 760 px without fonts.
+    /// Painting it would show a different arrangement for a moment before the
+    /// measured one replaces it, so a switch paints only the background until
+    /// that commit, a failure, or the budget, whichever comes first.
+    fn begin_presentation_hold(&mut self, content: Option<u64>, cx: &mut Context<Self>) {
+        self.switch_layout = content.map(|content| switch_layout::Pending {
+            content,
+            generation: self.document.generation(),
+        });
+        self.presentation_hold = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(switch_layout::PRESENTATION_HOLD_BUDGET)
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.presentation_hold = None;
+                cx.notify();
+            });
+        }));
+    }
+
+    #[cfg(test)]
+    fn presentation_held(&self) -> bool {
+        self.presentation_hold.is_some()
     }
 
     fn cancel_owned_composition_on_detach(&mut self) -> bool {
@@ -1867,7 +1914,14 @@ impl RichDocumentEditor {
             self.keep_offset_visible_at_width(self.cursor_offset(), f32::from(bounds.size.width));
             cx.notify();
         }
-        if !self.has_painted {
+        if self.presentation_hold.is_some() {
+            // Ready announces the first frame with content, so it waits for
+            // the hold to end. The canvas still drives the measured reflow.
+            if width_changed || height_changed {
+                self.sync_image_dimensions(f32::from(bounds.size.width), cx);
+                cx.notify();
+            }
+        } else if !self.has_painted {
             self.has_painted = true;
             cx.emit(EditorEvent::Ready);
             cx.notify();
@@ -1941,6 +1995,38 @@ impl RichDocumentEditor {
         self.requested_image_dimensions_generation = dimensions_generation;
         self.requested_layout_width = width;
         self.requested_zoom_factor = self.zoom_factor;
+        let switch_key = self.switch_layout_key(
+            width,
+            viewport_height,
+            dimensions_generation,
+            visible_roots.clone(),
+        );
+        if let Some(key) = &switch_key
+            && !self.selection_defers_reflow(width, viewport_height)
+            && let Some(output) = self.measured_layouts.take(key)
+        {
+            // A recently published first layout for these exact inputs
+            // commits like the worker's result would, without a hold. Any
+            // in-flight worker is discarded by the new geometry generation.
+            drop(dimensions);
+            self.image_resource_batch.dispatched();
+            self.image_resource_wake = None;
+            self.commit_reflow(
+                reflow::Key {
+                    session: self.document.id(),
+                    document: self.document.generation(),
+                    geometry: self.geometry_generation,
+                    width: width.to_bits(),
+                    height: viewport_height.to_bits(),
+                    zoom: self.zoom_factor.to_bits(),
+                    resources: dimensions_generation,
+                    focus: None,
+                },
+                output,
+                cx,
+            );
+            return;
+        }
         if self.reflow.is_active() {
             return;
         }
@@ -2050,6 +2136,7 @@ impl RichDocumentEditor {
                 this.expire_reflow(ticket, &watchdog_recovery, cx);
             });
         });
+        let cache_copy = switch_key.is_some();
         let reflow = cx
             .background_executor()
             .spawn_dedicated(move |_| async move {
@@ -2097,6 +2184,15 @@ impl RichDocumentEditor {
                     }
                     Ok((prepared, images, report))
                 });
+                // A first switch layout is cached as its own detached copy,
+                // made here rather than on the UI thread at commit.
+                let copy = outcome
+                    .as_ref()
+                    .ok()
+                    .filter(|(prepared, _, _)| cache_copy && prepared.recovery.is_none())
+                    .and_then(|(prepared, images, _)| {
+                        Some((switch_layout::detach_view(prepared)?, images.clone()))
+                    });
                 #[cfg(test)]
                 if let Some(hold) = hold_worker {
                     _ = hold.await;
@@ -2107,10 +2203,10 @@ impl RichDocumentEditor {
                     hold.await;
                     eprintln!("TACHYON_LAYOUT_VALIDATION released-timeout");
                 }
-                outcome
+                (outcome, copy)
             });
         cx.spawn(async move |this, cx| {
-            let mut outcome = reflow.await;
+            let (mut outcome, copy) = reflow.await;
             // The observer owns this timer. Normal completion cancels it;
             // expiration never detaches or abandons the synchronous worker.
             drop(watchdog);
@@ -2156,10 +2252,16 @@ impl RichDocumentEditor {
                     // Keep the last published content and all authoring state.
                     // Only the failed request is suppressed; changed inputs can
                     // retry, and a stale document's error cannot replace status.
+                    this.presentation_hold = None;
                     cx.notify();
                     return;
                 };
-                this.commit_reflow(ticket, output, cx);
+                if this.commit_reflow(ticket.key, output, cx)
+                    && let Some(key) = switch_key
+                    && let Some((layout, images)) = copy
+                {
+                    this.measured_layouts.insert(key, layout, images);
+                }
             });
         })
         .detach();
@@ -2172,20 +2274,22 @@ impl RichDocumentEditor {
         cx: &mut Context<Self>,
     ) {
         if self.reflow.timeout(ticket) {
+            self.presentation_hold = None;
             if let Some(stack) = recovery.take() {
-                self.commit_reflow(ticket, stack, cx);
+                self.commit_reflow(ticket.key, stack, cx);
             }
             cx.emit(EditorEvent::ViewChanged);
             cx.notify();
         }
     }
 
+    /// Returns whether `output` was installed.
     fn commit_reflow(
         &mut self,
-        ticket: reflow::Ticket,
+        key: reflow::Key,
         output: ReflowOutput,
         cx: &mut Context<Self>,
-    ) {
+    ) -> bool {
         let (mut prepared, image_dimensions, mut report) = output;
         let reflow::Key {
             session,
@@ -2196,7 +2300,7 @@ impl RichDocumentEditor {
             zoom,
             resources: dimensions_generation,
             focus: editing_node,
-        } = ticket.key;
+        } = key;
         let width = f32::from_bits(width);
         let viewport_height = f32::from_bits(height);
         let zoom_factor = f32::from_bits(zoom);
@@ -2212,7 +2316,7 @@ impl RichDocumentEditor {
             .as_ref()
             .and_then(|dimensions| dimensions.lock().ok().map(|dimensions| dimensions.0))
             .unwrap_or(0);
-        if self.document.id() == session
+        let committed = self.document.id() == session
             && self.document.generation() == document_generation
             && self.geometry_generation == geometry_generation
             && self.layout_focus == editing_node
@@ -2224,8 +2328,8 @@ impl RichDocumentEditor {
             && current_image_generation == dimensions_generation
             && (self.requested_layout_width - width).abs() < 0.5
             && (self.requested_zoom_factor - zoom_factor).abs() < f32::EPSILON
-            && (self.scroll_metrics().1 - viewport_height).abs() < 0.5
-        {
+            && (self.scroll_metrics().1 - viewport_height).abs() < 0.5;
+        if committed {
             let scroll_y = self.scroll_metrics().0;
             let snapshot = self.document.snapshot();
             let cursor = self.cursor_offset();
@@ -2297,7 +2401,7 @@ impl RichDocumentEditor {
                 self.reflow.stack_committed(
                     reflow::Key {
                         geometry: self.geometry_generation,
-                        ..ticket.key
+                        ..key
                     },
                     failure,
                 );
@@ -2306,6 +2410,8 @@ impl RichDocumentEditor {
             self.measured_layout = true;
             self.text_environment_pending = false;
             self.layout_replan_pending = false;
+            self.presentation_hold = None;
+            self.switch_layout = None;
             if let Some(report) = &mut report {
                 report.committed = true;
             }
@@ -2368,6 +2474,7 @@ impl RichDocumentEditor {
             cx.emit(EditorEvent::LayoutDiagnostics(Arc::new(report)));
         }
         cx.notify();
+        committed
     }
 
     pub fn jump_to_node(
@@ -6185,16 +6292,21 @@ impl gpui::Render for RichDocumentEditor {
         let viewport_height = viewport_height.max(800.);
         let image_top = (scroll_y - viewport_height).max(0.);
         let image_bottom = scroll_y + viewport_height * 2.;
-        let visible_order = self
-            .components
-            .visible_range(
-                &self.visual_lines,
-                &self.paint_order,
-                image_top,
-                image_bottom,
-            )
-            .map(|order_index| self.paint_order[order_index])
-            .collect::<Vec<_>>();
+        // A held switch presents no content, so no component element either.
+        let held = self.presentation_hold.is_some();
+        let visible_order = if held {
+            Vec::new()
+        } else {
+            self.components
+                .visible_range(
+                    &self.visual_lines,
+                    &self.paint_order,
+                    image_top,
+                    image_bottom,
+                )
+                .map(|order_index| self.paint_order[order_index])
+                .collect::<Vec<_>>()
+        };
         self.request_html_images(&visible_order, window, cx);
         let mut inline_math_elements = Vec::new();
         for index in &visible_order {
@@ -6863,8 +6975,10 @@ impl gpui::Render for RichDocumentEditor {
             }
         }
         component_chrome.extend(outer_container_headers);
-        component_chrome.extend(self.table_edge_controls(cx));
-        component_chrome.extend(self.table_resize_feedback(palette));
+        if !held {
+            component_chrome.extend(self.table_edge_controls(cx));
+            component_chrome.extend(self.table_resize_feedback(palette));
+        }
         let semantics = window
             .is_a11y_active()
             .then(|| {
@@ -7026,8 +7140,10 @@ impl gpui::Render for RichDocumentEditor {
             .children(self.render_tree_context(&visible_order, palette))
             .children(image_elements)
             .children(inline_math_elements)
-            .child(ViewportFadeElement {
-                editor: cx.entity(),
+            .when(!held, |editor| {
+                editor.child(ViewportFadeElement {
+                    editor: cx.entity(),
+                })
             })
             .when(self.toolbar_visible, |editor| {
                 editor.child(
@@ -8033,12 +8149,17 @@ impl Element for DocumentTextElement {
         let overscan_bottom = visible.bottom() + overscan;
         let local_overscan_top: f32 = (overscan_top - bounds.top()).into();
         let local_overscan_bottom: f32 = (overscan_bottom - bounds.top()).into();
-        let visible_lines = editor.components.visible_range(
-            &editor.visual_lines,
-            &editor.paint_order,
-            local_overscan_top,
-            local_overscan_bottom,
-        );
+        // Held switches lay out and accept input, but paint only background.
+        let visible_lines = if editor.presentation_hold.is_some() {
+            0..0
+        } else {
+            editor.components.visible_range(
+                &editor.visual_lines,
+                &editor.paint_order,
+                local_overscan_top,
+                local_overscan_bottom,
+            )
+        };
 
         for order_index in visible_lines {
             let spec = &editor.visual_lines[editor.paint_order[order_index]];
@@ -14647,7 +14768,18 @@ mod tests {
                         Some(&editor.measurement),
                     );
                     scale_visual_lines(&mut expected, zoom);
-                    assert_eq!(*editor.paint_order, visual_line_paint_order(&expected));
+                    // Row-local refresh positions from `y_before / zoom` and
+                    // rescales, so peer lines that tie exactly in a complete
+                    // rebuild may differ by float rounding. Order must agree
+                    // up to such ties; geometry is compared below.
+                    let expected_order = visual_line_paint_order(&expected);
+                    assert_eq!(editor.paint_order.len(), expected_order.len());
+                    for (actual, wanted) in editor.paint_order.iter().zip(&expected_order) {
+                        assert!(
+                            (expected[*actual].y - expected[*wanted].y).abs() < 0.01,
+                            "{target}, zoom {zoom}: paint order {actual} != {wanted}"
+                        );
+                    }
                     assert_eq!(editor.visual_lines.len(), expected.len());
                     for (actual, expected) in editor.visual_lines.iter().zip(&expected) {
                         assert_eq!(actual.projected_range(), expected.projected_range());
@@ -15248,7 +15380,7 @@ mod tests {
                     "Margin note: Weather observations",
                     "Margin note: Preserve the original",
                     "A lead",
-                    "Keep evidence together:",
+                    "Consider the available forms:",
                     "Keep examples literal:",
                     "Sources checked",
                     "Notes saved",

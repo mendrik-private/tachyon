@@ -44,65 +44,208 @@ pub(super) fn eligible(
         })
 }
 
+/// Distinct line measurements one paragraph ending may request.
+const MEASURE_BUDGET: usize = 48;
+/// Words one boundary may pass to the following line. With a three-line
+/// window the worst case stays at 6 + 6 * 6 + 6 = 48 distinct measurements.
+const MAX_MOVED: usize = 5;
+/// Final lines narrower than this share of the width read as stranded.
+const SHORT_ENDING: f32 = 0.3;
+
+/// Re-breaks the last (at most three) lines when the paragraph would end in a
+/// stranded phrase. The shortfall is spread over the window by minimizing the
+/// squared slack of its non-final lines plus a strong short-ending penalty, so
+/// the rag stays even instead of collapsing on the penultimate line alone.
+/// Line count, contiguity and every line before the window are preserved.
 pub(super) fn refine(
     text: &str,
     lines: &mut [Range<usize>],
     graphemes: &[usize],
     width: f32,
-    mut measure: impl FnMut(Range<usize>) -> Option<f32>,
+    measure: impl FnMut(Range<usize>) -> Option<f32>,
 ) {
     let count = lines.len();
     if count < 2 || !width.is_finite() || width <= 0. {
         return;
     }
-    let previous = lines[count - 2].clone();
-    let last = lines[count - 1].clone();
-    if last.end - previous.start > 2048
-        || !(1..=3).contains(&text[last.clone()].split_whitespace().count())
-    {
+    let first = count - count.min(3);
+    let window = &lines[first..];
+    let last = window[window.len() - 1].clone();
+    if last.end - window[0].start > 2048 || !(1..=3).contains(&word_count(text, &last)) {
         return;
     }
-    let Some(last_width) = measure(last.clone()) else {
-        return;
+    let mut search = Search {
+        text,
+        window,
+        width,
+        measurements: Vec::new(),
+        measure,
+        options: Vec::new(),
+        chosen: Vec::new(),
+        best: (f32::INFINITY, Vec::new()),
     };
-    if last_width > width * 0.25 {
-        return;
+    match search.measure(last.clone()) {
+        Ok(Some(last_width)) if last_width <= width * 0.25 => {}
+        _ => return,
     }
     // Only ordinary spaces provide new boundaries. NBSP, tabs, CJK and
-    // unbreakable tokens keep their native layout. Inspect at most 2 KiB and
-    // measure at most four candidates, leaving at least two preceding words.
-    let words = text[previous.clone()]
-        .match_indices(|c: char| !c.is_whitespace())
-        .filter_map(|(offset, _)| {
-            (offset == 0 || text.as_bytes()[previous.start + offset - 1] == b' ')
-                .then_some(previous.start + offset)
+    // unbreakable tokens keep their native layout; protected inline spans are
+    // already absent from `graphemes`. The first window line keeps two words.
+    search.options = window
+        .windows(2)
+        .enumerate()
+        .map(|(index, pair)| {
+            let line = &pair[0];
+            let starts = text[line.clone()]
+                .match_indices(|c: char| !c.is_whitespace())
+                .filter_map(|(offset, _)| {
+                    (offset == 0 || text.as_bytes()[line.start + offset - 1] == b' ')
+                        .then_some(line.start + offset)
+                })
+                .collect::<Vec<_>>();
+            let movable = starts
+                .get(if index == 0 { 2 } else { 1 }..)
+                .unwrap_or_default()
+                .iter()
+                .copied()
+                .filter(|start| graphemes.binary_search(start).is_ok())
+                .collect::<Vec<_>>();
+            std::iter::once(pair[1].start)
+                .chain(movable.into_iter().rev().take(MAX_MOVED))
+                .collect()
         })
+        .collect();
+    // The native breaks set the bar a re-break must strictly beat.
+    let native = window[1..]
+        .iter()
+        .map(|line| line.start)
         .collect::<Vec<_>>();
-    let mut best = None;
-    let mut imbalance = width - last_width;
-    for moved in 1..=4 {
-        let Some(index) = words.len().checked_sub(moved).filter(|index| *index >= 2) else {
-            continue;
-        };
-        let boundary = words[index];
-        if graphemes.binary_search(&boundary).is_err() {
-            continue;
-        }
-        let Some(left) = measure(previous.start..boundary) else {
-            continue;
-        };
-        let Some(right) = measure(boundary..last.end) else {
-            continue;
-        };
-        let difference = (left - right).abs();
-        if left <= width && right <= width && difference < imbalance {
-            best = Some(boundary);
-            imbalance = difference;
-        }
+    let Ok(Some(current)) = search.cost(&native) else {
+        return;
+    };
+    search.best = (current, native.clone());
+    if search.descend(0, window[0].start, 0.).is_err() || search.best.1 == native {
+        return;
     }
-    if let Some(boundary) = best {
-        lines[count - 2].end = boundary;
-        lines[count - 1].start = boundary;
+    for (offset, boundary) in search.best.1.into_iter().enumerate() {
+        lines[first + offset].end = boundary;
+        lines[first + offset + 1].start = boundary;
+    }
+}
+
+fn word_count(text: &str, range: &Range<usize>) -> usize {
+    text[range.clone()].split_whitespace().count()
+}
+
+/// The measurement budget was spent before the search completed.
+struct Exhausted;
+
+struct Search<'a, F> {
+    text: &'a str,
+    window: &'a [Range<usize>],
+    width: f32,
+    measurements: Vec<(Range<usize>, Option<f32>)>,
+    measure: F,
+    /// Candidate starts per window line after the first, latest first.
+    options: Vec<Vec<usize>>,
+    chosen: Vec<usize>,
+    best: (f32, Vec<usize>),
+}
+
+impl<F: FnMut(Range<usize>) -> Option<f32>> Search<'_, F> {
+    fn measure(&mut self, range: Range<usize>) -> Result<Option<f32>, Exhausted> {
+        if let Some((_, width)) = self.measurements.iter().find(|(r, _)| *r == range) {
+            return Ok(*width);
+        }
+        if self.measurements.len() >= MEASURE_BUDGET {
+            return Err(Exhausted);
+        }
+        let width = (self.measure)(range.clone());
+        self.measurements.push((range, width));
+        Ok(width)
+    }
+
+    /// Measured width of a line that may be laid out: native lines are kept
+    /// as shaped, new lines must fit.
+    fn fitting(&mut self, range: Range<usize>) -> Result<Option<f32>, Exhausted> {
+        let native = self.window.contains(&range);
+        Ok(self
+            .measure(range)?
+            .filter(|measured| native || *measured <= self.width))
+    }
+
+    fn slack(&self, line: f32) -> f32 {
+        ((self.width - line).max(0.) / self.width).powi(2)
+    }
+
+    fn ending(&self, ending: f32, range: &Range<usize>) -> f32 {
+        let mut penalty = 0.;
+        if ending < self.width * SHORT_ENDING {
+            penalty += 1. + SHORT_ENDING - ending / self.width;
+        }
+        if word_count(self.text, range) < 2 {
+            penalty += 1.;
+        }
+        penalty
+    }
+
+    /// Objective for complete window boundaries, or None if a line does not
+    /// measure or fit.
+    fn cost(&mut self, boundaries: &[usize]) -> Result<Option<f32>, Exhausted> {
+        let mut start = self.window[0].start;
+        let mut cost = 0.;
+        for &boundary in boundaries {
+            let Some(line) = self.fitting(start..boundary)? else {
+                return Ok(None);
+            };
+            cost += self.slack(line);
+            start = boundary;
+        }
+        let range = start..self.window[self.window.len() - 1].end;
+        Ok(self
+            .fitting(range.clone())?
+            .map(|ending| cost + self.ending(ending, &range)))
+    }
+
+    /// Chooses the start of window line `level + 1`. Candidates run from the
+    /// native break towards earlier words, so the current line only shrinks
+    /// and the remainder only grows; both permit early exits.
+    fn descend(&mut self, level: usize, start: usize, cost: f32) -> Result<(), Exhausted> {
+        let end = self.window[self.window.len() - 1].end;
+        for index in 0..self.options[level].len() {
+            let boundary = self.options[level][index];
+            if boundary <= start {
+                break;
+            }
+            let Some(line) = self.fitting(start..boundary)? else {
+                continue;
+            };
+            let cost = cost + self.slack(line);
+            if cost >= self.best.0 {
+                break;
+            }
+            self.chosen.push(boundary);
+            if level + 1 < self.options.len() {
+                let result = self.descend(level + 1, boundary, cost);
+                self.chosen.pop();
+                result?;
+                continue;
+            }
+            let ending = self.fitting(boundary..end)?;
+            let penalty = ending.map(|ending| self.ending(ending, &(boundary..end)));
+            if let Some(penalty) = penalty
+                && cost + penalty < self.best.0
+            {
+                self.best = (cost + penalty, self.chosen.clone());
+            }
+            self.chosen.pop();
+            // A longer ending never fits again, and a settled one only costs
+            // the current line more slack.
+            if penalty.is_none_or(|penalty| penalty == 0.) {
+                break;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -267,6 +410,106 @@ mod tests {
         });
     }
 
+    /// Native-like greedy wrap at ordinary spaces; a line's width includes its
+    /// trailing space, matching how `refine` measures source ranges.
+    fn greedy(text: &str, width: usize) -> Vec<Range<usize>> {
+        let mut lines = vec![Range { start: 0, end: 0 }];
+        for (offset, _) in text.match_indices(' ') {
+            let line = lines.last_mut().unwrap();
+            if offset + 1 - line.start > width && line.end > line.start {
+                let start = line.end;
+                lines.push(start..offset + 1);
+            } else {
+                line.end = offset + 1;
+            }
+        }
+        let line = lines.last_mut().unwrap();
+        if text.len() - line.start > width && line.end > line.start {
+            let start = line.end;
+            lines.push(start..text.len());
+        } else {
+            line.end = text.len();
+        }
+        lines
+    }
+
+    #[test]
+    fn stranded_endings_spread_the_shortfall_over_the_last_lines() {
+        let text = "alpha beta gamma delta epsilon zeta eta \
+                    theta iota kappa lambda mu nu xi pi tau \
+                    upsilon phi chi psi omega alef bet dal end.";
+        let original = greedy(text, 40);
+        let widths = original.iter().map(|r| r.len()).collect::<Vec<_>>();
+        assert_eq!(widths, [40, 40, 39, 4], "greedy rag ≈ [1, 1, .97, .1]·W");
+        let graphemes = text
+            .grapheme_indices(true)
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+        let mut lines = original.clone();
+        let mut calls = 0;
+        refine(text, &mut lines, &graphemes, 40., |r| {
+            calls += 1;
+            Some(r.len() as f32)
+        });
+        assert!(calls <= MEASURE_BUDGET, "{calls} measurements");
+        assert_eq!(lines.len(), original.len());
+        assert_eq!(lines[0], original[0], "lines before the window stay");
+        // The old two-line balance left a ~0.5·W penultimate line here.
+        let widths = lines.iter().map(|r| r.len()).collect::<Vec<_>>();
+        assert!(widths[1] >= 30 && widths[2] >= 30, "even rag: {widths:?}");
+        assert!(widths[3] >= 12, "reasonable ending: {widths:?}");
+        assert!(text[lines[3].clone()].split_whitespace().count() >= 2);
+        assert!(widths.iter().all(|width| *width <= 40));
+        assert_eq!(
+            lines.iter().map(|r| &text[r.clone()]).collect::<String>(),
+            text
+        );
+    }
+
+    #[test]
+    fn rebreaking_is_bounded_and_respects_allowed_boundaries() {
+        let text = "The committed values are resolved on demand without building \
+                    a graph sized table and the reports keep `inline code spans` \
+                    together while errors stay inside the callee instead of at \
+                    the offending call site so readers can follow it.";
+        let protected = text.find('`').unwrap()..text.rfind('`').unwrap() + 1;
+        let graphemes = text
+            .grapheme_indices(true)
+            .map(|(i, _)| i)
+            .filter(|i| !(protected.start < *i && *i < protected.end))
+            .collect::<Vec<_>>();
+        let mut refined = 0;
+        for width in 16..90 {
+            let original = greedy(text, width);
+            let mut lines = original.clone();
+            let mut calls = 0;
+            refine(text, &mut lines, &graphemes, width as f32, |r| {
+                calls += 1;
+                Some(text[r].chars().count() as f32)
+            });
+            assert!(calls <= MEASURE_BUDGET, "width={width}: {calls} calls");
+            assert_eq!(lines.len(), original.len());
+            let window = original.len() - original.len().min(3);
+            assert_eq!(lines[..window], original[..window], "width={width}");
+            assert_eq!(lines[0].start, 0);
+            assert_eq!(lines.last().unwrap().end, text.len());
+            for (pair, native) in lines.windows(2).zip(original.windows(2)) {
+                assert_eq!(pair[0].end, pair[1].start);
+                assert!(pair[0].start < pair[0].end);
+                let boundary = pair[1].start;
+                if boundary != native[1].start {
+                    assert!(graphemes.contains(&boundary), "width={width}");
+                    assert_eq!(text.as_bytes()[boundary - 1], b' ');
+                }
+            }
+            for (line, native) in lines.iter().zip(&original) {
+                assert!(line == native || line.len() <= width, "width={width}");
+            }
+            refined += usize::from(lines != original);
+        }
+        assert!(refined > 0, "exercise stranded endings");
+    }
+
     #[gpui::test]
     fn justified_prose_does_not_pull_words_down_to_lengthen_the_last_line(
         cx: &mut gpui::TestAppContext,
@@ -351,10 +594,13 @@ mod tests {
                 let cold = cold_scope.take_stage();
                 assert!(cold.intrinsic_requests <= 9);
                 assert!(cold.shaping_calls <= 10);
-                assert!(projection.text()[refined.last().unwrap().clone()].split_whitespace().count() >= 3,
+                let ending = refined.last().unwrap().clone();
+                assert!(projection.text()[ending.clone()].split_whitespace().count() >= 2
+                    && fonts.line_width(&projection, ending, 18.).unwrap() >= width * SHORT_ENDING,
                     "an isolated short final word should gain its preceding words: width={width}, original={original:?}, refined={refined:?}");
                 assert_eq!(refined.len(), original.len());
-                assert_eq!(&refined[..refined.len() - 2], &original[..original.len() - 2]);
+                let window = original.len() - original.len().min(3);
+                assert_eq!(&refined[..window], &original[..window]);
                 assert_eq!(refined.iter().map(|r| &projection.text()[r.clone()]).collect::<String>(), source);
                 for line in &refined {
                     assert!(fonts.line_width(&projection, line.clone(), 18.).unwrap() <= width);

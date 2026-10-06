@@ -130,10 +130,16 @@ impl AdaptivePlan {
             }
             // The prose measure applies to the explanation, not to the
             // combined glossary. Reserve the term rail in addition to it.
-            let canvas = self
-                .canvas
-                .min(self.prose_measures.reference + preferred + LAYOUT_GAP);
-            let span = valid.then(|| term_span(canvas, preferred)).flatten();
+            // The combined extent ends on the nearest document column end so
+            // the rail split and the description edge share grid lines.
+            let canvas = grid::DocumentGrid::new(self.canvas).fit_nearest(
+                self.canvas
+                    .min(self.prose_measures.reference + preferred + LAYOUT_GAP),
+                self.canvas,
+            );
+            let span = valid
+                .then(|| term_span(self.canvas, canvas, preferred))
+                .flatten();
             let Some(span) = span else { continue };
             // A descendant can be a table, list or nested definition. The
             // canonical container index keeps it in the same description.
@@ -151,6 +157,7 @@ impl AdaptivePlan {
                 self.slots.insert(
                     segment.node_id,
                     LayoutSlot {
+                        grid: Some(self.canvas),
                         align_components: false,
                         group: *id,
                         item: row * 2 + usize::from(body),
@@ -177,14 +184,22 @@ fn contains_leaf(block: &BlockNode, id: NodeId) -> bool {
 
 /// Choose the smallest shared rail that fits the loaded-font term widths.
 /// Long labels or cramped descriptions stack at full reading measure.
-fn term_span(canvas: f32, preferred: f32) -> Option<u8> {
+/// Widths are the published (grid-snapped) rail and description widths.
+fn term_span(document: f32, canvas: f32, preferred: f32) -> Option<u8> {
     if canvas < crate::theme::DocumentStyle::SINGLE_COLUMN_WIDTH {
         return None;
     }
     (2..=5).find(|span| {
-        candidates::span_width(canvas, *span).is_some_and(|w| w >= preferred)
-            && candidates::span_width(canvas, 12 - *span).is_some_and(|w| w >= 320.)
+        let [term, description] = rail_widths(document, canvas, *span);
+        term >= preferred && description >= 320.
     })
+}
+
+fn rail_widths(document: f32, canvas: f32, span: u8) -> [f32; 2] {
+    let width = |start, span| {
+        grid::track_geometry(Some(document), canvas, start, span, 2).map_or(0., |g| g.1)
+    };
+    [width(0, span), width(span, 12 - span)]
 }
 
 #[cfg(test)]
@@ -192,13 +207,16 @@ mod tests {
     use super::*;
     #[test]
     fn definition_rails_fit_real_labels_without_cramping_descriptions() {
-        assert_eq!(term_span(480., 80.), None);
-        assert_eq!(term_span(700., 100.), Some(3));
-        assert_eq!(term_span(700., 500.), None);
-        for width in [560., 640., 720., 900.] {
-            if let Some(span) = term_span(width, 120.) {
-                assert!(candidates::span_width(width, span).unwrap() >= 120.);
-                assert!(candidates::span_width(width, 12 - span).unwrap() >= 320.);
+        assert_eq!(term_span(480., 480., 80.), None);
+        // Spans 2 and 3 both snap to the one-column rail at 700 px (four
+        // columns); the smallest fitting span is the published one.
+        assert_eq!(term_span(700., 700., 100.), Some(2));
+        assert_eq!(term_span(700., 700., 500.), None);
+        for document in [560_f32, 640., 720., 900., 1600.] {
+            let width = document.min(900.);
+            if let Some(span) = term_span(document, width, 120.) {
+                let [term, description] = rail_widths(document, width, span);
+                assert!(term >= 120. && description >= 320.);
             }
         }
     }

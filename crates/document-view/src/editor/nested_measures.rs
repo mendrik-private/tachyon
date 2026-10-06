@@ -49,14 +49,14 @@ pub(super) fn reading_width(
     } else {
         0.
     };
-    (plan.prose_measures.fit_width(
-        (available - nested).max(0.),
+    plan.reading_measure(
+        available,
+        nested,
         segment.context.narrative
             || segment.context.quote.is_some()
             || segment.context.bibliography.is_some(),
         plan.lead == Some(segment.node_id),
-    ) + nested)
-        .min(available)
+    )
 }
 
 #[cfg(test)]
@@ -81,6 +81,50 @@ mod tests {
                 }
                 assert_eq!(document.snapshot().serialize().unwrap(), source);
             }
+        });
+    }
+
+    #[gpui::test]
+    fn reading_measure_ends_on_a_grid_column_in_its_comfort_range(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source =
+                "The explanation keeps its evidence and qualifications together. ".repeat(12);
+            let document = Document::from_markdown(source.as_str()).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let (mut snapped, mut unsnapped) = (0, 0);
+            for width in (1200..=2400).step_by(37).map(|w| w as f32) {
+                let plan =
+                    build_measured_adaptive_plan(&projection, width, 1000., None, false, &fonts);
+                let lines = build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                let right = lines[0].x_fraction * width + lines[0].width_fraction * width;
+                let grid = crate::adaptive::grid::DocumentGrid::new(width);
+                let (minimum, maximum) = (
+                    plan.prose_measures.for_role(false, false),
+                    plan.prose_measures.fit_width(f32::INFINITY, false, false),
+                );
+                match grid.end_within(minimum, maximum) {
+                    Some(end) => {
+                        snapped += 1;
+                        assert!((right - end).abs() < 0.01, "{right} != {end} at {width}");
+                        assert!((0..grid.columns).any(|i| (grid.end(i) - right).abs() < 0.01));
+                    }
+                    None => {
+                        unsnapped += 1;
+                        assert!((right - maximum).abs() < 0.01);
+                    }
+                }
+                assert!(right + 0.01 >= minimum && right <= maximum + 0.01);
+            }
+            assert!(snapped > 0 && unsnapped > 0, "{snapped} {unsnapped}");
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }
 

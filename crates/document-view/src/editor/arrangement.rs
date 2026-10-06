@@ -29,6 +29,7 @@ struct RootMeasureKey {
     figure_text: Option<(NodeId, crate::FigureTextRole)>,
     quote_roles: Vec<(NodeId, crate::quotes::TextRole)>,
     metadata: bool,
+    record_rail: Option<u32>,
     editorial: Option<crate::adaptive::editorial::Member>,
     lead: bool,
     steps: bool,
@@ -158,6 +159,10 @@ impl GroupMeasureKey {
                 metadata: indexes
                     .first()
                     .is_some_and(|&i| projection.segments()[i].context.metadata),
+                record_rail: presentation
+                    .record_rails
+                    .get(&root.id())
+                    .map(|rail| rail.to_bits()),
                 lead: presentation.lead == Some(root.id()),
                 steps: presentation
                     .lists
@@ -622,6 +627,9 @@ pub(super) fn build_edit_locked_adaptive_plan<'a>(
     let measurement = resources.text;
     let mut plan = AdaptivePlan::build(projection, width, previous, keep_arrangements);
     plan.prose_measures = measurement.prose_measures();
+    plan.measure_record_rails(projection, |list| {
+        label_rows::rail(projection, list, measurement)
+    });
     plan.editing_node = editing_node;
     plan.retain_reference_rhythm(projection, previous, keep_arrangements, editing_node);
     plan.retain_editorials(projection, previous, keep_arrangements);
@@ -906,13 +914,26 @@ pub(super) fn build_edit_locked_adaptive_plan<'a>(
     }
     plan.place_resources(projection, previous, keep_arrangements);
     plan.place_editorials(projection);
-    plan.measure_label_rows(projection, previous, |list, width, horizontal, metadata| {
-        if metadata {
-            super::metadata::measure(projection, list, width, horizontal, measurement)
-        } else {
-            label_rows::measure(projection, list, width, horizontal, measurement)
-        }
-    });
+    let grid = plan.canvas;
+    plan.measure_label_rows(
+        projection,
+        previous,
+        |list, width, horizontal, metadata, record_rail| {
+            if metadata {
+                super::metadata::measure(projection, list, width, horizontal, measurement)
+            } else {
+                label_rows::measure(
+                    projection,
+                    list,
+                    width,
+                    horizontal,
+                    record_rail,
+                    grid,
+                    measurement,
+                )
+            }
+        },
+    );
     plan.place_editorials(projection);
     plan.place_definitions(projection, previous, |segment| {
         // Strong RTL labels use the source-order stacked form until leading
@@ -1117,13 +1138,25 @@ fn measure_row_group_uncached(
             }
             let inner = if cards {
                 width - 2. * padding + 8.
-            } else {
+            } else if presentation.metadata_lists.contains(&list.id) {
                 width.min(presentation.prose_measures.reference)
+            } else {
+                // Same description edge as the published plan: the reading
+                // measure shared with neighbouring reference prose.
+                presentation.reading_measure(width, 0., false, false)
             };
             let rows = if presentation.metadata_lists.contains(&list.id) {
                 super::metadata::measure(projection, list, inner, false, measurement)
             } else {
-                label_rows::measure(projection, list, inner, false, measurement)
+                label_rows::measure(
+                    projection,
+                    list,
+                    inner,
+                    false,
+                    presentation.record_rails.get(&list.id).copied(),
+                    presentation.canvas,
+                    measurement,
+                )
             };
             if let Some(rows) = rows {
                 if cards && segment_count > 0 {
@@ -1614,8 +1647,12 @@ pub(super) fn build_visual_lines_with_extensions(
             measured
         });
         let font = (plan.lead == Some(segment.node_id)).then_some(DocumentStyle::LEAD_SIZE);
-        let label_lines = plan.label_rows.get(&segment.node_id).and_then(|columns| {
-            label_rows::build(projection, segment, *columns, segment_measurement)
+        let label_lines = plan.label_rows.get(&segment.node_id).and_then(|&columns| {
+            if let Some(fonts) = segment_measurement {
+                fonts.label_row_geometry(projection, segment, columns)
+            } else {
+                label_rows::build(projection, segment, columns, None)
+            }
         });
         let mut node_lines = if let Some(lines) = label_lines {
             lines
@@ -1838,10 +1875,18 @@ fn apply_group_spacing(
             previous_slot
                 .is_some_and(|previous: crate::adaptive::LayoutSlot| previous.group == slot.group)
         });
-        if !continues_slot
-            || slot
-                .zip(previous_slot)
-                .is_some_and(|(slot, previous)| !slot.cards && slot.same_column(previous))
+        // A reading band owns the gaps between its paragraphs: they keep the
+        // columns' shared baseline grid (see prose_flow::build).
+        let within_reading_band = continues_slot
+            && plan
+                .prose_flows
+                .get(&root_id)
+                .is_some_and(|flow| slot.is_some_and(|slot| slot.group == flow.group));
+        if !within_reading_band
+            && (!continues_slot
+                || slot
+                    .zip(previous_slot)
+                    .is_some_and(|(slot, previous)| !slot.cards && slot.same_column(previous)))
         {
             lines[start].gap_before = previous.map_or(
                 if matches!(root, BlockNode::Heading(_)) {
@@ -5077,8 +5122,10 @@ pub(super) mod tests {
         cx: &mut gpui::TestAppContext,
     ) {
         cx.update(|cx| {
+            // Chapter-specific labels keep each list an independent feature
+            // grid; one label sequence repeated verbatim would be a record schema.
             let source = (0..20).map(|chapter| format!(
-                "## Chapter {chapter}\n\n### Properties\n\n| Key | Value |\n| --- | --- |\n| Timeout | 30 s |\n| Workers | 4 |\n\n### Comparison\n\n| Environment | Endpoint | Retry |\n| --- | --- | ---: |\n| Local | localhost | 2 |\n| Staging | staging.example.test | 3 |\n\n### Features\n\n- **First:** Clear.\n- **Second:** Stable.\n- **Third:** Local.\n- **Fourth:** Safe.\n- **Fifth:** Readable.\n- **Sixth:** Complete.\n\n"
+                "## Chapter {chapter}\n\n### Properties\n\n| Key | Value |\n| --- | --- |\n| Timeout | 30 s |\n| Workers | 4 |\n\n### Comparison\n\n| Environment | Endpoint | Retry |\n| --- | --- | ---: |\n| Local | localhost | 2 |\n| Staging | staging.example.test | 3 |\n\n### Features\n\n- **First {chapter}:** Clear.\n- **Second:** Stable.\n- **Third:** Local.\n- **Fourth:** Safe.\n- **Fifth:** Readable.\n- **Sixth:** Complete.\n\n"
             )).collect::<String>();
             let document = Document::from_markdown(source.as_str()).unwrap();
             let initial = PreparedDocumentView::prepare(&document);
@@ -7766,8 +7813,11 @@ pub(super) mod tests {
             let projection = TextProjection::from_snapshot(&document.snapshot());
             let measurement =
                 FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            // The reading measure ends on a document column end. At this
+            // canvas that end coincides with the 84-character maximum, so the
+            // bridging sentences stay single lines (five bridging lines).
             let plan =
-                build_measured_adaptive_plan(&projection, 1314., 3000., None, false, &measurement);
+                build_measured_adaptive_plan(&projection, 1427., 3000., None, false, &measurement);
             let lists = projection
                 .roots()
                 .filter_map(|root| match root {
@@ -7790,6 +7840,72 @@ pub(super) mod tests {
                 "decisions={:#?}",
                 plan.measured_lists,
             );
+            assert_eq!(document.snapshot().serialize().unwrap(), source);
+        });
+    }
+
+    #[gpui::test]
+    fn two_column_list_grids_share_the_document_split(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let source = concat!(
+                "Recommendation:\n\n",
+                "- Parse not between application and the multiplicative level\n",
+                "- Update the formatter precedence constants\n",
+                "- Add parser and formatter tests for prefix forms\n",
+                "- Re-check that the boolean library is unchanged\n",
+            );
+            let document = Document::from_markdown(source).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let mut exercised = 0;
+            for width in [1632., 1556., 1427., 1200.] {
+                let grid = crate::adaptive::grid::DocumentGrid::new(width);
+                let plan =
+                    build_measured_adaptive_plan(&projection, width, 3000., None, false, &fonts);
+                let lines = build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                let columns = lines
+                    .iter()
+                    .filter_map(|line| line.slot)
+                    .map(|slot| slot.columns)
+                    .max();
+                if columns != Some(2) {
+                    continue;
+                }
+                exercised += 1;
+                // A [6, 6] row's second slot: the document's half split.
+                let (split, _) =
+                    crate::adaptive::grid::track_geometry(Some(width), width, 6, 6, 2).unwrap();
+                assert!((0..grid.columns).any(|i| (grid.start(i) - split).abs() < 0.01));
+                let lead = |column: u8| {
+                    let line = lines
+                        .iter()
+                        .find(|line| line.slot.is_some_and(|slot| slot.track_start == column))
+                        .unwrap();
+                    let slot = line.slot.unwrap();
+                    (
+                        slot.left(width),
+                        line.x_fraction * width + line.inset - slot.left(width),
+                    )
+                };
+                let ((first, first_lead), (second, second_lead)) = (lead(0), lead(6));
+                assert_eq!(first, 0.);
+                assert!(
+                    (second - split).abs() < 0.01,
+                    "{second} != {split} at {width}"
+                );
+                // Text keeps the same marker lead in every column, so the
+                // second column's text sits exactly where the first column's
+                // text sits relative to its own grid line.
+                assert!((first_lead - second_lead).abs() < 0.01);
+            }
+            assert!(exercised > 0, "fixture must publish a two-column grid");
             assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }
@@ -8203,7 +8319,16 @@ pub(super) mod tests {
                                 .next()
                                 .expect("every eligible count needs a measured decision");
                             assert!(decision.is_valid(count, width, None));
-                            if width == 1280. {
+                            if width == 1280. && labeled && count == 7 {
+                                // Two-line entity cards orphan their seventh
+                                // card at both two (2+2+2+1) and three (3+3+1)
+                                // columns, so this count stays vertical.
+                                assert!(decision.candidates.iter().all(|candidate| {
+                                    candidate.columns == 1
+                                        || candidate.rejected
+                                            == Some(crate::adaptive::candidates::Rejection::Orphan)
+                                }));
+                            } else if width == 1280. {
                                 assert!(
                                     decision
                                         .candidates
@@ -8595,6 +8720,7 @@ pub(super) mod tests {
             plan.slots.insert(
                 image.node_id,
                 LayoutSlot {
+                    grid: None,
                     align_components: false,
                     group: images[0].node_id,
                     item,
@@ -8852,10 +8978,12 @@ pub(super) mod tests {
                 .values()
                 .filter(|list| matches!(list.layout, ListLayout::Grid(_)))
                 .count();
-            // Both independent entity groups fit the title + four-body-line
-            // budget. The uneven constraints and instruction sequence do not.
-            assert_eq!(grids, 2, "decisions={:?}", plan.measured_lists);
-            assert_eq!(accented, 9);
+            // The six interfaces fit the title + four-body-line budget. The
+            // three system boundaries fit only two columns, which would leave
+            // one card alone under a full pair, so they stay a vertical list.
+            // The uneven constraints and instruction sequence remain vertical.
+            assert_eq!(grids, 1, "decisions={:?}", plan.measured_lists);
+            assert_eq!(accented, 6);
             assert_eq!(document.snapshot().serialize().unwrap(), source);
         });
     }

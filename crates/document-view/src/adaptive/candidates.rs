@@ -46,6 +46,9 @@ pub(crate) enum Rejection {
     TooManyLines,
     UnevenHeights,
     Overflow,
+    /// A lone multi-line item under full rows reads as a stray card, not as
+    /// part of the collection. Compact single-line chips may keep it.
+    Orphan,
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -157,6 +160,8 @@ pub(crate) fn choose_list(
         .collect::<Vec<_>>();
     // A collection owns one set of column anchors. Keep the final row's
     // unused tracks instead of widening its items into a different grid.
+    // Partial final rows are legal, but a single multi-line item alone under
+    // full rows is rejected below: that orphan detaches from its peers.
     let mut measured = vec![[None; 4]; count];
     let mut candidates = Vec::with_capacity(shapes.len());
     for row_columns in shapes {
@@ -252,6 +257,13 @@ pub(crate) fn choose_list(
                 .any(|i| i.lines > if labeled { 5 } else { 3 })
             {
                 Some(Rejection::TooManyLines)
+            } else if count > columns
+                && count % columns == 1
+                && candidate.items.iter().any(|i| i.lines > 1)
+            {
+                // Checked before height balance: shared-grid alignment may
+                // tolerate uneven heights, but never an orphaned final card.
+                Some(Rejection::Orphan)
             } else if tallest > shortest * 1.5 + 0.001 {
                 Some(Rejection::UnevenHeights)
             } else {
@@ -506,7 +518,9 @@ mod tests {
 
     #[test]
     fn short_collections_keep_shared_column_anchors_in_partial_rows() {
-        for count in [5, 6, 7, 8, 11] {
+        // Seven items would leave one card alone under two full rows; that
+        // orphan case is covered by `multi_line_items_never_leave_an_orphan`.
+        for count in [5, 6, 8, 11] {
             let decision = choose_list(count, 1280., PROSE_WIDTH, None, true, false, |_, _, _| {
                 Some(ItemMeasurement {
                     lines: 2,
@@ -644,5 +658,78 @@ mod tests {
                 .rejected,
             Some(Rejection::Overflow)
         );
+    }
+
+    #[test]
+    fn multi_line_items_never_leave_an_orphan() {
+        let item = |lines: usize| ItemMeasurement {
+            lines,
+            height: lines as f32 * 24.,
+            preferred_width: 420.,
+            overflow: false,
+        };
+        // Three explanations whose three-column measure overflows: two
+        // columns would strand the third card alone, so the list stacks.
+        let decision = choose_list(3, 1100., PROSE_WIDTH, None, true, false, |i, width, _| {
+            let mut measured = item([2, 3, 2][i]);
+            measured.overflow = width < 400.;
+            Some(measured)
+        });
+        assert_eq!(decision.layout, ListLayout::List);
+        assert_eq!(decision.row_columns, [1, 1, 1]);
+        let two = decision.candidates.iter().find(|c| c.columns == 2).unwrap();
+        assert_eq!(two.row_columns, [2, 2]);
+        assert_eq!(two.rejected, Some(Rejection::Orphan));
+        assert!(!two.supports_shared_grid());
+
+        // Five items: 2+2+1 is an orphan, 3+2 remains a legal partial row.
+        let decision = choose_list(5, 1280., PROSE_WIDTH, None, true, false, |_, _, _| {
+            Some(item(2))
+        });
+        assert_eq!(decision.row_columns, [3, 3]);
+        assert_eq!(
+            decision
+                .candidates
+                .iter()
+                .find(|c| c.columns == 2)
+                .unwrap()
+                .rejected,
+            Some(Rejection::Orphan)
+        );
+        // Seven items orphan at both two and three columns.
+        let decision = choose_list(7, 1280., PROSE_WIDTH, None, true, false, |_, _, _| {
+            Some(item(2))
+        });
+        assert_eq!(decision.layout, ListLayout::List);
+
+        // Compact single-line chips may keep a partial final row of one.
+        let decision = choose_list(3, 1100., PROSE_WIDTH, None, false, false, |_, width, _| {
+            Some(ItemMeasurement {
+                overflow: width < 400.,
+                ..item(1)
+            })
+        });
+        assert_eq!(decision.layout, ListLayout::Grid(2));
+        assert_eq!(decision.row_columns, [2, 2]);
+        assert_eq!(decision.placement(2), Some((1, 0, 2)));
+    }
+
+    #[test]
+    fn shared_grid_selection_cannot_force_an_orphan() {
+        // Equal multi-line heights at three columns would otherwise be a
+        // legal shared anchor for four items (3+1).
+        let mut decision = choose_list(4, 1280., PROSE_WIDTH, None, true, false, |_, _, _| {
+            Some(ItemMeasurement {
+                lines: 2,
+                height: 48.,
+                preferred_width: 280.,
+                overflow: false,
+            })
+        });
+        assert_eq!(decision.row_columns, [2, 2]);
+        let before = decision.clone();
+        assert!(!decision.select_shared_grid(3));
+        assert_eq!(decision.layout, before.layout);
+        assert_eq!(decision.row_columns, before.row_columns);
     }
 }

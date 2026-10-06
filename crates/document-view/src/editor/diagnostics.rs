@@ -208,6 +208,7 @@ fn list_rejection(reason: Rejection) -> &'static str {
         Rejection::TooManyLines => "too_many_lines",
         Rejection::UnevenHeights => "uneven_heights",
         Rejection::Overflow => "overflow",
+        Rejection::Orphan => "orphan",
     }
 }
 
@@ -231,6 +232,7 @@ fn list_candidate_reason_codes(candidate: &ListCandidate) -> Vec<&'static str> {
             Rejection::TooManyLines => "TOO_MANY_ITEM_LINES",
             Rejection::UnevenHeights => "UNEVEN_ITEM_HEIGHTS",
             Rejection::Overflow => "INTERNAL_OVERFLOW",
+            Rejection::Orphan => "ORPHANED_FINAL_ITEM",
         });
     }
     reasons
@@ -647,6 +649,7 @@ mod tests {
             .collect::<Vec<_>>();
         let mut row = RowCandidate {
             canvas,
+            grid: None,
             roots: 0..2,
             groups: 0..2,
             ids: vec![
@@ -659,6 +662,7 @@ mod tests {
             widths,
             heights: vec![120., 180.],
             penalties: Penalties::default(),
+            measure_affinity: 0.,
             rejected: None,
             previous: false,
             flow_rows: 1,

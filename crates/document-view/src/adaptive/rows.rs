@@ -72,6 +72,8 @@ pub(crate) enum RowRejection {
 #[derive(Clone, Debug)]
 pub(crate) struct RowCandidate {
     pub canvas: f32,
+    /// Document canvas whose column grid unequal splits snap to.
+    pub grid: Option<f32>,
     pub roots: Range<usize>,
     /// Half-open interval in the bounded unit window (groups, or a gallery's
     /// consecutive internal figures).
@@ -84,6 +86,10 @@ pub(crate) struct RowCandidate {
     pub widths: Vec<f32>,
     pub heights: Vec<f32>,
     pub penalties: Penalties,
+    /// Window-local preference for a prose column near the reading measure.
+    /// Kept outside the seven normalized policy terms and relative to the
+    /// pair's closest legal split; see `relative_measure_affinity`.
+    pub measure_affinity: f32,
     pub rejected: Option<RowRejection>,
     pub previous: bool,
     /// A stacked explanation/example has two internal flow rows; scoring a
@@ -101,7 +107,7 @@ pub(crate) struct RowCandidate {
 
 impl RowCandidate {
     pub fn cost(&self) -> f32 {
-        self.penalties.weighted() * f32::from(self.flow_rows)
+        (self.penalties.weighted() + self.measure_affinity) * f32::from(self.flow_rows)
     }
     pub fn legal(&self) -> bool {
         self.rejected.is_none()
@@ -135,11 +141,12 @@ impl RowCandidate {
             && self
                 .widths
                 .iter()
-                .zip(TEMPLATES[self.template])
-                .all(|(width, span)| {
-                    super::candidates::span_width(self.canvas, *span)
-                        .is_some_and(|expected| (expected - width).abs() < 0.01)
-                })
+                .zip(super::grid::template_widths(
+                    self.grid,
+                    self.canvas,
+                    TEMPLATES[self.template],
+                ))
+                .all(|(width, expected)| expected > 0. && (expected - width).abs() < 0.01)
             && self
                 .widths
                 .iter()
@@ -527,6 +534,10 @@ pub(crate) fn measure_rows(
         for (i, unit) in window.iter().enumerate() {
             let measured = measure(unit.roots.clone(), canvas, false);
             candidates.push(stack_candidate(unit, i, canvas, measured));
+            // Snapped splits offered here: (kind, parts, widths, legal). One
+            // candidate per visible split keeps split consistency and
+            // transitions comparing geometry rather than template names.
+            let mut snapped_shapes = Vec::<(RowKind, Vec<Range<usize>>, Vec<f32>, bool)>::new();
             for (template, spans, explanation) in
                 TEMPLATES
                     .iter()
@@ -670,6 +681,8 @@ pub(crate) fn measure_rows(
                 {
                     continue;
                 }
+                let unequal = spans.len() == 2 && spans[0] != spans[1];
+                let mut grid = Some(plan.canvas);
                 // Keep the main explanation at its loaded-font reading
                 // measure. The pair may use a bounded part of an ultrawide
                 // canvas; unused outer space is preferable to very long lines.
@@ -724,10 +737,26 @@ pub(crate) fn measure_rows(
                 } else {
                     canvas
                 };
-                let mut widths = spans
-                    .iter()
-                    .map(|s| super::candidates::span_width(canvas, *s).unwrap_or(0.))
-                    .collect::<Vec<_>>();
+                // Unequal splits end on a document column end, so both parts
+                // and the split itself lie on shared grid lines.
+                let snapped = super::grid::template_canvas(grid, canvas, spans);
+                let widths = super::grid::template_widths(grid, snapped, spans);
+                // Templates snapping to one visible split share one candidate.
+                // If that split failed its gates, this template's own exact
+                // tracks are measured instead.
+                match snapped_shapes.iter().find(|(k, p, w, _)| {
+                    unequal
+                        && *k == kind
+                        && *p == parts
+                        && w.iter().zip(&widths).all(|(a, b)| (a - b).abs() < 0.01)
+                }) {
+                    Some((.., true)) => continue,
+                    Some(_) => grid = None,
+                    None => {}
+                }
+                let canvas = if grid.is_some() { snapped } else { canvas };
+                let mut widths = super::grid::template_widths(grid, canvas, spans);
+                let shape = (grid.is_some() && unequal).then(|| widths.clone());
                 let mut rejection = (canvas < crate::theme::DocumentStyle::SINGLE_COLUMN_WIDTH
                     || (matches!(
                         kind,
@@ -799,10 +828,12 @@ pub(crate) fn measure_rows(
                         })
                         .fold(0_f32, f32::max)
                         .min(canvas);
-                    let fitted_widths = spans
-                        .iter()
-                        .map(|span| super::candidates::span_width(fitted, *span).unwrap_or(0.))
-                        .collect::<Vec<_>>();
+                    let fitted = if let Some(document) = grid.filter(|_| unequal) {
+                        super::grid::DocumentGrid::new(document).fit_up(fitted, canvas)
+                    } else {
+                        fitted
+                    };
+                    let fitted_widths = super::grid::template_widths(grid, fitted, spans);
                     if fitted >= crate::theme::DocumentStyle::SINGLE_COLUMN_WIDTH
                         && fitted_widths.iter().all(|w| *w >= 260.)
                     {
@@ -837,7 +868,7 @@ pub(crate) fn measure_rows(
                         BlockNode::CodeBlock(_) | BlockNode::Table(_)
                     )
                     && matches!(roots[parts[0].end - 1], BlockNode::Paragraph(p)
-                        if p.content.as_string().trim_end().ends_with(':'))
+                            if p.content.as_string().trim_end().ends_with(':'))
                     && measure(parts[0].end - 1..parts[0].end, widths[0], false).is_none_or(
                         |label| label.height < 3. * crate::theme::DocumentStyle::REFERENCE_LEADING,
                     );
@@ -938,17 +969,35 @@ pub(crate) fn measure_rows(
                         .unused_width
                         .max(1. - canvas / available_canvas.max(1.));
                 }
+                // Every window independently prefers the split whose prose
+                // column matches the reading measure, so separate sections
+                // converge on one gutter without cross-window state.
+                let measure_affinity = prose_column(kind, widths.len()).map_or(0., |column| {
+                    let narrative = projection
+                        .segment_for_node(roots[parts[column].start].id())
+                        .is_some_and(|segment| segment.context.narrative);
+                    measure_affinity(
+                        widths[column],
+                        plan.prose_measures.fit_width(plan.canvas, narrative, false),
+                        plan.canvas,
+                    )
+                });
+                if let Some(shape) = shape {
+                    snapped_shapes.push((kind, parts.clone(), shape, rejection.is_none()));
+                }
                 candidates.push(RowCandidate {
                     canvas,
+                    grid,
                     roots: unit.roots.start..window[i + consume - 1].roots.end,
                     groups: i..i + consume,
                     ids: window[i..i + consume].iter().map(|u| u.id).collect(),
-                    parts,
+                    parts: parts.clone(),
                     kind,
                     template,
                     widths: widths.clone(),
                     heights: measurements.iter().map(|m| m.height).collect(),
                     penalties,
+                    measure_affinity,
                     rejected: rejection,
                     previous: false,
                     flow_rows: 1,
@@ -1074,6 +1123,7 @@ pub(crate) fn measure_rows(
                 0.
             };
         }
+        relative_measure_affinity(&mut candidates);
         plan.measured_rows.edit_locked |= constrain_editing_row(
             &mut candidates,
             window,
@@ -1213,6 +1263,7 @@ fn stack_candidate(
 ) -> RowCandidate {
     RowCandidate {
         canvas,
+        grid: None,
         roots: unit.roots.clone(),
         groups: index..index + 1,
         ids: vec![unit.id],
@@ -1222,6 +1273,7 @@ fn stack_candidate(
         widths: vec![canvas],
         heights: vec![measured.unwrap_or_default().height],
         penalties: Penalties::default(),
+        measure_affinity: 0.,
         rejected: None,
         previous: false,
         flow_rows: if unit.explanation.is_some() { 2 } else { 1 },
@@ -1971,6 +2023,7 @@ fn apply_rows(
         let spans = TEMPLATES[row.template];
         for (item, part) in row.parts.iter().enumerate() {
             let slot = LayoutSlot {
+                grid: row.grid,
                 align_components: row.kind == RowKind::Technical,
                 group: row.ids[0],
                 item,
@@ -2014,8 +2067,9 @@ fn apply_rows(
                             node_slot.fixed_canvas = Some(if wide {
                                 row.canvas
                             } else {
-                                plan.prose_measures.fit_width(
+                                plan.reading_measure(
                                     row.canvas,
+                                    0.,
                                     segment.context.narrative
                                         || segment.context.quote.is_some()
                                         || segment.context.bibliography.is_some(),
@@ -2160,47 +2214,143 @@ fn transition_cost(previous: usize, next: usize) -> f32 {
     }
 }
 
-/// n <= 40; rows consume contiguous groups within this bounded window. Previous template is
-/// explicit state, so transition cost participates in the optimum correctly.
+/// Weight of the prose-column distance from the reading measure, normalized
+/// by the canvas. One track is roughly 0.17 at a 1280px canvas: enough to
+/// order otherwise similar splits, well below a measured discomfort change.
+const MEASURE_AFFINITY: f32 = 2.;
+/// A two-column row leaving the split already established in its window.
+/// Exceeds an ordinary transition so neighbouring pairs keep one gutter
+/// unless the shared split is materially worse for this row's content.
+const SPLIT_CONSISTENCY: f32 = 1.;
+
+/// Explanation column of a prose/object pair. Other rows have no single
+/// reading column whose measure should place the gutter.
+fn prose_column(kind: RowKind, columns: usize) -> Option<usize> {
+    match (kind, columns) {
+        (RowKind::Explanation, 2) => Some(0),
+        (RowKind::ContentExplanation | RowKind::FigureExplanation, 2) => Some(1),
+        _ => None,
+    }
+}
+
+fn measure_affinity(prose_width: f32, measure: f32, canvas: f32) -> f32 {
+    MEASURE_AFFINITY * ((prose_width - measure).abs() / canvas.max(1.)).clamp(0., 1.)
+}
+
+/// Affinity orders the splits of one pair; it must not argue for stacking
+/// it when no split reaches the measure. Keep only the excess over the
+/// closest measurable alternative, so the best legal split is free.
+fn relative_measure_affinity(candidates: &mut [RowCandidate]) {
+    let raw = candidates
+        .iter()
+        .map(|row| row.measure_affinity)
+        .collect::<Vec<_>>();
+    for (index, affinity) in raw.iter().enumerate() {
+        if *affinity <= 0. {
+            continue;
+        }
+        let best = candidates
+            .iter()
+            .zip(&raw)
+            .filter(|(row, _)| {
+                row.rejected.is_none()
+                    && row.kind == candidates[index].kind
+                    && row.groups == candidates[index].groups
+            })
+            .map(|(_, affinity)| *affinity)
+            .fold(*affinity, f32::min);
+        candidates[index].measure_affinity = affinity - best;
+    }
+}
+
+/// Two-column rows whose vertical gutter readers compare with nearby pairs.
+/// Galleries fit their own footprints and three-column rows have two gutters;
+/// neither establishes nor breaks the split, and both leave it unchanged.
+fn anchors_split(row: &RowCandidate) -> bool {
+    row.widths.len() == 2
+        && matches!(
+            row.kind,
+            RowKind::Explanation
+                | RowKind::ContentExplanation
+                | RowKind::FigureExplanation
+                | RowKind::Technical
+                | RowKind::Aside
+                | RowKind::Guidance
+                | RowKind::Tables
+                | RowKind::Peer
+        )
+}
+
+/// Cost of placing `row` after `prior` while `anchor` is the window's last
+/// gutter-bearing split (`TEMPLATES.len()` for none), and the next anchor.
+/// Returning to the anchor after an intervening stack is not a new
+/// transition: the reader sees the same gutter resume.
+fn step_cost(prior: usize, anchor: usize, row: &RowCandidate) -> (f32, usize) {
+    if !anchors_split(row) {
+        return (row.cost() + transition_cost(prior, row.template), anchor);
+    }
+    let shift = if row.template == anchor {
+        0.
+    } else {
+        transition_cost(prior, row.template)
+            + if anchor < TEMPLATES.len() {
+                SPLIT_CONSISTENCY
+            } else {
+                0.
+            }
+    };
+    (row.cost() + shift, row.template)
+}
+
+/// n <= 40; rows consume contiguous groups within this bounded window. The
+/// previous template and the last gutter-bearing split are explicit state, so
+/// transition and consistency costs participate in the optimum correctly.
 pub(crate) fn choose_window(n: usize, candidates: &[RowCandidate]) -> Vec<RowCandidate> {
     if n > WINDOW_GROUPS {
         return Vec::new();
     }
     let states = TEMPLATES.len() + 1;
-    let mut cost = vec![vec![f32::INFINITY; states]; n + 1];
-    let mut chosen = vec![vec![None; states]; n];
+    let state = |prior: usize, anchor: usize| prior * states + anchor;
+    let mut starting = vec![Vec::new(); n];
+    for (index, row) in candidates.iter().enumerate() {
+        if row.groups.start < n && row.groups.end <= n && row.legal() {
+            starting[row.groups.start].push(index);
+        }
+    }
+    let mut cost = vec![vec![f32::INFINITY; states * states]; n + 1];
+    let mut chosen = vec![vec![None; states * states]; n];
     cost[n].fill(0.);
     for i in (0..n).rev() {
         for prior in 0..states {
-            for (index, row) in candidates
-                .iter()
-                .enumerate()
-                .filter(|(_, row)| row.groups.start == i && row.groups.end <= n && row.legal())
-            {
-                let next = row.cost()
-                    + transition_cost(prior, row.template)
-                    + cost[row.groups.end][row.template];
-                let better_tie = chosen[i][prior].is_none_or(|old: usize| {
-                    let old = &candidates[old];
-                    (!row.previous, row.widths.len(), row.template, &row.ids)
-                        < (!old.previous, old.widths.len(), old.template, &old.ids)
-                });
-                if next < cost[i][prior] || (next == cost[i][prior] && better_tie) {
-                    cost[i][prior] = next;
-                    chosen[i][prior] = Some(index);
+            for anchor in 0..states {
+                let current = state(prior, anchor);
+                for &index in &starting[i] {
+                    let row = &candidates[index];
+                    let (step, next_anchor) = step_cost(prior, anchor, row);
+                    let next = step + cost[row.groups.end][state(row.template, next_anchor)];
+                    let better_tie = chosen[i][current].is_none_or(|old: usize| {
+                        let old = &candidates[old];
+                        (!row.previous, row.widths.len(), row.template, &row.ids)
+                            < (!old.previous, old.widths.len(), old.template, &old.ids)
+                    });
+                    if next < cost[i][current] || (next == cost[i][current] && better_tie) {
+                        cost[i][current] = next;
+                        chosen[i][current] = Some(index);
+                    }
                 }
             }
         }
     }
     let mut rows = Vec::new();
     let mut i = 0;
-    let mut prior = states - 1;
+    let (mut prior, mut anchor) = (states - 1, states - 1);
     while i < n {
-        let Some(index) = chosen[i][prior] else {
+        let Some(index) = chosen[i][state(prior, anchor)] else {
             return Vec::new();
         };
         let row = candidates[index].clone();
         i = row.groups.end;
+        anchor = step_cost(prior, anchor, &row).1;
         prior = row.template;
         rows.push(row);
     }
@@ -2217,16 +2367,14 @@ pub(crate) fn choose_window(n: usize, candidates: &[RowCandidate]) -> Vec<RowCan
         end = row.groups.end;
         previous.push(row.clone());
     }
+    // The same cost model as the search, so hysteresis compares like with like.
     let total = |rows: &[RowCandidate]| {
         rows.iter()
-            .enumerate()
-            .map(|(i, row)| {
-                row.cost()
-                    + i.checked_sub(1).map_or(0., |prior| {
-                        transition_cost(rows[prior].template, row.template)
-                    })
+            .fold((0., states - 1, states - 1), |(sum, prior, anchor), row| {
+                let (step, anchor) = step_cost(prior, anchor, row);
+                (sum + step, row.template, anchor)
             })
-            .sum::<f32>()
+            .0
     };
     if end == n && total(&previous) - total(&rows) < total(&previous).abs() * 0.1 + 0.001 {
         previous
@@ -2593,6 +2741,7 @@ mod tests {
     fn candidate(start: usize, count: usize, template: usize, cost: f32) -> RowCandidate {
         RowCandidate {
             canvas: 200. * count as f32 + super::super::LAYOUT_GAP * count.saturating_sub(1) as f32,
+            grid: None,
             roots: start..start + count,
             groups: start..start + count,
             ids: (start..start + count)
@@ -2613,6 +2762,7 @@ mod tests {
                 discomfort: cost / 8.,
                 ..Default::default()
             },
+            measure_affinity: 0.,
             rejected: None,
             previous: false,
             flow_rows: 1,
@@ -2627,6 +2777,7 @@ mod tests {
         let count = spans.len();
         RowCandidate {
             canvas,
+            grid: None,
             roots: start..start + count,
             groups: start..start + count,
             ids: (start..start + count)
@@ -2650,6 +2801,7 @@ mod tests {
                 discomfort: cost / 8.,
                 ..Default::default()
             },
+            measure_affinity: 0.,
             rejected: None,
             previous: false,
             flow_rows: 1,
@@ -2826,5 +2978,149 @@ mod tests {
         );
         assert_eq!(escaped.len(), 2);
         assert!(escaped.iter().all(RowCandidate::legal));
+    }
+
+    /// Content-led explanation pair at `start..start + 2` for split tests.
+    fn split_pair(start: usize, template: usize, cost: f32) -> RowCandidate {
+        let mut row = template_candidate(start, template, 1280., cost);
+        row.kind = RowKind::ContentExplanation;
+        row
+    }
+
+    fn split_window(pairs: Vec<RowCandidate>) -> Vec<(Range<usize>, usize)> {
+        let mut candidates = (0..5)
+            .map(|start| template_candidate(start, 0, 1280., 5.))
+            .collect::<Vec<_>>();
+        candidates.extend(pairs);
+        choose_window(5, &candidates)
+            .iter()
+            .map(|row| (row.groups.clone(), row.template))
+            .collect()
+    }
+
+    #[test]
+    fn nearby_pairs_share_one_split_across_an_intervening_stack() {
+        // [4, 8] is index 2 and [5, 7] index 4. Each pair slightly prefers a
+        // different split; separately chosen they would move the gutter.
+        let rows = split_window(vec![
+            split_pair(0, 2, 0.1),
+            split_pair(0, 4, 0.2),
+            split_pair(3, 4, 0.1),
+            split_pair(3, 2, 0.2),
+        ]);
+        assert_eq!(
+            rows.iter()
+                .map(|(groups, _)| groups.clone())
+                .collect::<Vec<_>>(),
+            vec![0..2, 2..3, 3..5]
+        );
+        assert_eq!(rows[0].1, rows[2].1, "{rows:?}");
+        // Resuming the established split is not charged as a new transition.
+        let resumed = [
+            split_pair(0, 2, 0.1),
+            template_candidate(2, 0, 1280., 5.),
+            split_pair(3, 2, 0.1),
+        ];
+        let mut prior = TEMPLATES.len();
+        let mut anchor = TEMPLATES.len();
+        let mut shifts = Vec::new();
+        for row in &resumed {
+            let (step, next) = step_cost(prior, anchor, row);
+            shifts.push(step - row.cost());
+            (prior, anchor) = (row.template, next);
+        }
+        let close = |a: f32, b: f32| (a - b).abs() < 1e-4;
+        assert!(
+            shifts
+                .iter()
+                .zip([0., 2. / 3., 0.])
+                .all(|(a, b)| close(*a, b)),
+            "{shifts:?}"
+        );
+        // A mismatch pays the transition and the consistency penalty.
+        let mismatch = split_pair(3, 4, 0.1);
+        assert!(close(
+            step_cost(0, 2, &mismatch).0 - mismatch.cost(),
+            2. / 3. + SPLIT_CONSISTENCY
+        ));
+    }
+
+    #[test]
+    fn split_consistency_never_overrides_legality() {
+        let mut shared = split_pair(3, 2, 0.1);
+        shared.rejected = Some(RowRejection::TooNarrow);
+        let rows = split_window(vec![split_pair(0, 2, 0.1), shared, split_pair(3, 4, 0.1)]);
+        assert_eq!(rows, vec![(0..2, 2), (2..3, 0), (3..5, 4)]);
+    }
+
+    #[test]
+    fn equal_split_ties_resolve_deterministically() {
+        let forward = vec![split_pair(0, 4, 0.1), split_pair(0, 2, 0.1)];
+        let mut reversed = forward.clone();
+        reversed.reverse();
+        for pairs in [forward.clone(), reversed] {
+            let mut candidates = vec![
+                template_candidate(0, 0, 1280., 5.),
+                template_candidate(1, 0, 1280., 5.),
+            ];
+            candidates.extend(pairs);
+            let rows = choose_window(2, &candidates);
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0].template, 2, "lower template index wins a tie");
+        }
+        let mut retained = forward;
+        retained[0].previous = true;
+        let rows = choose_window(2, &retained);
+        assert_eq!(rows[0].template, 4, "a retained placement wins a tie");
+    }
+
+    #[test]
+    fn measure_affinity_prefers_the_prose_column_nearest_the_reading_measure() {
+        assert_eq!(prose_column(RowKind::Explanation, 2), Some(0));
+        assert_eq!(prose_column(RowKind::ContentExplanation, 2), Some(1));
+        assert_eq!(prose_column(RowKind::FigureExplanation, 2), Some(1));
+        assert_eq!(prose_column(RowKind::Peer, 2), None);
+        assert_eq!(prose_column(RowKind::Explanation, 1), None);
+        let span = |span| super::super::candidates::span_width(1280., span).unwrap();
+        for (measure, expected) in [(span(7) + 5., 4), (span(8) - 5., 2)] {
+            let mut candidates = [2, 4]
+                .into_iter()
+                .map(|template| {
+                    let mut row = split_pair(0, template, 0.1);
+                    row.measure_affinity = measure_affinity(row.widths[1], measure, row.canvas);
+                    row
+                })
+                .collect::<Vec<_>>();
+            candidates.push(template_candidate(0, 0, 1280., 5.));
+            candidates.push(template_candidate(1, 0, 1280., 5.));
+            relative_measure_affinity(&mut candidates);
+            let rows = choose_window(2, &candidates);
+            assert_eq!(rows[0].template, expected, "measure {measure}");
+            assert_eq!(rows[0].measure_affinity, 0., "the closest split is free");
+            assert!(candidates.iter().any(|row| row.measure_affinity > 0.));
+        }
+        // An unreachable measure must not turn the pair into a stack: only
+        // the excess over the closest legal split remains, and a rejected
+        // closer split does not set that baseline.
+        let mut candidates = [2, 4]
+            .into_iter()
+            .map(|template| {
+                let mut row = split_pair(0, template, 0.1);
+                row.measure_affinity = measure_affinity(row.widths[1], 4_000., row.canvas);
+                row
+            })
+            .collect::<Vec<_>>();
+        candidates[0].rejected = Some(RowRejection::TooTall);
+        relative_measure_affinity(&mut candidates);
+        assert_eq!(candidates[1].measure_affinity, 0.);
+        assert!(
+            measure_affinity(span(7), span(8), 1280.)
+                < Penalties {
+                    discomfort: 0.05,
+                    ..Default::default()
+                }
+                .weighted(),
+            "one track of affinity stays below a small discomfort difference"
+        );
     }
 }

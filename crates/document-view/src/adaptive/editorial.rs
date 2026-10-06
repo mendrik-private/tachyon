@@ -265,6 +265,7 @@ impl AdaptivePlan {
         let mut placements = HashMap::new();
         for (owner, member) in owners {
             let mut slot = self.slots.get(&owner).copied().unwrap_or(LayoutSlot {
+                grid: None,
                 align_components: false,
                 group: owner,
                 item: 0,

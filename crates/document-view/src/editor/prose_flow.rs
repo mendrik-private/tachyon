@@ -1,6 +1,6 @@
 //! Native measurement and rendering of source-contiguous reading bands.
 use super::*;
-use crate::adaptive::prose::{Flow, Line};
+use crate::adaptive::prose::{Flow, Line, paragraph_gap};
 
 /// Source bounds shared by every measured paragraph flow (reading bands,
 /// figure floats and inline lists).
@@ -74,13 +74,35 @@ pub(super) fn slotted_fragment(
     fonts: Option<&FontMeasurement>,
 ) -> Vec<VisualLineSpec> {
     let mut lines = fragment_lines(projection, segment, range, slot.width(width), fonts);
-    arrangement::place_on_slot(&mut lines, slot, width);
-    for line in &mut lines {
+    place_fragment(&mut lines, slot, width);
+    lines
+}
+
+fn place_fragment(lines: &mut [VisualLineSpec], slot: LayoutSlot, width: f32) {
+    arrangement::place_on_slot(lines, slot, width);
+    for line in lines {
         line.style.space_above = 0.;
         line.style.space_below = 0.;
         line.gap_before = 0.;
     }
-    lines
+}
+
+/// The tracks of one reading column. Balancing measures at this slot's width,
+/// so the planner and the renderer wrap every paragraph identically.
+fn column_slot(group: NodeId, canvas: f32, columns: usize, column: usize) -> LayoutSlot {
+    LayoutSlot {
+        grid: None,
+        align_components: false,
+        group,
+        item: column,
+        row: column / columns,
+        columns,
+        cards: false,
+        card_accent: crate::adaptive::CardAccent::None,
+        track_start: (column % columns * (12 / columns)) as u8,
+        span: (12 / columns) as u8,
+        fixed_canvas: Some(canvas),
+    }
 }
 
 // Typography is not a relationship: ordinary reference prose may form a
@@ -398,11 +420,12 @@ fn candidate(
         height_limit,
         fonts,
     )?;
-    if fit.0 <= 1.5 {
+    if fit.0 <= BALANCED_SPREAD {
         return Some(original);
     }
     // Try a few slightly narrower, still readable measures when legal splits
-    // leave a large hole. Never trade that hole for a taller document or more bands.
+    // cannot balance the columns to one line. Never trade that hole for a
+    // taller document or more bands.
     let narrative = projection
         .segment_for_node(roots.first()?.id())?
         .context
@@ -422,7 +445,7 @@ fn candidate(
             columns,
             height_limit,
             fonts,
-        ) && next.0 <= 1.5
+        ) && next.0 <= BALANCED_SPREAD
             && next.1 <= fit.1 + 0.5
             && alternative.starts.len() <= original.starts.len()
         {
@@ -432,9 +455,15 @@ fn candidate(
     Some(original)
 }
 
-/// Worst within-band imbalance and total occupied band height, including gaps.
-/// A shorter final column is intentional and does not justify narrowing text.
+/// Largest balanced difference between the columns of one band, in lines.
+const BALANCED_SPREAD: f32 = 1.;
+
+/// Worst within-band spread between the tallest and shortest column, in lines
+/// of leading, and total occupied band height, including gaps. The closing
+/// column participates: a band is balanced when every column, including the
+/// last, is within one line of the others.
 fn band_fit(lines: &[Line], starts: &[usize], columns: usize) -> (f32, f32) {
+    let unit = lines.iter().map(|line| line.height).fold(1., f32::max);
     let heights = starts
         .iter()
         .enumerate()
@@ -448,17 +477,27 @@ fn band_fit(lines: &[Line], starts: &[usize], columns: usize) -> (f32, f32) {
         .collect::<Vec<_>>();
     heights
         .chunks(columns)
-        .enumerate()
-        .fold((1., 0.), |(ratio, total), (index, band)| {
-            let peers = if (index + 1) * columns >= heights.len() && band.len() > 1 {
-                &band[..band.len() - 1]
-            } else {
-                band
-            };
-            let shortest = peers.iter().copied().fold(f32::INFINITY, f32::min);
+        .fold((0., 0.), |(spread, total), band| {
+            let shortest = band.iter().copied().fold(f32::INFINITY, f32::min);
             let tallest = band.iter().copied().fold(0., f32::max);
-            (ratio.max(tallest / shortest.max(1.)), total + tallest)
+            // Sub-pixel noise must not turn an exact one-line spread into a miss.
+            let lines = ((tallest - shortest) / unit * 1000.).round() / 1000.;
+            (spread.max(lines), total + tallest)
         })
+}
+
+/// The balancing model of one wrapped line: `index` within the passage's
+/// `paragraph`. A paragraph after the first is preceded by its gap.
+fn model_line(paragraph: usize, index: usize, line: &VisualLineSpec) -> Line {
+    Line {
+        height: line.style.line_height,
+        gap: if paragraph > 0 && index == 0 {
+            paragraph_gap(line.style.line_height)
+        } else {
+            0.
+        },
+        paragraph,
+    }
 }
 
 fn measured_candidate(
@@ -473,16 +512,16 @@ fn measured_candidate(
     let mut lines = Vec::new();
     let mut anchors = Vec::new();
     let mut sources = Vec::new();
+    // Every column of a flow has this slot's width; build() wraps at it too.
+    let wrap = column_slot(roots.first()?.id(), canvas, columns, 0).width(canvas);
     for (paragraph, root) in roots.iter().enumerate() {
         let segment = projection.segment_for_node(root.id())?;
-        let measured = build_visual_lines_for_segment(
+        let measured = fragment_lines(
             projection,
             segment,
-            &HashMap::new(),
-            column + 8.,
-            &[],
+            0..segment.projection_range().len(),
+            wrap,
             Some(fonts),
-            None,
         );
         for (index, line) in measured.iter().enumerate() {
             if fonts.line_width(projection, line.projected_range(), line.style.font_size)?
@@ -490,11 +529,7 @@ fn measured_candidate(
             {
                 return None;
             }
-            lines.push(Line {
-                height: line.style.line_height,
-                gap: if paragraph > 0 && index == 0 { 24. } else { 0. },
-                paragraph,
-            });
+            lines.push(model_line(paragraph, index, line));
             anchors.push((
                 root.id(),
                 line.projected_start() - segment.projection_start(),
@@ -515,6 +550,12 @@ fn measured_candidate(
         .narrative
         && (roots.len() < 2 || lines.len() < columns * 6 || lines.len() < roots.len() * 3)
     {
+        return None;
+    }
+    // A passage taller than one band would need several bands, which the
+    // planner never accepts; skip the band search for it.
+    let total = lines.iter().map(|line| line.height + line.gap).sum::<f32>();
+    if total > columns as f32 * height_limit {
         return None;
     }
     let starts = crate::adaptive::prose::breaks(&lines, height_limit, columns)?;
@@ -547,28 +588,46 @@ pub(super) fn build(
     fonts: Option<&FontMeasurement>,
 ) -> Vec<VisualLineSpec> {
     let text = &projection.text()[segment.projection_range()];
+    let fragments = flow.fragments(segment.node_id, text);
+    // Balancing counted the lines of the complete paragraph wrap. Cut that
+    // same wrap at the column boundaries, so each column receives exactly
+    // those lines: wrapping a fragment alone could differ (paragraph-ending
+    // refinement and hyphenation state depend on the wrapped range). Held
+    // boundaries that an edit moved off a line start re-wrap per fragment.
+    let wrap = column_slot(flow.group, flow.canvas, flow.columns, 0).width(width);
+    let whole = fragment_lines(projection, segment, 0..text.len(), wrap, fonts);
+    let local = |line: &VisualLineSpec| {
+        line.projected_start() - segment.projection_start()
+            ..line.projected_end() - segment.projection_start()
+    };
+    let cut = |range: &Range<usize>| {
+        let first = whole
+            .iter()
+            .position(|line| local(line).start == range.start)?;
+        let last = whole.iter().position(|line| local(line).end == range.end)?;
+        (first <= last).then(|| whole[first..=last].to_vec())
+    };
+    let cuts = fragments
+        .iter()
+        .map(|(range, _)| cut(range))
+        .collect::<Option<Vec<_>>>();
     let mut output = Vec::new();
-    for (range, column) in flow.fragments(segment.node_id, text) {
-        let slot = LayoutSlot {
-            align_components: false,
-            group: flow.group,
-            item: column,
-            row: column / flow.columns,
-            columns: flow.columns,
-            cards: false,
-            card_accent: crate::adaptive::CardAccent::None,
-            track_start: (column % flow.columns * (12 / flow.columns)) as u8,
-            span: (12 / flow.columns) as u8,
-            fixed_canvas: Some(flow.canvas),
+    for (index, (range, column)) in fragments.into_iter().enumerate() {
+        let slot = column_slot(flow.group, flow.canvas, flow.columns, column);
+        let mut lines = match &cuts {
+            Some(cuts) => cuts[index].clone(),
+            None => fragment_lines(projection, segment, range.clone(), slot.width(width), fonts),
         };
-        let mut lines = slotted_fragment(projection, segment, range.clone(), slot, width, fonts);
+        place_fragment(&mut lines, slot, width);
         if let Some(first) = lines.first_mut() {
             let opens_column = flow
                 .starts
                 .get(column)
                 .is_some_and(|&(id, offset)| id == segment.node_id && offset == 0);
+            // A paragraph starting inside a column keeps the column's
+            // baseline grid: the same one-line gap that balancing assumed.
             first.gap_before = if range.start == 0 && !opens_column {
-                LAYOUT_GAP
+                paragraph_gap(first.style.line_height)
             } else {
                 0.
             };
@@ -828,6 +887,126 @@ mod tests {
         });
     }
 
+    #[gpui::test]
+    fn reading_columns_share_one_baseline_grid_and_balance_to_one_line(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let mut bands = 0;
+            let mut paragraph_gaps = 0;
+            for (repeats, width) in [
+                (&[3, 2, 4, 1][..], 1280.),
+                (&[2, 5, 3][..], 1280.),
+                (&[4, 1, 3, 2][..], 1600.),
+                (&[3, 3, 3, 3][..], 1600.),
+            ] {
+                let body = repeats
+                    .iter()
+                    .map(|count| SENTENCE.repeat(*count))
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                let source = format!(
+                    "# Reading together\n\nA short introduction.\n\n## The long view\n\n{body}\n\n## A new subject\n\nThe next section stays outside the flow.\n"
+                );
+                let document = Document::from_markdown(source.as_str()).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let plan = arrangement::build_measured_adaptive_plan(
+                    &projection,
+                    width,
+                    900.,
+                    None,
+                    false,
+                    &fonts,
+                );
+                let flow = plan
+                    .prose_flows
+                    .values()
+                    .next()
+                    .unwrap_or_else(|| panic!("{repeats:?} at {width} should form a band"));
+                assert_eq!(flow.sources.len(), repeats.len());
+                let lines = arrangement::build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                let members = lines
+                    .iter()
+                    .filter(|line| line.slot.is_some_and(|slot| slot.group == flow.group))
+                    .collect::<Vec<_>>();
+                let leading = members[0].style.line_height;
+                let top = members[0].y;
+                let mut heights = Vec::new();
+                for column in 0..flow.columns {
+                    let column_lines = members
+                        .iter()
+                        .filter(|line| line.slot.unwrap().item == column)
+                        .collect::<Vec<_>>();
+                    assert_eq!(column_lines[0].y, top, "column tops align");
+                    for (index, line) in column_lines.iter().enumerate() {
+                        assert_eq!(line.style.line_height, leading);
+                        let offset = (line.y - top) / leading;
+                        assert!(
+                            (offset - offset.round()).abs() < 0.001,
+                            "{repeats:?}: line at {} is off the baseline grid",
+                            line.y - top
+                        );
+                        // A column's first line sits on the band's top; any
+                        // gap it carries separates the band from the block above.
+                        if index > 0 && line.gap_before > 0. {
+                            // A paragraph starting inside a column: the
+                            // renderer adds exactly the gap balancing used.
+                            assert_eq!(line.gap_before, model_line(1, 0, line).gap);
+                            assert_eq!(line.gap_before, leading);
+                            paragraph_gaps += 1;
+                        }
+                    }
+                    let last = column_lines.last().unwrap();
+                    heights.push(((last.y + leading - top) / leading).round() as usize);
+                }
+                // The renderer places exactly the lines balancing measured:
+                // each paragraph's complete wrap at the column width.
+                let rendered = members
+                    .iter()
+                    .map(|line| line.projected_range())
+                    .collect::<Vec<_>>();
+                let measured = flow
+                    .sources
+                    .iter()
+                    .flat_map(|(id, _)| {
+                        let segment = projection.segment_for_node(*id).unwrap();
+                        let wrap = column_slot(flow.group, flow.canvas, flow.columns, 0)
+                            .width(width);
+                        fragment_lines(
+                            &projection,
+                            segment,
+                            0..segment.projection_range().len(),
+                            wrap,
+                            Some(&fonts),
+                        )
+                    })
+                    .map(|line| line.projected_range())
+                    .collect::<Vec<_>>();
+                assert_eq!(rendered, measured);
+                let tallest = *heights.iter().max().unwrap();
+                let shortest = *heights.iter().min().unwrap();
+                assert!(tallest - shortest <= 1, "{repeats:?}: {heights:?}");
+                assert!(
+                    heights[..flow.columns - 1]
+                        .iter()
+                        .all(|h| *heights.last().unwrap() <= *h),
+                    "{repeats:?}: closing column is taller: {heights:?}"
+                );
+                bands += 1;
+            }
+            assert_eq!(bands, 4);
+            assert!(paragraph_gaps > 0, "some paragraph must start mid-column");
+        });
+    }
+
     #[test]
     fn native_line_counts_explain_the_hole_without_weakening_widows() {
         let measured = |counts: [usize; 3]| {
@@ -837,7 +1016,11 @@ mod tests {
                 .flat_map(|(paragraph, count)| {
                     (0..count).map(move |index| Line {
                         height: 28.,
-                        gap: if paragraph > 0 && index == 0 { 24. } else { 0. },
+                        gap: if paragraph > 0 && index == 0 {
+                            paragraph_gap(28.)
+                        } else {
+                            0.
+                        },
                         paragraph,
                     })
                 })
@@ -850,7 +1033,8 @@ mod tests {
             [0, 6],
             "split the middle paragraph 2/3 for equal column heights"
         );
-        assert_eq!(band_fit(&original, &starts, 2), (1., 192.));
+        // Seven lines of leading in each column, one of them a paragraph gap.
+        assert_eq!(band_fit(&original, &starts, 2), (0., 196.));
         let narrower = measured([4, 6, 3]);
         let starts = crate::adaptive::prose::breaks(&narrower, 560., 2).unwrap();
         assert_eq!(
@@ -858,7 +1042,8 @@ mod tests {
             [0, 7],
             "three lines of the middle paragraph on each side"
         );
-        assert_eq!(band_fit(&narrower, &starts, 2), (1., 220.));
+        // Eight lines beside seven: balanced to within one line.
+        assert_eq!(band_fit(&narrower, &starts, 2), (1., 224.));
     }
 
     #[test]
@@ -867,13 +1052,25 @@ mod tests {
             let lines = (0..columns * 8)
                 .map(|paragraph| Line {
                     height: 28.,
-                    gap: 24.,
+                    gap: paragraph_gap(28.),
                     paragraph,
                 })
                 .collect::<Vec<_>>();
             let starts = (0..lines.len()).step_by(4).collect::<Vec<_>>();
-            assert_eq!(band_fit(&lines, &starts, columns), (1., 368.));
+            // Four lines and three gaps per column, two bands.
+            assert_eq!(band_fit(&lines, &starts, columns), (0., 392.));
         }
+        // The closing column participates: eight lines beside six is a
+        // two-line hole even though the short column is the final one.
+        let lines = vec![
+            Line {
+                height: 28.,
+                gap: 0.,
+                paragraph: 0,
+            };
+            14
+        ];
+        assert_eq!(band_fit(&lines, &[0, 8], 2), (2., 224.));
     }
 
     #[gpui::test]

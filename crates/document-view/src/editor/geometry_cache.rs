@@ -44,6 +44,8 @@ struct Key {
     footnotes: Vec<Option<Option<usize>>>,
     starts_document: bool,
     breaks: Vec<usize>,
+    /// Aligned term rows: label end and the label/body column widths.
+    label_terms: Option<(usize, u32, u32)>,
 }
 
 impl std::hash::Hash for Key {
@@ -70,6 +72,7 @@ impl std::hash::Hash for Key {
         self.footnotes.hash(state);
         self.starts_document.hash(state);
         self.breaks.hash(state);
+        self.label_terms.hash(state);
         let c = &self.context;
         c.narrative.hash(state);
         c.metric.hash(state);
@@ -190,6 +193,7 @@ impl Key {
                 .filter(|offset| segment.projection_range().contains(offset))
                 .map(|offset| offset - segment.projection_start())
                 .collect(),
+            label_terms: None,
         })
     }
 
@@ -533,6 +537,74 @@ impl FontMeasurement {
             );
         }
         lines
+    }
+}
+
+impl FontMeasurement {
+    /// Aligned term rows depend only on the source leaf, its context and the
+    /// planned columns, so unchanged rows reuse their native wraps. Timeline
+    /// and metadata placements carry slot geometry and are built directly.
+    pub(super) fn label_row_geometry(
+        &self,
+        projection: &TextProjection,
+        segment: &crate::ProjectionSegment,
+        columns: crate::adaptive::LabelColumns,
+    ) -> Option<Vec<VisualLineSpec>> {
+        if columns.presentation != crate::adaptive::LabelPresentation::Terms {
+            return label_rows::build(projection, segment, columns, Some(self));
+        }
+        diagnostics::count(|counts| counts.geometry_requests += 1);
+        let key = Key::new(
+            projection,
+            segment,
+            &HashMap::new(),
+            columns.body_width,
+            &[],
+            None,
+        )
+        .map(|key| Key {
+            label_terms: Some((
+                columns.label_end,
+                columns.label_width.to_bits(),
+                columns.body_width.to_bits(),
+            )),
+            ..key
+        });
+        let cached = key.as_ref().and_then(|key| {
+            self.geometry
+                .lock()
+                .ok()
+                .and_then(|cache| cache.entries.get(key).cloned())
+        });
+        let coordinate_segment = projection
+            .segment_for_node(segment.node_id)
+            .unwrap_or(segment);
+        if let Some(cached) = cached
+            && let Some(lines) = cached
+                .iter()
+                .map(|line| {
+                    let mut line = line.clone();
+                    line.rebind_from_cache(coordinate_segment)?;
+                    Some(line)
+                })
+                .collect::<Option<Vec<_>>>()
+        {
+            diagnostics::count(|counts| counts.geometry_cache_hits += 1);
+            return Some(lines);
+        }
+        diagnostics::count(|counts| counts.segments_laid_out += 1);
+        let lines = label_rows::build(projection, segment, columns, Some(self))?;
+        if lines.len() <= MAX_SEGMENT_LINES
+            && let Some(key) = key
+            && let Ok(mut cache) = self.geometry.lock()
+        {
+            cache.insert(
+                key,
+                lines.clone(),
+                coordinate_segment.projection_local_start(),
+            );
+        }
+        Some(lines)
     }
 }
 

@@ -1,7 +1,7 @@
 //! Aligned label–description rows, measured and painted from the same ranges.
 //! Source paragraphs remain intact; this is geometry, not a table conversion.
 use super::*;
-use crate::adaptive::{LabelColumns, LabelPresentation};
+use crate::adaptive::{LabelColumns, LabelPresentation, grid::DocumentGrid};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Part {
@@ -20,11 +20,56 @@ impl Part {
     }
 }
 
+/// Widest authored label of a flat list at the label-row size, from the same
+/// source ranges `measure` shapes. Shared by every instance of a record schema.
+pub(super) fn rail(
+    projection: &TextProjection,
+    list: &document_core::ListBlock,
+    fonts: &FontMeasurement,
+) -> Option<f32> {
+    list.items.iter().try_fold(MIN_LABEL_WIDTH, |rail, item| {
+        let BlockNode::Paragraph(paragraph) = item.blocks.get(0)?.as_ref() else {
+            return None;
+        };
+        let end = crate::adaptive::authored_label_end(paragraph)?;
+        let segment = projection.segment_for_node(paragraph.id)?;
+        Some(rail.max(label_extent(projection, segment, end, fonts)?))
+    })
+}
+
+const MIN_LABEL_WIDTH: f32 = 56.;
+/// Field records keep aligned rows for fuller values than compact terms.
+const TERM_BODY_LINES: usize = 4;
+const RECORD_BODY_LINES: usize = 8;
+
+fn label_extent(
+    projection: &TextProjection,
+    segment: &crate::ProjectionSegment,
+    end: usize,
+    fonts: &FontMeasurement,
+) -> Option<f32> {
+    let label = segment.projection_start()..segment.projection_start() + end;
+    if projection.text()[label.clone()].contains('\n') {
+        return None;
+    }
+    Some(
+        fonts
+            .line_width(projection, label, DocumentStyle::REFERENCE_SIZE)?
+            .ceil(),
+    )
+}
+
+/// `record_rail` marks a repeated field record: its label column is at least
+/// the schema's shared rail and values may wrap further before falling back.
+/// Term and record label columns end on a column end of the document grid
+/// for `grid` (the document canvas), so every body starts on a column start.
 pub(super) fn measure(
     projection: &TextProjection,
     list: &document_core::ListBlock,
     width: f32,
     allow_horizontal: bool,
+    record_rail: Option<f32>,
+    grid: f32,
     fonts: &FontMeasurement,
 ) -> Option<Vec<(NodeId, LabelColumns)>> {
     if !matches!(list.kind, document_core::ListKind::Unordered)
@@ -34,8 +79,9 @@ pub(super) fn measure(
     }
     let mut entries = Vec::with_capacity(list.items.len());
     let dated = crate::adaptive::timeline::is_timeline(list);
-    let mut label_width = 56_f32;
+    let mut label_width = record_rail.map_or(MIN_LABEL_WIDTH, |rail| rail.max(MIN_LABEL_WIDTH));
     let mut available = f32::INFINITY;
+    let mut text_offset = 0_f32;
     for item in list.items.iter() {
         if item.checked.is_some() || (!dated && item.blocks.len() != 1) {
             return None;
@@ -62,16 +108,9 @@ pub(super) fn measure(
         {
             return None;
         }
-        let label = segment.projection_start()..segment.projection_start() + end;
-        if projection.text()[label.clone()].contains('\n') {
-            return None;
-        }
-        label_width = label_width.max(
-            fonts
-                .line_width(projection, label, DocumentStyle::REFERENCE_SIZE)?
-                .ceil(),
-        );
+        label_width = label_width.max(label_extent(projection, segment, end, fonts)?);
         available = available.min(segment_text_width(segment, projection, width));
+        text_offset = text_offset.max(container_inset(segment));
         entries.push((paragraph.id, end));
     }
     // A date rail is navigation furniture, not prose. Apply the reading cap
@@ -98,6 +137,32 @@ pub(super) fn measure(
         return None;
     }
     let stacked = dated && (body_width < 160. || label_width > available * 0.40);
+    // The label share is judged on the measured labels; the snapped column
+    // must still leave a useful description and pass every line gate below.
+    // If it cannot, the unsnapped measured rail is kept rather than stacking.
+    if !dated
+        && let Some(snapped) = DocumentGrid::new(grid).label_column(text_offset, label_width)
+        && let Some(rows) = term_rows(
+            projection,
+            &entries,
+            snapped,
+            available - snapped - LAYOUT_GAP,
+            record_rail.is_some(),
+            fonts,
+        )
+    {
+        return Some(rows);
+    }
+    if !dated {
+        return term_rows(
+            projection,
+            &entries,
+            label_width,
+            body_width,
+            record_rail.is_some(),
+            fonts,
+        );
+    }
     let mut rows = Vec::with_capacity(entries.len());
     for (index, &(node, end)) in entries.iter().enumerate() {
         let columns = LabelColumns {
@@ -112,15 +177,43 @@ pub(super) fn measure(
             } else {
                 body_width
             },
-            presentation: if dated {
-                LabelPresentation::Timeline(crate::adaptive::timeline::Placement {
-                    next: entries.get(index + 1).map(|(node, _)| *node),
-                    slot: None,
-                    stacked,
-                })
-            } else {
-                LabelPresentation::Terms
-            },
+            presentation: LabelPresentation::Timeline(crate::adaptive::timeline::Placement {
+                next: entries.get(index + 1).map(|(node, _)| *node),
+                slot: None,
+                stacked,
+            }),
+        };
+        build(
+            projection,
+            projection.segment_for_node(node)?,
+            columns,
+            Some(fonts),
+        )?;
+        rows.push((node, columns));
+    }
+    Some(rows)
+}
+
+/// Aligned term or record rows at one shared label/body split, or `None`
+/// when a description becomes too narrow or a line gate fails.
+fn term_rows(
+    projection: &TextProjection,
+    entries: &[(NodeId, usize)],
+    label_width: f32,
+    body_width: f32,
+    record: bool,
+    fonts: &FontMeasurement,
+) -> Option<Vec<(NodeId, LabelColumns)>> {
+    if body_width < 160. {
+        return None;
+    }
+    let mut rows = Vec::with_capacity(entries.len());
+    for &(node, end) in entries {
+        let columns = LabelColumns {
+            label_end: end,
+            label_width,
+            body_width,
+            presentation: LabelPresentation::Terms,
         };
         let lines = build(
             projection,
@@ -128,23 +221,26 @@ pub(super) fn measure(
             columns,
             Some(fonts),
         )?;
-        if !dated
-            && (lines
-                .iter()
-                .filter(|line| line.label_row.is_some_and(|(part, _)| part == Part::Body))
-                .count()
-                > 4
-                || lines.iter().any(|line| {
-                    fonts
-                        .line_width(projection, line.projected_range(), line.style.font_size)
-                        .is_none_or(|w| {
-                            w > if line.label_row.is_some_and(|(part, _)| part == Part::Label) {
-                                label_width + 0.5
-                            } else {
-                                body_width + 0.5
-                            }
-                        })
-                }))
+        if lines
+            .iter()
+            .filter(|line| line.label_row.is_some_and(|(part, _)| part == Part::Body))
+            .count()
+            > if record {
+                RECORD_BODY_LINES
+            } else {
+                TERM_BODY_LINES
+            }
+            || lines.iter().any(|line| {
+                fonts
+                    .line_width(projection, line.projected_range(), line.style.font_size)
+                    .is_none_or(|w| {
+                        w > if line.label_row.is_some_and(|(part, _)| part == Part::Label) {
+                            label_width + 0.5
+                        } else {
+                            body_width + 0.5
+                        }
+                    })
+            })
         {
             return None;
         }
@@ -165,6 +261,7 @@ fn horizontal_timeline(
     let mut tallest = 0_f32;
     for (item, &(node, end)) in entries.iter().enumerate() {
         let slot = crate::adaptive::LayoutSlot {
+            grid: None,
             align_components: false,
             group,
             item,
@@ -1150,6 +1247,120 @@ mod tests {
     const SOURCE: &str = "# Terms\n\n- API: A programmatic interface for accessing a service.\n- Command line: A text interface for working with local tools.\n\n## Afterwards\n\nThe source stays intact.\n";
 
     #[gpui::test]
+    fn term_bodies_start_on_document_grid_columns(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            // A labelled record pair alongside the plain terms fixture.
+            let records = "- **Severity:** High\n- **Location:** crates/aivi-syntax/src/parse/expr.rs:657-690 and the formatter precedence table\n";
+            for source in [SOURCE, records] {
+                let document = Document::from_markdown(source).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let fonts = FontMeasurement::new(
+                    cx.text_system().clone(),
+                    "Public Sans Tachyon".into(),
+                    1.,
+                );
+                for width in [1632., 1556., 1200., 900.] {
+                    let grid = DocumentGrid::new(width);
+                    let plan =
+                        build_measured_adaptive_plan(&projection, width, 1400., None, false, &fonts);
+                    assert_eq!(plan.label_rows.len(), 2, "{width}");
+                    let lines = build_measured_visual_lines(
+                        &projection,
+                        &HashMap::new(),
+                        width,
+                        &plan,
+                        Some(&fonts),
+                    );
+                    let x = |part| {
+                        lines
+                            .iter()
+                            .filter(|line| line.label_row.is_some_and(|(p, _)| p == part))
+                            .map(|line| line.x_fraction * width + line.inset)
+                            .collect::<Vec<_>>()
+                    };
+                    let (labels, bodies) = (x(Part::Label), x(Part::Body));
+                    assert!(!bodies.is_empty());
+                    for body in &bodies {
+                        assert!((body - bodies[0]).abs() < 0.01);
+                        assert!(
+                            (0..grid.columns).any(|i| (grid.start(i) - body).abs() < 0.01),
+                            "term body at {body} is not a grid column start at {width}"
+                        );
+                    }
+                    for (&node, columns) in &plan.label_rows {
+                        let segment = projection.segment_for_node(node).unwrap();
+                        let end = labels[0] + columns.label_width;
+                        assert!((labels[0] - container_inset(segment)).abs() < 0.01);
+                        assert!(
+                            (0..grid.columns).any(|i| (grid.end(i) - end).abs() < 0.01),
+                            "label column end {end} is not a grid column end at {width}"
+                        );
+                        assert!((bodies[0] - end - LAYOUT_GAP).abs() < 0.01);
+                    }
+                }
+                assert_eq!(document.snapshot().serialize().unwrap(), source);
+            }
+        });
+    }
+
+    #[gpui::test]
+    fn term_descriptions_end_on_the_reading_measure_of_neighbouring_prose(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        cx.update(|cx| {
+            let prose = "The neighbouring paragraph is long enough to wrap at its reading measure, so its text edge shows where every description must end as well. ".repeat(3);
+            let terms = format!("{prose}\n\n{}", SOURCE);
+            let records = format!("{prose}\n\n{FINDINGS}");
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            for (source, record) in [(terms.as_str(), false), (records.as_str(), true)] {
+                let document = Document::from_markdown(source).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                for width in [1632., 1556., 1200.] {
+                    let plan =
+                        build_measured_adaptive_plan(&projection, width, 1400., None, false, &fonts);
+                    assert!(!plan.label_rows.is_empty(), "{width}");
+                    assert_eq!(!plan.record_lists.is_empty(), record);
+                    let measure = plan.reading_measure(width, 0., false, false);
+                    let lines = build_measured_visual_lines(
+                        &projection,
+                        &HashMap::new(),
+                        width,
+                        &plan,
+                        Some(&fonts),
+                    );
+                    // The paragraph's segment ends on the reading measure; its
+                    // text area ends at the ordinary trailing inset before it.
+                    let paragraph = projection.segments()[0].clone();
+                    let first = &lines[0];
+                    assert!(
+                        (first.x_fraction * width + first.width_fraction * width - measure).abs()
+                            < 0.5
+                    );
+                    let text_edge = segment_text_width(&paragraph, &projection, measure);
+                    for line in lines
+                        .iter()
+                        .filter(|l| l.label_row.is_some_and(|(p, _)| p == Part::Body))
+                    {
+                        let segment =
+                            segment_for_line(&projection, &line.projected_range()).unwrap();
+                        let columns = plan.label_rows[&segment.node_id];
+                        let end = line.x_fraction * width + line.inset + columns.body_width;
+                        assert!(
+                            (end - text_edge).abs() < 0.5,
+                            "description ends at {end}, prose text at {text_edge} ({width})"
+                        );
+                        assert!(
+                            (line.x_fraction * width + line.width_fraction * width - measure).abs()
+                                < 0.5
+                        );
+                    }
+                }
+            }
+        });
+    }
+
+    #[gpui::test]
     fn aligned_labels_share_columns_and_keep_every_source_byte(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             let document = Document::from_markdown(SOURCE).unwrap();
@@ -1301,6 +1512,210 @@ mod tests {
                 let plan =
                     build_measured_adaptive_plan(&projection, 1100., 900., None, false, &fonts);
                 assert!(plan.label_rows.is_empty(), "{source}");
+            }
+        });
+    }
+
+    const FINDINGS: &str = concat!(
+        "# Audit\n\n",
+        "### Finding 1\n\n",
+        "- **Severity:** Critical\n",
+        "- **Category:** soundness\n",
+        "- **Confidence:** High (reproduced end to end)\n",
+        "- **Location:** `crates/aivi-hir/src/typecheck/checker.rs:1563-1567`, `2113-2126`; `crates/aivi-hir/src/typecheck_context/helpers.rs:50-54`; `crates/aivi-hir/src/typecheck_context/scopes.rs:12-40`\n\n",
+        "The checker accepts an unsound coercion between two otherwise unrelated record types, so a later projection reads a field that was never initialised.\n\n",
+        "```rust\nlet value: Record = coerce(input);\nvalue.missing_field();\n```\n\n",
+        "Restrict the coercion to structurally identical records and add a regression test.\n\n",
+        "### Finding 2\n\n",
+        "- Severity: Low\n",
+        "- Category: diagnostics\n",
+        "- Confidence: Medium\n",
+        "- Location: `crates/aivi-hir/src/typecheck/checker.rs:88-90`, `crates/aivi-hir/src/typecheck/unify.rs:410-455`, `crates/aivi-hir/src/typecheck/unify.rs:610-640`, `crates/aivi-hir/src/lower/expressions.rs:1200-1288`, `crates/aivi-hir/src/lower/patterns.rs:44-91`, `crates/aivi-hir/src/lower/items.rs:300-350`\n\n",
+        "A diagnostic points at the wrong span when a pattern spans several lines, which hides the actual mismatch from the reader.\n\n",
+        "```rust\nlet (a, b) = pair;\n```\n\n",
+        "Report the span of the innermost mismatching sub-pattern instead.\n",
+    );
+
+    fn root_lists(projection: &TextProjection) -> Vec<&document_core::ListBlock> {
+        projection
+            .roots()
+            .filter_map(|root| match root {
+                BlockNode::List(list) => Some(list),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[gpui::test]
+    fn repeated_field_records_share_one_aligned_label_rail(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let document = Document::from_markdown(FINDINGS).unwrap();
+            let projection = TextProjection::from_snapshot(&document.snapshot());
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            for width in [1314., 900.] {
+                let plan =
+                    build_measured_adaptive_plan(&projection, width, 1400., None, false, &fonts);
+                let lists = root_lists(&projection);
+                assert_eq!(lists.len(), 2);
+                assert_eq!(plan.record_lists.len(), 2, "one schema, two instances");
+                let mut rails = Vec::new();
+                let mut bodies = Vec::new();
+                for list in &lists {
+                    assert!(
+                        !matches!(plan.lists[&list.id].layout, ListLayout::Grid(_)),
+                        "records are not feature grids at {width}"
+                    );
+                    assert!(plan.slots.values().all(|slot| slot.group != list.id));
+                    for item in list.items.iter() {
+                        let node = item.blocks.get(0).unwrap().id();
+                        let columns = plan.label_rows.get(&node).unwrap_or_else(|| {
+                            panic!("record field lost its label row at {width}")
+                        });
+                        assert_eq!(columns.presentation, LabelPresentation::Terms);
+                        rails.push(columns.label_width);
+                        bodies.push(columns.body_width);
+                    }
+                }
+                assert!(rails.iter().all(|rail| *rail == rails[0]), "{rails:?}");
+                assert!(bodies.iter().all(|body| *body == bodies[0]), "{bodies:?}");
+                // The plain-label instance alone would use a narrower rail.
+                // Every instance uses the schema's widest label, independent of
+                // which instance happens to be measured first.
+                let shared = lists
+                    .iter()
+                    .map(|list| rail(&projection, list, &fonts).unwrap())
+                    .fold(0_f32, f32::max);
+                // The schema rail snaps once: it ends on the first document
+                // column end covering the widest label after the list inset.
+                let grid = DocumentGrid::new(width);
+                let inset = container_inset(
+                    projection
+                        .segment_for_node(
+                            lists[0]
+                                .items
+                                .iter()
+                                .next()
+                                .unwrap()
+                                .blocks
+                                .get(0)
+                                .unwrap()
+                                .id(),
+                        )
+                        .unwrap(),
+                );
+                let snapped = grid.label_column(inset, shared).unwrap();
+                assert_eq!(rails[0], snapped);
+                assert!((0..grid.columns).any(|i| (grid.end(i) - inset - snapped).abs() < 0.01));
+
+                let lines = build_measured_visual_lines(
+                    &projection,
+                    &HashMap::new(),
+                    width,
+                    &plan,
+                    Some(&fonts),
+                );
+                let body_lines = |list: &document_core::ListBlock| {
+                    let node = list
+                        .items
+                        .iter()
+                        .last()
+                        .unwrap()
+                        .blocks
+                        .get(0)
+                        .unwrap()
+                        .id();
+                    let range = projection
+                        .segment_for_node(node)
+                        .unwrap()
+                        .projection_range();
+                    lines
+                        .iter()
+                        .filter(|line| {
+                            range.contains(&line.projected_start())
+                                && line.label_row.is_some_and(|(part, _)| part == Part::Body)
+                        })
+                        .count()
+                };
+                assert!(body_lines(lists[0]) >= 2, "multi-line location");
+                assert!(
+                    body_lines(lists[1]) > TERM_BODY_LINES,
+                    "a long record value stays aligned instead of falling back"
+                );
+                for list in &lists {
+                    let first = list
+                        .items
+                        .iter()
+                        .next()
+                        .unwrap()
+                        .blocks
+                        .get(0)
+                        .unwrap()
+                        .id();
+                    let label = lines
+                        .iter()
+                        .find(|line| {
+                            projection
+                                .segment_for_range(&line.projected_range())
+                                .is_some_and(|s| s.node_id == first)
+                                && line.label_row.is_some_and(|(part, _)| part == Part::Body)
+                        })
+                        .unwrap();
+                    assert_eq!(label.inset, {
+                        let other = lists[0]
+                            .items
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .blocks
+                            .get(0)
+                            .unwrap()
+                            .id();
+                        lines
+                            .iter()
+                            .find(|line| {
+                                projection
+                                    .segment_for_range(&line.projected_range())
+                                    .is_some_and(|s| s.node_id == other)
+                                    && line.label_row.is_some_and(|(part, _)| part == Part::Body)
+                            })
+                            .unwrap()
+                            .inset
+                    });
+                    let x = label.x_fraction * width + label.inset;
+                    assert!(
+                        (0..grid.columns).any(|i| (grid.start(i) - x).abs() < 0.01),
+                        "record body starts on a grid column at {width}: {x}"
+                    );
+                }
+            }
+            assert_eq!(document.snapshot().serialize().unwrap(), FINDINGS);
+        });
+    }
+
+    #[gpui::test]
+    fn a_single_labelled_feature_list_remains_a_grid_candidate(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            let fonts =
+                FontMeasurement::new(cx.text_system().clone(), "Public Sans Tachyon".into(), 1.);
+            let features = "- **Readable:** Keep the idea clear.\n- **Local:** Keep your files nearby.\n- **Portable:** Save ordinary Markdown.\n- **Editable:** Work directly in the document.\n";
+            for source in [
+                features.to_string(),
+                format!(
+                    "{features}\nBetween the lists.\n\n- **Owner:** Editorial team\n- **Reviewer:** Platform group\n"
+                ),
+            ] {
+                let document = Document::from_markdown(source.as_str()).unwrap();
+                let projection = TextProjection::from_snapshot(&document.snapshot());
+                let plan =
+                    build_measured_adaptive_plan(&projection, 1314., 1366., None, false, &fonts);
+                assert!(plan.record_lists.is_empty(), "{source}");
+                let list = root_lists(&projection)[0].id;
+                assert!(
+                    matches!(plan.lists[&list].layout, ListLayout::Grid(_)),
+                    "{source}: {:?}",
+                    plan.measured_lists.get(&list)
+                );
             }
         });
     }

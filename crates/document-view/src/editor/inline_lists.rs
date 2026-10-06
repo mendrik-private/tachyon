@@ -146,6 +146,7 @@ pub(super) fn build(
             list.placement(item - 1).unwrap()
         };
         let slot = LayoutSlot {
+            grid: None,
             align_components: false,
             group: segment.node_id,
             item,
@@ -220,7 +221,26 @@ mod tests {
                         &fonts,
                     );
                     if width == 1280. {
-                        assert_eq!(plan.inline_lists.len(), 3);
+                        // Three two-line evidence clauses would leave the
+                        // third alone under a full pair; that paragraph stays
+                        // continuous prose instead of an orphaned 2+1 grid.
+                        assert_eq!(plan.inline_lists.len(), 2);
+                        let evidence = projection
+                            .segments()
+                            .iter()
+                            .find(|s| {
+                                projection.text()[s.projection_range()]
+                                    .starts_with("Keep evidence together:")
+                            })
+                            .unwrap()
+                            .node_id;
+                        assert!(!plan.inline_lists.contains_key(&evidence));
+                        assert!(
+                            plan.measured_inline_lists[&evidence]
+                                .candidates
+                                .iter()
+                                .any(|c| c.rejected == Some(candidates::Rejection::Orphan))
+                        );
                         let key = plan.geometry_key();
                         let mut changed = plan.clone();
                         changed.inline_lists.clear();

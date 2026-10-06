@@ -12,10 +12,12 @@ use crate::TextProjection;
 pub(crate) mod candidates;
 pub(crate) mod definitions;
 pub(crate) mod editorial;
+pub(crate) mod grid;
 mod groups;
 pub(crate) mod inline_lists;
 pub(crate) mod metadata;
 pub(crate) mod prose;
+mod records;
 pub(crate) mod resource;
 pub(crate) mod rows;
 pub(crate) mod timeline;
@@ -85,6 +87,10 @@ pub(crate) struct LayoutSlot {
     pub span: u8,
     /// Preserve measured inline geometry while the containing row is edited.
     pub fixed_canvas: Option<f32>,
+    /// Document canvas whose column grid an unequal split snaps to; `None`
+    /// keeps exact twelve-track geometry. Retained with the slot, so edit
+    /// locks keep the grid they were measured on.
+    pub grid: Option<f32>,
 }
 
 impl LayoutSlot {
@@ -104,17 +110,27 @@ impl LayoutSlot {
         self.group == other.group && self.row == other.row
     }
 
+    /// Left and right edges both derive from the same (possibly snapped)
+    /// placement, so neighbours never overlap.
+    fn geometry(self, canvas: f32) -> Option<(f32, f32)> {
+        grid::track_geometry(
+            self.grid,
+            self.fixed_canvas.unwrap_or(canvas),
+            self.track_start,
+            self.span,
+            self.columns,
+        )
+    }
+
     pub fn width(self, canvas: f32) -> f32 {
-        candidates::span_width(self.fixed_canvas.unwrap_or(canvas), self.span).unwrap_or(1.)
+        self.geometry(canvas).map_or(1., |(_, width)| width)
     }
 
     pub fn left(self, canvas: f32) -> f32 {
         if self.track_start == 0 {
             0.
         } else {
-            candidates::span_width(self.fixed_canvas.unwrap_or(canvas), self.track_start)
-                .unwrap_or(0.)
-                + LAYOUT_GAP
+            self.geometry(canvas).map_or(0., |(left, _)| left)
         }
     }
 }
@@ -242,6 +258,11 @@ pub(crate) struct AdaptivePlan {
     /// this acyclic; visible descendants can paint both rails without a tree walk.
     pub timeline_parents: HashMap<NodeId, NodeId>,
     pub metadata_lists: HashSet<NodeId>,
+    /// Top-level list -> first list sharing its repeated field schema. These
+    /// are records with aligned label rows, never feature-card grids.
+    pub record_lists: HashMap<NodeId, NodeId>,
+    /// Record list -> label rail shared by every instance of its schema.
+    pub record_rails: HashMap<NodeId, f32>,
     pub resources: HashMap<NodeId, resource::Resource>,
     pub editorials: HashMap<NodeId, editorial::Member>,
     pub slots: HashMap<NodeId, LayoutSlot>,
@@ -318,6 +339,26 @@ impl PlanGeometryKey {
 }
 
 impl AdaptivePlan {
+    /// Reading measure from a column start. The loaded-font cap ends on the
+    /// last document column end inside the comfortable range (normal to
+    /// maximum characters), or stays unsnapped when no column end lies in it.
+    /// `nested` ancestry gutters precede the text and keep the same measure.
+    pub(crate) fn reading_measure(
+        &self,
+        available: f32,
+        nested: f32,
+        narrative: bool,
+        lead: bool,
+    ) -> f32 {
+        let cap = self
+            .prose_measures
+            .fit_width(f32::INFINITY, narrative, lead);
+        let cap = grid::DocumentGrid::new(self.canvas)
+            .end_within(self.prose_measures.for_role(narrative, lead), cap)
+            .unwrap_or(cap);
+        ((available - nested).max(0.).min(cap) + nested).min(available)
+    }
+
     pub(crate) fn geometry_key(&self) -> PlanGeometryKey {
         PlanGeometryKey {
             prose_measures: self.prose_measures,
@@ -447,6 +488,15 @@ impl AdaptivePlan {
                 _ => {}
             }
         }
+        plan.record_lists = records::analyze(
+            &roots,
+            &plan
+                .metadata_lists
+                .iter()
+                .chain(plan.bibliography.keys())
+                .copied()
+                .collect(),
+        );
         if let [BlockNode::Heading(title), BlockNode::Paragraph(intro), ..] = roots.as_slice()
             && title.level == 1
             && intro.content.len() <= 420
@@ -520,6 +570,7 @@ impl AdaptivePlan {
                         plan.slots.insert(
                             block.id(),
                             LayoutSlot {
+                                grid: None,
                                 align_components: false,
                                 group: list.id,
                                 item: index,
@@ -630,6 +681,7 @@ impl AdaptivePlan {
                     _ => (node, 0),
                 };
                 LayoutSlot {
+                    grid: None,
                     align_components: false,
                     group,
                     item,
@@ -768,7 +820,9 @@ impl AdaptivePlan {
                 // measured, unchanged lists keep their exact offscreen layout.
                 self.slots.retain(|_, slot| slot.group != list.id);
                 if let Some(old) = previous.filter(|old| {
-                    self.compatible_environment(old) && self.unchanged_root(old, list.id)
+                    self.compatible_environment(old)
+                        && self.unchanged_root(old, list.id)
+                        && !self.record_lists.contains_key(&list.id)
                 }) && let Some(decision) = old.measured_lists.get(&list.id)
                 {
                     self.lists.get_mut(&list.id).unwrap().layout = decision.layout;
@@ -808,6 +862,8 @@ impl AdaptivePlan {
                 && !term_pair
                 && !timeline::is_timeline(list)
                 && !self.metadata_lists.contains(&list.id)
+                // Repeated field schemas are records, not independent features.
+                && !self.record_lists.contains_key(&list.id)
                 && facts.simple
                 && !facts.tasks
                 && !facts.nested
@@ -862,6 +918,7 @@ impl AdaptivePlan {
                             self.slots.insert(
                                 block.id(),
                                 LayoutSlot {
+                                    grid: None,
                                     align_components: false,
                                     group: list.id,
                                     item,
@@ -935,6 +992,7 @@ impl AdaptivePlan {
                     self.slots.insert(
                         node,
                         LayoutSlot {
+                            grid: None,
                             align_components: false,
                             group: list.id,
                             item,
@@ -1068,6 +1126,7 @@ impl AdaptivePlan {
                         self.slots.insert(
                             block.id(),
                             LayoutSlot {
+                                grid: None,
                                 align_components: false,
                                 group: id,
                                 item,
@@ -1086,14 +1145,47 @@ impl AdaptivePlan {
         }
     }
 
+    /// Resolve one label rail per repeated record schema from every instance
+    /// in the document, independent of measurement windows, so neighbouring
+    /// records align identically. Lists whose labels cannot be measured do
+    /// not contribute; a schema with no measurable instance gets no rail.
+    pub fn measure_record_rails(
+        &mut self,
+        projection: &TextProjection,
+        mut rail: impl FnMut(&ListBlock) -> Option<f32>,
+    ) {
+        let mut shared = HashMap::<NodeId, f32>::new();
+        for (&list, &schema) in &self.record_lists {
+            let Some(BlockNode::List(block)) = projection.block(list) else {
+                continue;
+            };
+            if let Some(width) = rail(block) {
+                let entry = shared.entry(schema).or_insert(width);
+                *entry = entry.max(width);
+            }
+        }
+        self.record_rails = self
+            .record_lists
+            .iter()
+            .filter_map(|(&list, schema)| Some((list, *shared.get(schema)?)))
+            .collect();
+    }
+
     /// Refine vertical/peer lists after their outer arrangement is known.
     /// Nested dated lists retain their enclosing source container and never
     /// acquire a horizontal strip. Existing feature grids keep their vocabulary.
+    /// Record lists receive their schema's shared rail.
     pub fn measure_label_rows(
         &mut self,
         projection: &TextProjection,
         previous: Option<&Self>,
-        mut measure: impl FnMut(&ListBlock, f32, bool, bool) -> Option<Vec<(NodeId, LabelColumns)>>,
+        mut measure: impl FnMut(
+            &ListBlock,
+            f32,
+            bool,
+            bool,
+            Option<f32>,
+        ) -> Option<Vec<(NodeId, LabelColumns)>>,
     ) {
         let mut seen = HashSet::new();
         for (segment, list_id) in projection.segments().iter().flat_map(|segment| {
@@ -1141,8 +1233,14 @@ impl AdaptivePlan {
                     .segment_for_node(node)
                     .is_some_and(|s| s.top_level_node_id == root)
             });
+            let record_rail = self.record_rails.get(&list.id).copied();
             if let Some(old) = old
-                && (focused || (!self.measures_root(root) && self.unchanged_root(old, root)))
+                && (focused
+                    || (!self.measures_root(root)
+                        && self.unchanged_root(old, root)
+                        // A rail widened elsewhere must not leave a stale
+                        // offscreen instance misaligned with its schema.
+                        && old.record_rails.get(&list.id).copied() == record_rail))
             {
                 for item in list.items.iter() {
                     for block in &item.blocks {
@@ -1169,12 +1267,19 @@ impl AdaptivePlan {
                 if dated || metadata {
                     self.canvas
                 } else {
-                    self.canvas.min(self.prose_measures.reference)
+                    // Term descriptions end where neighbouring reference prose
+                    // ends: the same (grid-snapped) reading measure.
+                    self.reading_measure(self.canvas, 0., false, false)
                 },
                 |slot| slot.width(self.canvas) - 2. * slot.inset() + 8.,
             );
-            if let Some(rows) = measure(list, width, !enclosed && external_slot.is_none(), metadata)
-            {
+            if let Some(rows) = measure(
+                list,
+                width,
+                !enclosed && external_slot.is_none(),
+                metadata,
+                record_rail,
+            ) {
                 for (node, columns) in &rows {
                     if let Some(slot) = columns.slot() {
                         self.slots.insert(*node, slot);
@@ -1706,6 +1811,88 @@ fn has_step_reference(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repeated_label_sequences_form_record_schemas_with_one_rail() {
+        let source = concat!(
+            "## A\n\n- **Severity:** Critical\n- **Category:** soundness\n\n",
+            "## B\n\n- severity: Low\n- CATEGORY: diagnostics\n\n",
+            "## C\n\n- **Category:** order differs\n- **Severity:** High\n\n",
+            "## D\n\n- **Readable:** Keep the idea clear.\n- **Local:** Keep your files nearby.\n- **Portable:** Save ordinary Markdown.\n\n",
+            "## E\n\n- Severity: High\n- Category: unlabelled follows\n- A plain point\n",
+        );
+        let document = document_core::Document::from_markdown(source).unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let mut plan = AdaptivePlan::build(&projection, 1280., None, false);
+        let lists = projection
+            .roots()
+            .filter_map(|root| match root {
+                BlockNode::List(list) => Some(list.id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            plan.record_lists,
+            HashMap::from([(lists[0], lists[0]), (lists[1], lists[0])]),
+            "case-insensitive ordered labels; reordered, unique and partial lists stay features"
+        );
+        let widths = HashMap::from([(lists[0], 90.), (lists[1], 120.)]);
+        plan.measure_record_rails(&projection, |list| widths.get(&list.id).copied());
+        assert_eq!(
+            plan.record_rails,
+            HashMap::from([(lists[0], 120.), (lists[1], 120.)])
+        );
+        let mut seen = HashMap::new();
+        plan.measure_label_rows(&projection, None, |list, _, _, _, rail| {
+            seen.insert(list.id, rail);
+            None
+        });
+        assert_eq!(seen[&lists[0]], Some(120.));
+        assert_eq!(seen[&lists[1]], Some(120.));
+        assert_eq!(seen.get(&lists[3]).copied().flatten(), None);
+    }
+
+    #[test]
+    fn nearby_alignment_never_forces_an_orphaned_final_card() {
+        let source = "- One\n- Two\n- Three\n\nBrief bridge.\n\n- Four\n- Five\n- Six\n- Seven\n";
+        let document = document_core::Document::from_markdown(source).unwrap();
+        let projection = TextProjection::from_snapshot(&document.snapshot());
+        let mut plan = AdaptivePlan::build(&projection, 1280., None, false);
+        let lists = projection
+            .roots()
+            .filter_map(|root| match root {
+                BlockNode::List(list) => Some(list.id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let measure = |_: usize, _: f32, _: bool| {
+            Some(candidates::ItemMeasurement {
+                lines: 2,
+                height: 48.,
+                preferred_width: 280.,
+                overflow: false,
+            })
+        };
+        let mut text_lines = HashMap::new();
+        for root in projection.roots() {
+            if matches!(root, BlockNode::Paragraph(_)) {
+                text_lines.insert(root.id(), 1);
+            }
+        }
+        for (&id, count) in lists.iter().zip([3, 4]) {
+            let decision =
+                candidates::choose_list(count, 1280., PROSE_WIDTH, None, true, false, measure);
+            plan.lists.get_mut(&id).unwrap().layout = decision.layout;
+            plan.measured_lists.insert(id, decision);
+        }
+        // Three items own three columns; four items own 2+2. A shared three
+        // would strand the fourth item, a shared two the third item.
+        assert_eq!(plan.measured_lists[&lists[0]].row_columns, [3]);
+        assert_eq!(plan.measured_lists[&lists[1]].row_columns, [2, 2]);
+        plan.align_nearby_list_grids(&projection, &text_lines);
+        assert_eq!(plan.measured_lists[&lists[0]].row_columns, [3]);
+        assert_eq!(plan.measured_lists[&lists[1]].row_columns, [2, 2]);
+    }
 
     #[test]
     fn planning_batches_cover_requests_and_bound_extra_work() {
